@@ -24,7 +24,7 @@ interface DataTableProps<T> {
   rowKey?: (row: T) => string | number;
 }
 
-export default function DataTable<T extends Record<string, unknown>>({
+export default function DataTable<T>({
   data,
   columns,
   loading = false,
@@ -44,15 +44,15 @@ export default function DataTable<T extends Record<string, unknown>>({
 
   const filtered = data.filter((row) =>
     !search ||
-    Object.values(row).some((v) =>
+    Object.values(row as Record<string, unknown>).some((v) =>
       String(v ?? '').toLowerCase().includes(search.toLowerCase())
     )
   );
 
   const sorted = sortKey
     ? [...filtered].sort((a, b) => {
-        const va = String(a[sortKey] ?? '');
-        const vb = String(b[sortKey] ?? '');
+        const va = String((a as Record<string, unknown>)[sortKey] ?? '');
+        const vb = String((b as Record<string, unknown>)[sortKey] ?? '');
         return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       })
     : filtered;

@@ -14,14 +14,14 @@ export async function POST(req: NextRequest) {
     // We'll update them one by one.
     
     // First, verify the total amounts of selected bills match
-    const bills = await sql.query(`
+    const bills = await sql`
       SELECT id, total_amount, paid_amount 
       FROM tuition_bills 
-      WHERE id = ANY($1::int[])
-    `, [billIds]);
+      WHERE id = ANY(${billIds})
+    `;
 
     let totalOwed = 0;
-    for (const b of bills.rows) {
+    for (const b of bills) {
       totalOwed += (parseFloat(b.total_amount) - parseFloat(b.paid_amount));
     }
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update all selected bills to paid
-    for (const b of bills.rows) {
+    for (const b of bills) {
       await sql`
         UPDATE tuition_bills
         SET paid_amount = total_amount, status = 'paid', updated_at = NOW()

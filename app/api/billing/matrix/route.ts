@@ -25,18 +25,17 @@ export async function GET(req: NextRequest) {
     // 2. Get all SPP bills for these students for the given academic year
     // We filter by title containing 'SPP' to identify monthly bills
     const studentIds = students.length > 0 ? students.map(s => s.id) : [0];
-    const stdFilter = `(${studentIds.join(',')})`;
-    const bills = await sql.query(`
+    const bills = await sql`
       SELECT student_id, title, status, total_amount, paid_amount 
       FROM tuition_bills 
-      WHERE academic_year_id = $1 
-        AND student_id IN ${stdFilter}
+      WHERE academic_year_id = ${Number(academic_year_id)} 
+        AND student_id = ANY(${studentIds})
         AND title LIKE 'SPP %'
-    `, [Number(academic_year_id)]);
+    `;
 
     // 3. Format matrix response
     const matrix = students.map(student => {
-      const studentBills = bills.rows.filter(b => b.student_id === student.id);
+      const studentBills = bills.filter(b => b.student_id === student.id);
       
       const months: Record<string, string> = {
         July: 'unpaid', August: 'unpaid', September: 'unpaid', October: 'unpaid', 
