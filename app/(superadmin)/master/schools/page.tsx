@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
-interface School { id: number; name: string; address: string; created_at: string; }
+interface School { id: number; name: string; address: string; created_at: string; [key: string]: any; }
 
 export default function SchoolsPage() {
   const [data, setData] = useState<School[]>([]);

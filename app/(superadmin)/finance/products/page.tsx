@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, PackageSearch } from 'lucide-react';
 import Link from 'next/link';
 
-interface Product { id: number; name: string; school_id: number; payment_type: string; category: string; school_name?: string; }
+interface Product { id: number; name: string; school_id: number; payment_type: string; category: string; school_name?: string; [key: string]: any; }
 
 export default function ProductsPage() {
   const [data, setData] = useState<Product[]>([]);

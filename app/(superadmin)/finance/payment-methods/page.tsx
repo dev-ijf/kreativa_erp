@@ -6,7 +6,7 @@ import { Button, Badge } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 
-interface PaymentMethod { id: number; name: string; code: string; category: string; is_active: boolean; }
+interface PaymentMethod { id: number; name: string; code: string; category: string; is_active: boolean; [key: string]: any; }
 
 export default function PaymentMethodsPage() {
   const [data, setData] = useState<PaymentMethod[]>([]);
