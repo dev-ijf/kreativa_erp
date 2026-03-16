@@ -1,0 +1,99 @@
+'use client';
+
+import { useState } from 'react';
+import { Search, Bell, Menu, X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+
+const BREADCRUMB_MAP: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/master/schools': 'Data Sekolah',
+  '/master/academic-years': 'Tahun Ajaran',
+  '/master/level-grades': 'Tingkat Kelas',
+  '/master/classes': 'Data Kelas',
+  '/master/regional': 'Data Wilayah',
+  '/students': 'Buku Induk Siswa',
+  '/students/documents': 'Dokumen Siswa',
+  '/students/promotions': 'Promosi Kelas',
+  '/finance/products': 'Produk / Biaya',
+  '/finance/payment-methods': 'Metode Pembayaran',
+  '/finance/payment-instructions': 'Instruksi Pembayaran',
+  '/finance/notifications': 'Template Notifikasi',
+  '/billing/generate': 'Generate Tagihan',
+  '/billing/matrix': 'Matriks SPP',
+  '/billing/cashier': 'Kasir',
+  '/billing/transactions': 'Riwayat Transaksi',
+  '/users': 'Data Pengguna',
+  '/settings': 'Pengaturan',
+};
+
+interface HeaderProps {
+  onMenuToggle?: () => void;
+}
+
+export default function Header({ onMenuToggle }: HeaderProps) {
+  const pathname = usePathname();
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const title = BREADCRUMB_MAP[pathname] || 'Dashboard';
+
+  return (
+    <header className="h-16 bg-white border-b border-slate-100 px-6 flex items-center justify-between z-20 shrink-0 shadow-sm">
+      <div className="flex items-center gap-4">
+        <button
+          onClick={onMenuToggle}
+          className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
+        >
+          <Menu size={18} strokeWidth={1.5} />
+        </button>
+        <div>
+          <h1 className="text-[17px] font-semibold text-slate-800 tracking-tight leading-none">{title}</h1>
+          <p className="text-[11px] text-slate-400 mt-0.5">Kreativa ERP · Superadmin</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        {/* Search */}
+        <div className={`relative transition-all duration-200 ${searchOpen ? 'w-64' : 'w-9'}`}>
+          {searchOpen ? (
+            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+              <Search size={15} className="ml-3 text-slate-400 shrink-0" />
+              <input
+                autoFocus
+                type="text"
+                placeholder="Cari data..."
+                className="bg-transparent pl-2 pr-3 py-2 text-[13px] outline-none w-full text-slate-700 placeholder:text-slate-400"
+              />
+              <button onClick={() => setSearchOpen(false)} className="pr-2 text-slate-400 hover:text-slate-600">
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
+            >
+              <Search size={18} strokeWidth={1.5} />
+            </button>
+          )}
+        </div>
+
+        {/* Notifications */}
+        <button className="relative w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all">
+          <Bell size={18} strokeWidth={1.5} />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white" />
+        </button>
+
+        {/* User Avatar */}
+        <div className="flex items-center gap-2.5 pl-3 border-l border-slate-100">
+          <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white font-semibold text-[13px]">
+            S
+          </div>
+          <div className="hidden sm:block">
+            <p className="text-[13px] font-semibold text-slate-700 leading-none">Superadmin</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">superadmin@yayasan.com</p>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
