@@ -2,57 +2,115 @@ import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
 export async function POST(req: NextRequest) {
-  const { billIds, payAmount, method } = await req.json();
+  const { billIds, payAmount, methodCode, userId, academicYearId } = await req.json();
 
   if (!billIds || billIds.length === 0) {
     return NextResponse.json({ error: 'No bills selected' }, { status: 400 });
   }
 
   try {
-    // Process payments (mark as paid)
-    // Normally we should use transactions here, but serverless neon doesn't easily support connection-based tx.
-    // We'll update them one by one.
-    
-    // First, verify the total amounts of selected bills match
     const bills = await sql`
-      SELECT id, total_amount, paid_amount 
-      FROM tuition_bills 
-      WHERE id = ANY(${billIds})
+      SELECT b.id, b.total_amount, b.paid_amount, b.student_id, b.product_id, b.academic_year_id
+      FROM tuition_bills b
+      WHERE b.id = ANY(${billIds})
     `;
+
+    if (bills.length === 0) {
+      return NextResponse.json({ error: 'Tagihan tidak ditemukan' }, { status: 400 });
+    }
 
     let totalOwed = 0;
     for (const b of bills) {
-      totalOwed += (parseFloat(b.total_amount) - parseFloat(b.paid_amount));
+      totalOwed += Number(b.total_amount) - Number(b.paid_amount);
     }
 
     if (payAmount < totalOwed) {
-       // Should implement partial payment logic, but for simplicity we will assume full payment for selected bills
+      return NextResponse.json(
+        { error: 'Nominal kurang dari total tagihan terpilih' },
+        { status: 400 }
+      );
     }
 
-    // Update all selected bills to paid
-    for (const b of bills) {
-      await sql`
-        UPDATE tuition_bills
-        SET paid_amount = total_amount, status = 'paid', updated_at = NOW()
-        WHERE id = ${b.id}
-      `;
+    const uid = userId ?? 1;
+    const ayId = academicYearId ?? bills[0].academic_year_id;
 
-      // Log transaction
-      // need student id for transaction log
-      const [billInf] = await sql`SELECT student_id FROM tuition_bills WHERE id=${b.id}`;
-      // Note: the schema mentions tuition_payments for transactions
+    const [pm] = await sql`
+      SELECT id FROM tuition_payment_methods
+      WHERE code = ${methodCode || 'BCA_TF'}
+      LIMIT 1
+    `;
+    const paymentMethodId = pm?.id ?? null;
+
+    const referenceNo = `TRX-${Date.now()}`;
+    const createdAt = new Date();
+
+    const [tx] = await sql`
+      INSERT INTO tuition_transactions (
+        user_id,
+        academic_year_id,
+        reference_no,
+        total_amount,
+        payment_method_id,
+        status,
+        payment_date,
+        created_at
+      )
+      VALUES (
+        ${uid},
+        ${ayId},
+        ${referenceNo},
+        ${totalOwed},
+        ${paymentMethodId},
+        'success',
+        NOW(),
+        ${createdAt}
+      )
+      RETURNING id, created_at
+    `;
+
+    const txId = tx.id as number;
+    const txCreatedAt = tx.created_at as Date;
+
+    for (const b of bills) {
+      const paid = Number(b.total_amount) - Number(b.paid_amount);
       await sql`
-        INSERT INTO tuition_payments (bill_id, student_id, amount, payment_method_id, reference_no, status)
+        INSERT INTO tuition_transaction_details (
+          transaction_id,
+          transaction_created_at,
+          bill_id,
+          product_id,
+          amount_paid,
+          created_at
+        )
         VALUES (
-          ${b.id}, ${billInf.student_id}, ${(parseFloat(b.total_amount) - parseFloat(b.paid_amount))}, 
-          (SELECT id FROM tuition_payment_methods WHERE category = ${method} LIMIT 1) -- dummy lookup
-          , ${'TX-' + Date.now() + '-' + b.id}, 'success'
+          ${txId},
+          ${txCreatedAt},
+          ${b.id},
+          ${b.product_id},
+          ${paid},
+          ${createdAt}
         )
       `;
+
+      await sql`
+        UPDATE tuition_bills
+        SET
+          paid_amount = total_amount,
+          status = 'paid',
+          updated_at = NOW()
+        WHERE id = ${b.id}
+      `;
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      transaction_id: txId,
+      transaction_created_at: txCreatedAt,
+      reference_no: referenceNo,
+    });
+  } catch (error: unknown) {
+    console.error(error);
+    const message = error instanceof Error ? error.message : 'Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

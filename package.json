@@ -9,7 +9,10 @@
     "lint": "eslint",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
+    "db:reset": "tsx scripts/db-reset.ts",
+    "db:baseline": "tsx scripts/baseline-drizzle.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "db:ensure-partitions": "tsx scripts/ensure-tuition-partitions.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
@@ -29,6 +32,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.3.1",
@@ -36,6 +40,7 @@
     "drizzle-orm": "^0.45.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "pg": "^8.20.0",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"

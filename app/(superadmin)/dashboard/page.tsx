@@ -15,6 +15,8 @@ interface DashboardStats {
   unpaidBills: number;
   totalRevenue: string;
   partialBills: number;
+  /** SUM transaksi sukses bulan berjalan (query partisi via rentang created_at) */
+  transactionVolumeThisMonth?: string | number;
 }
 
 const QUICK_LINKS = [
@@ -87,7 +89,17 @@ export default function DashboardPage() {
         <StatsCard title="Total Sekolah" value={loading ? '–' : fmt(stats?.totalSchools)} icon={<School size={18} />} color="bg-violet-100 text-violet-600" subtitle="Terdaftar" />
         <StatsCard title="Total Siswa" value={loading ? '–' : fmt(stats?.totalStudents)} icon={<Users size={18} />} color="bg-blue-100 text-blue-600" subtitle="Siswa Aktif" />
         <StatsCard title="Total Tagihan" value={loading ? '–' : fmt(stats?.totalBills)} icon={<Receipt size={18} />} color="bg-amber-100 text-amber-600" subtitle={`Lunas: ${fmt(stats?.paidBills)}`} />
-        <StatsCard title="Pemasukan" value={loading ? '–' : fmtRp(stats?.totalRevenue)} icon={<Wallet size={18} />} color="bg-emerald-100 text-emerald-600" subtitle="Bulan Ini" />
+        <StatsCard
+          title="Pemasukan"
+          value={loading ? '–' : fmtRp(stats?.totalRevenue)}
+          icon={<Wallet size={18} />}
+          color="bg-emerald-100 text-emerald-600"
+          subtitle={
+            loading
+              ? '…'
+              : `Transaksi sukses bulan ini: ${fmtRp(String(stats?.transactionVolumeThisMonth ?? 0))}`
+          }
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

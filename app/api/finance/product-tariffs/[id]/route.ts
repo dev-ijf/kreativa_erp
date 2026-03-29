@@ -5,12 +5,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const data = await req.json();
   const [row] = await sql`
-    UPDATE tuition_products SET
-      name=${data.name},
-      payment_type=${data.payment_type},
-      coa=${data.coa || null},
-      coa_another=${data.coa_another || null},
-      description=${data.description || null}
+    UPDATE tuition_product_tariffs SET
+      school_id=${data.school_id},
+      product_id=${data.product_id},
+      academic_year_id=${data.academic_year_id},
+      level_grade_id=${data.level_grade_id},
+      amount=${data.amount},
+      updated_at=NOW()
     WHERE id=${Number(id)} RETURNING *
   `;
   return NextResponse.json(row);
@@ -18,6 +19,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await sql`DELETE FROM tuition_products WHERE id=${Number(id)}`;
+  await sql`DELETE FROM tuition_product_tariffs WHERE id=${Number(id)}`;
   return NextResponse.json({ success: true });
 }

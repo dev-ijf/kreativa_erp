@@ -3,19 +3,18 @@ import sql from '@/lib/db';
 
 export async function GET() {
   const rows = await sql`
-    SELECT p.*, s.name as school_name 
-    FROM tuition_products p
-    JOIN core_schools s ON p.school_id = s.id
-    ORDER BY s.name ASC, p.id DESC
+    SELECT * FROM tuition_products
+    ORDER BY id DESC
   `;
   return NextResponse.json(rows);
 }
 
 export async function POST(req: NextRequest) {
-  const { school_id, name, payment_type, category } = await req.json();
+  const { name, payment_type, coa, coa_another, description } = await req.json();
   const [row] = await sql`
-    INSERT INTO tuition_products (school_id, name, payment_type, category) 
-    VALUES (${school_id}, ${name}, ${payment_type}, ${category}) RETURNING *
+    INSERT INTO tuition_products (name, payment_type, coa, coa_another, description)
+    VALUES (${name}, ${payment_type}, ${coa || null}, ${coa_another || null}, ${description || null})
+    RETURNING *
   `;
   return NextResponse.json(row, { status: 201 });
 }

@@ -43,17 +43,20 @@ export default function GenerateBillingPage() {
 
   // Filter dependent dropdowns
   const availableClasses = classes.filter(c => String(c.school_id) === form.schoolId);
-  const availableProducts = products.filter(p => String(p.school_id) === form.schoolId && p.payment_type === 'monthly');
+  const availableProducts = products.filter((p) => p.payment_type === 'monthly');
 
   useEffect(() => {
-    if (form.classId) {
-      // API call to mock getting student count for this class
-      // For literal raw query, let's just make it simple: 10 students for preview
-      setPreviewStudents(Math.floor(Math.random() * 20) + 10);
+    if (form.classId && form.academicYearId) {
+      fetch(
+        `/api/billing/active-class-count?class_id=${form.classId}&academic_year_id=${form.academicYearId}`
+      )
+        .then((r) => r.json())
+        .then((d) => setPreviewStudents(typeof d.count === 'number' ? d.count : 0))
+        .catch(() => setPreviewStudents(0));
     } else {
       setPreviewStudents(0);
     }
-  }, [form.classId]);
+  }, [form.classId, form.academicYearId]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -62,10 +65,9 @@ export default function GenerateBillingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          school_id: parseInt(form.schoolId),
           academic_year_id: parseInt(form.academicYearId),
           class_id: parseInt(form.classId),
-          product_id: parseInt(form.productId)
+          product_id: parseInt(form.productId),
         })
       });
       const data = await res.json();

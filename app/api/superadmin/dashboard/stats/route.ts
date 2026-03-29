@@ -13,6 +13,14 @@ export async function GET() {
       COALESCE(SUM(paid_amount), 0) AS revenue
     FROM tuition_bills`;
 
+    const [txMonth] = await sql`
+      SELECT COALESCE(SUM(total_amount::numeric), 0) AS amount
+      FROM tuition_transactions
+      WHERE created_at >= date_trunc('month', CURRENT_TIMESTAMP)
+        AND created_at < date_trunc('month', CURRENT_TIMESTAMP) + interval '1 month'
+        AND status IN ('success', 'paid', 'completed')
+    `;
+
     return NextResponse.json({
       totalSchools: schools.count,
       totalStudents: students.count,
@@ -22,6 +30,7 @@ export async function GET() {
       unpaidBills: bills.unpaid,
       partialBills: bills.partial,
       totalRevenue: bills.revenue,
+      transactionVolumeThisMonth: txMonth?.amount ?? 0,
     });
   } catch (error) {
     console.error('Dashboard stats error:', error);

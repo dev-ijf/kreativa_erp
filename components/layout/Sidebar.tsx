@@ -35,7 +35,7 @@ const MODULES = [
     accent: '#1d4ed8',
     menus: [
       { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
-      { name: 'Buku Induk Siswa', href: '/students', icon: <UserPlus size={16} /> },
+      { name: 'Daftar Peserta Didik', href: '/students', icon: <UserPlus size={16} /> },
       { name: 'Dokumen Siswa', href: '/students/documents', icon: <FileText size={16} /> },
       { name: 'Promosi Kelas', href: '/students/promotions', icon: <ListTree size={16} /> },
     ],
@@ -49,6 +49,7 @@ const MODULES = [
     menus: [
       { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
       { name: 'Produk / Biaya', href: '/finance/products', icon: <Wallet size={16} /> },
+      { name: 'Matriks Tarif', href: '/finance/product-tariffs', icon: <ScanLine size={16} /> },
       { name: 'Metode Pembayaran', href: '/finance/payment-methods', icon: <CreditCard size={16} /> },
       { name: 'Instruksi Bayar', href: '/finance/payment-instructions', icon: <ListTree size={16} /> },
       { name: 'Template Notifikasi', href: '/finance/notifications', icon: <Bell size={16} /> },

@@ -1,14 +1,44 @@
 import {
-  pgTable, serial, varchar, text, boolean, integer, decimal, date, timestamp, primaryKey, unique
+  pgTable,
+  serial,
+  varchar,
+  text,
+  boolean,
+  integer,
+  bigint,
+  decimal,
+  date,
+  timestamp,
+  primaryKey,
+  unique,
+  index,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
+
+// ==============================================================================
+// CORE: PORTAL THEMES
+// ==============================================================================
+export const corePortalThemes = pgTable('core_portal_themes', {
+  id: serial('id').primaryKey(),
+  hostDomain: varchar('host_domain', { length: 100 }).notNull().unique(),
+  portalTitle: varchar('portal_title', { length: 100 }).notNull(),
+  logoUrl: text('logo_url'),
+  primaryColor: varchar('primary_color', { length: 20 }),
+  loginBgUrl: text('login_bg_url'),
+  welcomeText: text('welcome_text'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
 
 // ==============================================================================
 // CORE: SCHOOLS
 // ==============================================================================
 export const coreSchools = pgTable('core_schools', {
   id: serial('id').primaryKey(),
+  themeId: integer('theme_id'),
   name: varchar('name', { length: 100 }).notNull(),
   address: text('address'),
+  schoolLogoUrl: text('school_logo_url'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
@@ -24,17 +54,19 @@ export const coreAcademicYears = pgTable('core_academic_years', {
 // ==============================================================================
 // CORE: SETTINGS
 // ==============================================================================
-export const coreSettings = pgTable('core_settings', {
-  id: serial('id').primaryKey(),
-  schoolId: integer('school_id'),
-  settingKey: varchar('setting_key', { length: 100 }).notNull(),
-  settingValue: text('setting_value'),
-  description: varchar('description', { length: 255 }),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-}, (t) => [
-  unique('unique_setting_per_school').on(t.schoolId, t.settingKey),
-]);
+export const coreSettings = pgTable(
+  'core_settings',
+  {
+    id: serial('id').primaryKey(),
+    schoolId: integer('school_id'),
+    settingKey: varchar('setting_key', { length: 100 }).notNull(),
+    settingValue: text('setting_value'),
+    description: varchar('description', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (t) => [unique('unique_setting_per_school').on(t.schoolId, t.settingKey)]
+);
 
 // ==============================================================================
 // CORE: USERS
@@ -46,7 +78,7 @@ export const coreUsers = pgTable('core_users', {
   email: varchar('email', { length: 100 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 20 }),
-  role: varchar('role', { length: 20 }).notNull(), // 'superadmin' | 'school_finance' | 'parent' | 'teacher'
+  role: varchar('role', { length: 50 }).notNull(),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
@@ -78,23 +110,38 @@ export const coreSubdistricts = pgTable('core_subdistricts', {
 });
 
 // ==============================================================================
-// CORE: STUDENTS
+// CORE: STUDENTS (extended for UI / Dapodik-style fields)
 // ==============================================================================
 export const coreStudents = pgTable('core_students', {
   id: serial('id').primaryKey(),
   schoolId: integer('school_id').notNull(),
+  userId: integer('user_id').unique(),
   fullName: varchar('full_name', { length: 100 }).notNull(),
+  nickname: varchar('nickname', { length: 100 }),
+  username: varchar('username', { length: 50 }),
   nis: varchar('nis', { length: 20 }).notNull().unique(),
-  nisn: varchar('nisn', { length: 20 }).unique(),
+  nisn: varchar('nisn', { length: 20 }),
+  nik: varchar('nik', { length: 20 }),
+  nationality: varchar('nationality', { length: 50 }),
+  photoUrl: text('photo_url'),
+  studentType: varchar('student_type', { length: 50 }),
+  program: varchar('program', { length: 50 }),
+  curriculum: varchar('curriculum', { length: 50 }),
   previousSchool: varchar('previous_school', { length: 100 }),
-  gender: varchar('gender', { length: 1 }), // 'L' | 'P'
+  gender: varchar('gender', { length: 10 }),
   placeOfBirth: varchar('place_of_birth', { length: 50 }),
   dateOfBirth: date('date_of_birth'),
   religion: varchar('religion', { length: 30 }),
   childOrder: integer('child_order'),
   siblingsCount: integer('siblings_count'),
-  childStatus: varchar('child_status', { length: 20 }), // 'Kandung' | 'Tiri' | 'Angkat'
+  childStatus: varchar('child_status', { length: 50 }),
   address: text('address'),
+  rt: varchar('rt', { length: 10 }),
+  rw: varchar('rw', { length: 10 }),
+  hamlet: varchar('hamlet', { length: 100 }),
+  villageLabel: varchar('village_label', { length: 100 }),
+  districtLabel: varchar('district_label', { length: 100 }),
+  cityLabel: varchar('city_label', { length: 100 }),
   provinceId: integer('province_id'),
   cityId: integer('city_id'),
   districtId: integer('district_id'),
@@ -103,10 +150,24 @@ export const coreStudents = pgTable('core_students', {
   phone: varchar('phone', { length: 20 }),
   email: varchar('email', { length: 100 }),
   livingWith: varchar('living_with', { length: 50 }),
-  // Health
-  bloodType: varchar('blood_type', { length: 2 }),
+  dailyLanguage: varchar('daily_language', { length: 100 }),
+  hobbies: text('hobbies'),
+  aspiration: text('aspiration'),
+  transportMode: varchar('transport_mode', { length: 50 }),
+  distanceToSchool: varchar('distance_to_school', { length: 50 }),
+  travelTime: varchar('travel_time', { length: 50 }),
+  registrationType: varchar('registration_type', { length: 50 }),
+  enrollmentDate: date('enrollment_date'),
+  diplomaSerial: varchar('diploma_serial', { length: 100 }),
+  skhunSerial: varchar('skhun_serial', { length: 100 }),
+  isAlumni: boolean('is_alumni').default(false),
+  boardingStatus: varchar('boarding_status', { length: 50 }),
+  entryAcademicYearId: integer('entry_academic_year_id'),
+  activeAcademicYearId: integer('active_academic_year_id'),
+  bloodType: varchar('blood_type', { length: 10 }),
   weightKg: decimal('weight_kg', { precision: 5, scale: 2 }),
   heightCm: integer('height_cm'),
+  headCircumferenceCm: integer('head_circumference_cm'),
   allergies: text('allergies'),
   visionCondition: varchar('vision_condition', { length: 100 }),
   hearingCondition: varchar('hearing_condition', { length: 100 }),
@@ -114,6 +175,44 @@ export const coreStudents = pgTable('core_students', {
   chronicDiseases: text('chronic_diseases'),
   physicalAbnormalities: text('physical_abnormalities'),
   recurringDiseases: text('recurring_diseases'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// ==============================================================================
+// CORE: STUDENT PARENT PROFILES (ayah/ibu/wali tanpa wajib akun portal)
+// ==============================================================================
+export const coreStudentParentProfiles = pgTable(
+  'core_student_parent_profiles',
+  {
+    id: serial('id').primaryKey(),
+    studentId: integer('student_id').notNull(),
+    relationType: varchar('relation_type', { length: 20 }).notNull(),
+    fullName: varchar('full_name', { length: 100 }).notNull(),
+    nik: varchar('nik', { length: 20 }),
+    birthYear: integer('birth_year'),
+    education: varchar('education', { length: 50 }),
+    occupation: varchar('occupation', { length: 100 }),
+    incomeBracket: varchar('income_bracket', { length: 50 }),
+    specialNeedsNote: varchar('special_needs_note', { length: 100 }),
+    phone: varchar('phone', { length: 20 }),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (t) => [unique('unique_student_relation').on(t.studentId, t.relationType)]
+);
+
+// ==============================================================================
+// CORE: STUDENT EDUCATION HISTORIES
+// ==============================================================================
+export const coreStudentEducationHistories = pgTable('core_student_education_histories', {
+  id: serial('id').primaryKey(),
+  studentId: integer('student_id').notNull(),
+  schoolName: varchar('school_name', { length: 200 }).notNull(),
+  levelLabel: varchar('level_label', { length: 50 }),
+  yearFrom: integer('year_from'),
+  yearTo: integer('year_to'),
+  notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
@@ -130,13 +229,17 @@ export const coreStudentDocuments = pgTable('core_student_documents', {
 });
 
 // ==============================================================================
-// CORE: PARENT-STUDENT RELATIONS
+// CORE: PARENT-STUDENT RELATIONS (portal users)
 // ==============================================================================
-export const coreParentStudentRelations = pgTable('core_parent_student_relations', {
-  userId: integer('user_id').notNull(),
-  studentId: integer('student_id').notNull(),
-  relationType: varchar('relation_type', { length: 20 }).notNull(), // 'father' | 'mother' | 'guardian'
-}, (t) => [primaryKey({ columns: [t.userId, t.studentId] })]);
+export const coreParentStudentRelations = pgTable(
+  'core_parent_student_relations',
+  {
+    userId: integer('user_id').notNull(),
+    studentId: integer('student_id').notNull(),
+    relationType: varchar('relation_type', { length: 50 }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.studentId] })]
+);
 
 // ==============================================================================
 // CORE: LEVEL GRADES
@@ -167,20 +270,66 @@ export const coreStudentClassHistories = pgTable('core_student_class_histories',
   classId: integer('class_id').notNull(),
   levelGradeId: integer('level_grade_id').notNull(),
   academicYearId: integer('academic_year_id').notNull(),
-  status: varchar('status', { length: 20 }).default('active'), // 'active' | 'completed' | 'dropped'
+  status: varchar('status', { length: 50 }).default('active'),
 });
 
 // ==============================================================================
-// TUITION: PRODUCTS
+// CORE: APP MODULES & ACCESS
+// ==============================================================================
+export const coreAppModules = pgTable('core_app_modules', {
+  id: serial('id').primaryKey(),
+  moduleCode: varchar('module_code', { length: 50 }).notNull().unique(),
+  moduleName: varchar('module_name', { length: 100 }).notNull(),
+});
+
+export const coreModuleAccess = pgTable(
+  'core_module_access',
+  {
+    id: serial('id').primaryKey(),
+    moduleId: integer('module_id').notNull(),
+    schoolId: integer('school_id'),
+    levelGradeId: integer('level_grade_id'),
+    isVisible: boolean('is_visible').default(true),
+  },
+  (t) => [unique('unique_access_rule').on(t.moduleId, t.schoolId, t.levelGradeId)]
+);
+
+// ==============================================================================
+// TUITION: PRODUCTS (global master)
 // ==============================================================================
 export const tuitionProducts = pgTable('tuition_products', {
   id: serial('id').primaryKey(),
-  schoolId: integer('school_id').notNull(),
   name: varchar('name', { length: 100 }).notNull(),
-  paymentType: varchar('payment_type', { length: 20 }).notNull(), // 'monthly' | 'installment' | 'one_time'
+  paymentType: varchar('payment_type', { length: 50 }).notNull(),
   coa: varchar('coa', { length: 50 }),
+  coaAnother: varchar('coa_another', { length: 50 }),
   description: text('description'),
 });
+
+// ==============================================================================
+// TUITION: PRODUCT TARIFFS
+// ==============================================================================
+export const tuitionProductTariffs = pgTable(
+  'tuition_product_tariffs',
+  {
+    id: serial('id').primaryKey(),
+    schoolId: integer('school_id').notNull(),
+    productId: integer('product_id').notNull(),
+    academicYearId: integer('academic_year_id').notNull(),
+    levelGradeId: integer('level_grade_id').notNull(),
+    amount: decimal('amount', { precision: 15, scale: 2 }).notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (t) => [
+    unique('unique_tariff_matrix').on(
+      t.schoolId,
+      t.productId,
+      t.academicYearId,
+      t.levelGradeId
+    ),
+  ]
+);
 
 // ==============================================================================
 // TUITION: PAYMENT METHODS
@@ -214,84 +363,118 @@ export const tuitionPaymentInstructionSteps = pgTable('tuition_payment_instructi
 // ==============================================================================
 // TUITION: BILLS
 // ==============================================================================
-export const tuitionBills = pgTable('tuition_bills', {
-  id: serial('id').primaryKey(),
-  studentId: integer('student_id').notNull(),
-  productId: integer('product_id').notNull(),
-  academicYearId: integer('academic_year_id').notNull(),
-  title: varchar('title', { length: 100 }).notNull(),
-  totalAmount: decimal('total_amount', { precision: 15, scale: 2 }).notNull(),
-  paidAmount: decimal('paid_amount', { precision: 15, scale: 2 }).default('0'),
-  minPayment: decimal('min_payment', { precision: 15, scale: 2 }).default('0'),
-  dueDate: date('due_date'),
-  status: varchar('status', { length: 20 }).default('unpaid'), // 'paid' | 'unpaid' | 'partial'
-  relatedMonth: date('related_month'),
-  createdAt: timestamp('created_at').defaultNow(),
-});
+export const tuitionBills = pgTable(
+  'tuition_bills',
+  {
+    id: serial('id').primaryKey(),
+    studentId: integer('student_id').notNull(),
+    productId: integer('product_id').notNull(),
+    academicYearId: integer('academic_year_id').notNull(),
+    title: varchar('title', { length: 100 }).notNull(),
+    totalAmount: decimal('total_amount', { precision: 15, scale: 2 }).notNull(),
+    paidAmount: decimal('paid_amount', { precision: 15, scale: 2 }).default('0'),
+    minPayment: decimal('min_payment', { precision: 15, scale: 2 }).default('0'),
+    dueDate: date('due_date'),
+    status: varchar('status', { length: 50 }).default('unpaid'),
+    billMonth: integer('bill_month'),
+    billYear: integer('bill_year'),
+    relatedMonth: date('related_month'),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (t) => [index('idx_tuition_bills_period').on(t.billYear, t.billMonth)]
+);
 
 // ==============================================================================
-// TUITION: TRANSACTIONS
+// TUITION: TRANSACTIONS (composite PK id + created_at; RANGE partitioned by created_at per bulan — lihat 0000_init_ijf_schema.sql)
 // ==============================================================================
-export const tuitionTransactions = pgTable('tuition_transactions', {
-  id: serial('id').primaryKey(),
-  userId: integer('user_id').notNull(),
-  academicYearId: integer('academic_year_id').notNull(),
-  referenceNo: varchar('reference_no', { length: 50 }).notNull().unique(),
-  totalAmount: decimal('total_amount', { precision: 15, scale: 2 }).notNull(),
-  paymentMethodId: integer('payment_method_id'),
-  vaNo: varchar('va_no', { length: 100 }),
-  qrCode: text('qr_code'),
-  status: varchar('status', { length: 20 }).default('pending'), // 'success' | 'pending' | 'failed'
-  paymentDate: timestamp('payment_date'),
-  createdAt: timestamp('created_at').defaultNow(),
-});
+export const tuitionTransactions = pgTable(
+  'tuition_transactions',
+  {
+    id: bigint('id', { mode: 'number' })
+      .notNull()
+      .generatedAlwaysAsIdentity({ name: 'tuition_transactions_id_seq' }),
+    userId: integer('user_id').notNull(),
+    academicYearId: integer('academic_year_id').notNull(),
+    referenceNo: varchar('reference_no', { length: 50 }).notNull(),
+    totalAmount: decimal('total_amount', { precision: 15, scale: 2 }).notNull(),
+    paymentMethodId: integer('payment_method_id'),
+    vaNo: varchar('va_no', { length: 100 }),
+    qrCode: text('qr_code'),
+    status: varchar('status', { length: 50 }).default('pending'),
+    paymentDate: timestamp('payment_date'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.id, t.createdAt] }),
+    unique('unique_ref_no_per_partition').on(t.referenceNo, t.createdAt),
+  ]
+);
 
-// ==============================================================================
-// TUITION: TRANSACTION DETAILS
-// ==============================================================================
-export const tuitionTransactionDetails = pgTable('tuition_transaction_details', {
-  id: serial('id').primaryKey(),
-  transactionId: integer('transaction_id').notNull(),
-  billId: integer('bill_id').notNull(),
-  amountPaid: decimal('amount_paid', { precision: 15, scale: 2 }).notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-});
+export const tuitionTransactionDetails = pgTable(
+  'tuition_transaction_details',
+  {
+    id: bigint('id', { mode: 'number' })
+      .notNull()
+      .generatedAlwaysAsIdentity({ name: 'tuition_transaction_details_id_seq' }),
+    transactionId: bigint('transaction_id', { mode: 'number' }).notNull(),
+    transactionCreatedAt: timestamp('transaction_created_at').notNull(),
+    billId: integer('bill_id').notNull(),
+    productId: integer('product_id').notNull(),
+    amountPaid: decimal('amount_paid', { precision: 15, scale: 2 }).notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.id, t.createdAt] }),
+    foreignKey({
+      columns: [t.transactionId, t.transactionCreatedAt],
+      foreignColumns: [tuitionTransactions.id, tuitionTransactions.createdAt],
+    }).onDelete('cascade'),
+  ]
+);
 
-// ==============================================================================
-// TUITION: PAYMENT LOGS
-// ==============================================================================
 export const tuitionPaymentLogs = pgTable('tuition_payment_logs', {
   id: serial('id').primaryKey(),
-  transactionId: integer('transaction_id').notNull(),
+  transactionId: bigint('transaction_id', { mode: 'number' }).notNull(),
+  transactionCreatedAt: timestamp('transaction_created_at').notNull(),
   requestPayload: text('request_payload'),
   responsePayload: text('response_payload'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+export const tuitionZainsLog = pgTable('tuition_zains_log', {
+  id: serial('id').primaryKey(),
+  transactionId: bigint('transaction_id', { mode: 'number' }).notNull(),
+  transactionCreatedAt: timestamp('transaction_created_at').notNull(),
+  requestPayload: text('request_payload'),
+  responsePayload: text('response_payload'),
+  url: text('url'),
+  process: varchar('process', { length: 100 }),
+  status: varchar('status', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 // ==============================================================================
-// NOTIF: TEMPLATES
+// NOTIF: TEMPLATES & LOGS
 // ==============================================================================
 export const notifTemplates = pgTable('notif_templates', {
   id: serial('id').primaryKey(),
   schoolId: integer('school_id'),
   name: varchar('name', { length: 100 }).notNull(),
-  type: varchar('type', { length: 20 }).notNull(), // 'whatsapp' | 'email'
+  type: varchar('type', { length: 50 }).notNull(),
   triggerEvent: varchar('trigger_event', { length: 50 }).notNull(),
   content: text('content').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// ==============================================================================
-// NOTIF: LOGS
-// ==============================================================================
 export const notifLogs = pgTable('notif_logs', {
   id: serial('id').primaryKey(),
   userId: integer('user_id'),
   templateId: integer('template_id'),
-  type: varchar('type', { length: 20 }).notNull(),
+  type: varchar('type', { length: 50 }).notNull(),
   recipient: varchar('recipient', { length: 100 }).notNull(),
   requestPayload: text('request_payload'),
   responsePayload: text('response_payload'),
-  status: varchar('status', { length: 20 }).default('pending'),
+  status: varchar('status', { length: 50 }).default('pending'),
   createdAt: timestamp('created_at').defaultNow(),
 });

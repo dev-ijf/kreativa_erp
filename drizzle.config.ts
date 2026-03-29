@@ -1,5 +1,6 @@
 import { defineConfig } from 'drizzle-kit';
 import { config } from 'dotenv';
+import { pgConnectionString } from './scripts/pg-url';
 
 config({ path: '.env.local' });
 
@@ -8,7 +9,7 @@ export default defineConfig({
   out: './scripts/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL_UNPOOLED!,
+    url: pgConnectionString(process.env.DATABASE_URL_UNPOOLED)!,
   },
 });
 

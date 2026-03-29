@@ -1,171 +1,357 @@
-import { drizzle } from 'drizzle-orm/neon-http';
-import { neon } from '@neondatabase/serverless';
+/**
+ * Seed memakai driver `pg` (TCP), sama seperti drizzle-kit migrate — hindari neon-http
+ * yang bergantung pada `fetch` (sering gagal di beberapa jaringan / proxy).
+ */
+import { drizzle } from 'drizzle-orm/node-postgres';
+import pg from 'pg';
+import { config } from 'dotenv';
+import path from 'node:path';
 import * as schema from './schema';
-import 'dotenv/config';
+import { pgConnectionString } from './pg-url';
 
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql, { schema });
+config({ path: path.join(process.cwd(), '.env.local') });
+
+const rawUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+if (!rawUrl) {
+  console.error('Set DATABASE_URL_UNPOOLED atau DATABASE_URL di .env.local');
+  process.exit(1);
+}
+
+const pool = new pg.Pool({ connectionString: pgConnectionString(rawUrl) });
+const db = drizzle(pool, { schema });
 
 async function seed() {
   console.log('🌱 Seeding database...');
 
-  // 1. Schools
-  await db.insert(schema.coreSchools).values([
-    { id: 1, name: 'SMA Cendekia', address: 'Jl. Merpati 1, Jakarta' },
-    { id: 2, name: 'SMP Cendekia', address: 'Jl. Merpati 2, Jakarta' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.corePortalThemes)
+    .values([
+      {
+        id: 1,
+        hostDomain: 'parents.kreativaglobal.sch.id',
+        portalTitle: 'Kreativa Parent Portal',
+        logoUrl: '/assets/brand/kreativa-main.png',
+        primaryColor: '#2563eb',
+        loginBgUrl: '/assets/bg/kreativa-bg.jpg',
+        welcomeText: 'Selamat Datang di Portal Kreativa Global School.',
+      },
+      {
+        id: 2,
+        hostDomain: 'parents.talentajuara.sch.id',
+        portalTitle: 'Talenta Juara Portal',
+        logoUrl: '/assets/brand/talenta-main.png',
+        primaryColor: '#ea580c',
+        loginBgUrl: '/assets/bg/talenta-bg.jpg',
+        welcomeText: 'Mari bersama membangun generasi juara di Talenta Juara.',
+      },
+    ])
+    .onConflictDoNothing();
 
-  // 2. Academic Years
-  await db.insert(schema.coreAcademicYears).values([
-    { id: 1, name: '2023/2024', isActive: false },
-    { id: 2, name: '2024/2025', isActive: true },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreSchools)
+    .values([
+      { id: 1, themeId: 1, name: 'SD Kreativa Global', address: 'Jl. Merpati 1', schoolLogoUrl: '/assets/logos/sd-kreativa.png' },
+      { id: 2, themeId: 1, name: 'SMP Kreativa Global', address: 'Jl. Merpati 2', schoolLogoUrl: '/assets/logos/smp-kreativa.png' },
+      { id: 3, themeId: 2, name: 'SD Talenta Juara Bandung', address: 'Jl. Terusan Jkt', schoolLogoUrl: '/assets/logos/sd-talenta.png' },
+      { id: 4, themeId: 2, name: 'SMP Talenta Juara Bandung', address: 'Jl. Terusan Jkt', schoolLogoUrl: '/assets/logos/smp-talenta.png' },
+    ])
+    .onConflictDoNothing();
 
-  // 2B. Settings
-  await db.insert(schema.coreSettings).values([
-    { schoolId: null, settingKey: 'app_title', settingValue: 'Kreativa Portal', description: 'Judul aplikasi utama global' },
-    { schoolId: null, settingKey: 'global_logo_url', settingValue: 'https://digieduka.web.id/assets/logo.png', description: 'Logo default' },
-    { schoolId: null, settingKey: 'primary_color', settingValue: '#2563eb', description: 'Warna tema utama global' },
-    { schoolId: 1, settingKey: 'primary_color', settingValue: '#1e40af', description: 'Warna tema SMA Cendekia' },
-    { schoolId: 2, settingKey: 'primary_color', settingValue: '#047857', description: 'Warna tema SMP Cendekia' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreAcademicYears)
+    .values([
+      { id: 1, name: '2024/2025', isActive: false },
+      { id: 2, name: '2025/2026', isActive: true },
+    ])
+    .onConflictDoNothing();
 
-  // 3. Users
-  await db.insert(schema.coreUsers).values([
-    { id: 1, schoolId: null, fullName: 'System Superadmin', email: 'superadmin@yayasan.com', passwordHash: 'hash', role: 'superadmin' },
-    { id: 2, schoolId: 1, fullName: 'Finance SMA', email: 'finance@sma-cendekia.com', passwordHash: 'hash', role: 'school_finance' },
-    { id: 3, schoolId: 2, fullName: 'Finance SMP', email: 'finance@smp-cendekia.com', passwordHash: 'hash', role: 'school_finance' },
-    { id: 4, schoolId: null, fullName: 'Budi Santoso', email: 'budi.ayah@email.com', passwordHash: 'hash', role: 'parent' },
-    { id: 5, schoolId: null, fullName: 'Siti Aminah', email: 'siti.ibu@email.com', passwordHash: 'hash', role: 'parent' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreSettings)
+    .values([
+      {
+        schoolId: null,
+        settingKey: 'app_title',
+        settingValue: 'Kreativa ERP',
+        description: 'Judul aplikasi',
+      },
+    ])
+    .onConflictDoNothing();
 
-  // 3B. Regional
-  await db.insert(schema.coreProvinces).values([{ id: 1, name: 'DKI Jakarta' }]).onConflictDoNothing();
-  await db.insert(schema.coreCities).values([{ id: 1, provinceId: 1, name: 'Jakarta Selatan' }]).onConflictDoNothing();
-  await db.insert(schema.coreDistricts).values([{ id: 1, cityId: 1, name: 'Kebayoran Lama' }]).onConflictDoNothing();
-  await db.insert(schema.coreSubdistricts).values([{ id: 1, districtId: 1, name: 'Pondok Pinang', postalCode: '12240' }]).onConflictDoNothing();
+  await db
+    .insert(schema.coreUsers)
+    .values([
+      { id: 1, schoolId: null, fullName: 'Superadmin Yayasan', email: 'superadmin@yayasan.com', passwordHash: 'hash', role: 'superadmin' },
+      { id: 2, schoolId: null, fullName: 'Budi Santoso', email: 'budi.ayah@email.com', passwordHash: 'hash', role: 'parent' },
+      { id: 3, schoolId: 4, fullName: 'Zevanya', email: 'zevanya@student.com', passwordHash: 'hash', role: 'student' },
+    ])
+    .onConflictDoNothing();
 
-  // 4. Students
-  await db.insert(schema.coreStudents).values([
-    {
-      id: 1, schoolId: 1, fullName: 'Ahmad Santoso', nis: 'SMA-001', nisn: '0012345678',
-      previousSchool: 'SMP Negeri 1', gender: 'L', placeOfBirth: 'Jakarta',
-      dateOfBirth: '2008-05-15', religion: 'Islam', childOrder: 1, siblingsCount: 2,
-      childStatus: 'Kandung', address: 'Jl. Merpati No. 45', provinceId: 1, cityId: 1,
-      districtId: 1, subdistrictId: 1, postalCode: '12240', phone: '081299998888',
-      email: 'ahmad@email.com', livingWith: 'Orang Tua', bloodType: 'O',
-      weightKg: '55.50', heightCm: 165, allergies: 'Tidak ada', visionCondition: 'Normal',
-      hearingCondition: 'Normal', specialNeeds: 'Tidak', chronicDiseases: 'Tidak ada',
-      physicalAbnormalities: 'Tidak ada', recurringDiseases: 'Tidak ada',
-    },
-    {
-      id: 2, schoolId: 2, fullName: 'Aisyah Santoso', nis: 'SMP-001', nisn: '0034567890',
-      previousSchool: 'SD Negeri 2', gender: 'P', placeOfBirth: 'Jakarta',
-      dateOfBirth: '2011-08-20', religion: 'Islam', childOrder: 2, siblingsCount: 2,
-      childStatus: 'Kandung', address: 'Jl. Merpati No. 45', provinceId: 1, cityId: 1,
-      districtId: 1, subdistrictId: 1, postalCode: '12240', phone: '081277776666',
-      email: 'aisyah@email.com', livingWith: 'Orang Tua', bloodType: 'A',
-      weightKg: '42.00', heightCm: 150, allergies: 'Alergi Seafood', visionCondition: 'Minus 1',
-      hearingCondition: 'Normal', specialNeeds: 'Tidak', chronicDiseases: 'Asma',
-      physicalAbnormalities: 'Tidak ada', recurringDiseases: 'Asma',
-    },
-  ]).onConflictDoNothing();
+  await db.insert(schema.coreProvinces).values([{ id: 1, name: 'Jawa Barat' }]).onConflictDoNothing();
+  await db.insert(schema.coreCities).values([{ id: 1, provinceId: 1, name: 'Kota Bandung' }]).onConflictDoNothing();
+  await db.insert(schema.coreDistricts).values([{ id: 1, cityId: 1, name: 'Coblong' }]).onConflictDoNothing();
+  await db
+    .insert(schema.coreSubdistricts)
+    .values([{ id: 1, districtId: 1, name: 'Dago', postalCode: '40135' }])
+    .onConflictDoNothing();
 
-  // 4B. Student Documents
-  await db.insert(schema.coreStudentDocuments).values([
-    { studentId: 1, documentType: 'KARTU KELUARGA', fileName: 'kk_ahmad_santoso.pdf', filePath: '/storage/documents/kk_ahmad_santoso.pdf' },
-    { studentId: 1, documentType: 'AKTA KELAHIRAN', fileName: 'akta_ahmad_santoso.pdf', filePath: '/storage/documents/akta_ahmad_santoso.pdf' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreStudents)
+    .values([
+      {
+        id: 1,
+        schoolId: 1,
+        userId: null,
+        fullName: 'Revy Ahmad',
+        username: 'revy.ahmad',
+        nis: 'SD-001',
+        nisn: '00112233',
+        gender: 'L',
+        studentType: 'Reguler',
+        program: 'Reguler',
+        curriculum: 'Merdeka',
+        entryAcademicYearId: 2,
+        activeAcademicYearId: 2,
+      },
+      {
+        id: 2,
+        schoolId: 4,
+        userId: 3,
+        fullName: 'Zevanya',
+        username: 'zevanya',
+        nis: 'SMP-001',
+        nisn: '00112244',
+        gender: 'P',
+        studentType: 'Reguler',
+        program: 'Reguler',
+        curriculum: 'Merdeka',
+        entryAcademicYearId: 2,
+        activeAcademicYearId: 2,
+      },
+    ])
+    .onConflictDoNothing();
 
-  // 5. Parent-Student Relations
-  await db.insert(schema.coreParentStudentRelations).values([
-    { userId: 4, studentId: 1, relationType: 'father' },
-    { userId: 4, studentId: 2, relationType: 'father' },
-    { userId: 5, studentId: 1, relationType: 'mother' },
-    { userId: 5, studentId: 2, relationType: 'mother' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreStudentParentProfiles)
+    .values([
+      {
+        studentId: 1,
+        relationType: 'father',
+        fullName: 'Budi Santoso',
+        phone: '081234567890',
+        education: 'S1',
+        occupation: 'Wiraswasta',
+        incomeBracket: '3-5 jt',
+      },
+      {
+        studentId: 1,
+        relationType: 'mother',
+        fullName: 'Ani Wijaya',
+        phone: '081298765432',
+        education: 'S1',
+        occupation: 'Guru',
+        incomeBracket: '3-5 jt',
+      },
+    ])
+    .onConflictDoNothing();
 
-  // 6. Level Grades
-  await db.insert(schema.coreLevelGrades).values([
-    { id: 1, schoolId: 1, name: 'Kelas 11', levelOrder: 11 },
-    { id: 2, schoolId: 1, name: 'Kelas 12', levelOrder: 12 },
-    { id: 3, schoolId: 2, name: 'Kelas 8', levelOrder: 8 },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreParentStudentRelations)
+    .values([
+      { userId: 2, studentId: 1, relationType: 'father' },
+      { userId: 2, studentId: 2, relationType: 'father' },
+    ])
+    .onConflictDoNothing();
 
-  // 7. Classes & Histories
-  await db.insert(schema.coreClasses).values([
-    { id: 1, schoolId: 1, levelGradeId: 1, name: '11 IPA 1' },
-    { id: 2, schoolId: 1, levelGradeId: 2, name: '12 IPA 1' },
-    { id: 3, schoolId: 2, levelGradeId: 3, name: '8A' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreStudentDocuments)
+    .values([
+      {
+        studentId: 1,
+        documentType: 'Kartu Keluarga',
+        fileName: 'kk_revy.pdf',
+        filePath: '/storage/documents/kk_revy.pdf',
+      },
+    ])
+    .onConflictDoNothing();
 
-  await db.insert(schema.coreStudentClassHistories).values([
-    { studentId: 1, classId: 1, levelGradeId: 1, academicYearId: 1, status: 'completed' },
-    { studentId: 1, classId: 2, levelGradeId: 2, academicYearId: 2, status: 'active' },
-    { studentId: 2, classId: 3, levelGradeId: 3, academicYearId: 2, status: 'active' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreLevelGrades)
+    .values([
+      { id: 1, schoolId: 1, name: 'Kelas 1', levelOrder: 1 },
+      { id: 2, schoolId: 1, name: 'Kelas 2', levelOrder: 2 },
+      { id: 3, schoolId: 4, name: 'Kelas 7', levelOrder: 7 },
+    ])
+    .onConflictDoNothing();
 
-  // 8. Payment Methods
-  await db.insert(schema.tuitionPaymentMethods).values([
-    { id: 1, name: 'Credit Card', code: 'CC', category: 'Credit Card', coa: '1101.02.001' },
-    { id: 2, name: 'GoPay', code: 'GOPAY', category: 'e-Wallet', coa: '1101.02.002' },
-    { id: 3, name: 'Bank Transfer BCA', code: 'BCA_TF', category: 'Virtual Account', coa: '1101.01.001' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreClasses)
+    .values([
+      { id: 1, schoolId: 1, levelGradeId: 1, name: 'KELAS 1 A' },
+      { id: 2, schoolId: 4, levelGradeId: 3, name: '7A' },
+    ])
+    .onConflictDoNothing();
 
-  // 9. Payment Instruction Groups
-  await db.insert(schema.tuitionPaymentInstructionGroups).values([
-    { id: 1, paymentMethodId: 2, title: 'Pembayaran melalui Aplikasi Gojek' },
-    { id: 2, paymentMethodId: 3, title: 'Pembayaran melalui m-BCA' },
-    { id: 3, paymentMethodId: 3, title: 'Pembayaran melalui ATM BCA' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreStudentClassHistories)
+    .values([
+      { studentId: 1, classId: 1, levelGradeId: 1, academicYearId: 2, status: 'active' },
+      { studentId: 2, classId: 2, levelGradeId: 3, academicYearId: 2, status: 'active' },
+    ])
+    .onConflictDoNothing();
 
-  await db.insert(schema.tuitionPaymentInstructionSteps).values([
-    { groupId: 1, stepNumber: 1, instructionText: 'Buka aplikasi Gojek di HP Anda.' },
-    { groupId: 1, stepNumber: 2, instructionText: 'Pilih menu Bayar lalu scan QRIS yang muncul di layar.' },
-    { groupId: 1, stepNumber: 3, instructionText: 'Konfirmasi nominal pembayaran dan masukkan PIN GoPay Anda.' },
-    { groupId: 2, stepNumber: 1, instructionText: 'Buka aplikasi m-BCA dan lakukan login.' },
-    { groupId: 2, stepNumber: 2, instructionText: 'Pilih menu M-Transfer > BCA Virtual Account.' },
-    { groupId: 2, stepNumber: 3, instructionText: 'Masukkan nomor Virtual Account yang tertera pada halaman pembayaran.' },
-    { groupId: 2, stepNumber: 4, instructionText: 'Periksa detail tagihan, lalu masukkan PIN m-BCA Anda untuk menyelesaikan transaksi.' },
-    { groupId: 3, stepNumber: 1, instructionText: 'Masukkan kartu ATM dan PIN BCA Anda.' },
-    { groupId: 3, stepNumber: 2, instructionText: 'Pilih Transaksi Lainnya > Transfer > ke Rekening BCA Virtual Account.' },
-    { groupId: 3, stepNumber: 3, instructionText: 'Masukkan nomor Virtual Account.' },
-    { groupId: 3, stepNumber: 4, instructionText: 'Pastikan nama dan nominal sesuai, lalu tekan Benar.' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreAppModules)
+    .values([
+      { id: 1, moduleCode: 'financial', moduleName: 'Keuangan (SPP)' },
+      { id: 2, moduleCode: 'academic', moduleName: 'Nilai Harian & Rapor' },
+      { id: 3, moduleCode: 'habits', moduleName: 'Pembiasaan (Ibadah Harian)' },
+    ])
+    .onConflictDoNothing();
 
-  // 10. Products
-  await db.insert(schema.tuitionProducts).values([
-    { id: 1, schoolId: 1, name: 'SPP SMA', paymentType: 'monthly', coa: '4101.01.000' },
-    { id: 2, schoolId: 1, name: 'Building Fee SMA', paymentType: 'installment', coa: '4102.01.000' },
-    { id: 3, schoolId: 2, name: 'SPP SMP', paymentType: 'monthly', coa: '4101.02.000' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.coreModuleAccess)
+    .values([
+      { moduleId: 1, schoolId: null, levelGradeId: null, isVisible: true },
+      { moduleId: 2, schoolId: null, levelGradeId: null, isVisible: true },
+      { moduleId: 3, schoolId: null, levelGradeId: null, isVisible: false },
+      { moduleId: 3, schoolId: null, levelGradeId: 1, isVisible: true },
+    ])
+    .onConflictDoNothing();
 
-  // 11. Bills
-  await db.insert(schema.tuitionBills).values([
-    { id: 1, studentId: 1, productId: 1, academicYearId: 2, title: 'SPP October 2024', totalAmount: '1500000', paidAmount: '1500000', minPayment: '0', status: 'paid', relatedMonth: '2024-10-01' },
-    { id: 2, studentId: 1, productId: 1, academicYearId: 2, title: 'SPP November 2024', totalAmount: '1500000', paidAmount: '0', minPayment: '0', status: 'unpaid', relatedMonth: '2024-11-01' },
-    { id: 3, studentId: 1, productId: 2, academicYearId: 2, title: 'Building Fee', totalAmount: '15000000', paidAmount: '5000000', minPayment: '500000', status: 'partial', relatedMonth: null },
-    { id: 4, studentId: 2, productId: 3, academicYearId: 2, title: 'SPP October 2024', totalAmount: '1000000', paidAmount: '0', minPayment: '0', status: 'unpaid', relatedMonth: '2024-10-01' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.tuitionProducts)
+    .values([
+      { id: 1, name: 'SPP Bulanan', paymentType: 'monthly' },
+      { id: 2, name: 'Uang Gedung', paymentType: 'installment' },
+    ])
+    .onConflictDoNothing();
 
-  // 12. Transactions
-  await db.insert(schema.tuitionTransactions).values([
-    { id: 1, userId: 4, academicYearId: 2, referenceNo: 'TRX-BUDI-001', totalAmount: '1500000', paymentMethodId: 1, status: 'success', paymentDate: new Date('2024-10-05T10:00:00') },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.tuitionProductTariffs)
+    .values([
+      { schoolId: 1, productId: 1, academicYearId: 1, levelGradeId: 1, amount: '750000' },
+      { schoolId: 1, productId: 1, academicYearId: 1, levelGradeId: 2, amount: '750000' },
+      { schoolId: 4, productId: 1, academicYearId: 1, levelGradeId: 3, amount: '1100000' },
+      { schoolId: 1, productId: 1, academicYearId: 2, levelGradeId: 1, amount: '800000' },
+      { schoolId: 1, productId: 1, academicYearId: 2, levelGradeId: 2, amount: '850000' },
+      { schoolId: 4, productId: 1, academicYearId: 2, levelGradeId: 3, amount: '1200000' },
+    ])
+    .onConflictDoNothing();
 
-  await db.insert(schema.tuitionTransactionDetails).values([
-    { transactionId: 1, billId: 1, amountPaid: '1500000' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.tuitionPaymentMethods)
+    .values([
+      { id: 1, name: 'BCA Virtual Account', code: 'BCA_TF', category: 'Virtual Account', coa: '1101.01.001' },
+      { id: 2, name: 'GoPay', code: 'GOPAY', category: 'e-Wallet', coa: '1101.02.002' },
+    ])
+    .onConflictDoNothing();
 
-  // 14. Notification Templates
-  await db.insert(schema.notifTemplates).values([
-    { id: 1, schoolId: null, name: 'Payment Success WA', type: 'whatsapp', triggerEvent: 'PAYMENT_SUCCESS', content: 'Halo {name}, pembayaran untuk {bill_title} sebesar {amount} telah berhasil diterima. Terima kasih.' },
-  ]).onConflictDoNothing();
+  await db
+    .insert(schema.tuitionBills)
+    .values([
+      {
+        id: 1,
+        studentId: 1,
+        productId: 1,
+        academicYearId: 2,
+        title: 'SPP Juli 2025',
+        totalAmount: '800000',
+        paidAmount: '0',
+        billMonth: 7,
+        billYear: 2025,
+        relatedMonth: '2025-07-01',
+        status: 'unpaid',
+      },
+      {
+        id: 2,
+        studentId: 2,
+        productId: 1,
+        academicYearId: 2,
+        title: 'SPP Juli 2025',
+        totalAmount: '1200000',
+        paidAmount: '0',
+        billMonth: 7,
+        billYear: 2025,
+        relatedMonth: '2025-07-01',
+        status: 'unpaid',
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.notifTemplates)
+    .values([
+      {
+        id: 1,
+        schoolId: null,
+        name: 'Payment Success WA',
+        type: 'whatsapp',
+        triggerEvent: 'PAYMENT_SUCCESS',
+        content: 'Halo {name}, pembayaran untuk {bill_title} sebesar {amount} telah berhasil.',
+      },
+    ])
+    .onConflictDoNothing();
+
+  const createdAt = new Date('2024-10-15T10:00:00.000Z');
+  const txResult = await pool.query<{
+    id: string;
+    created_at: Date;
+  }>(
+    `INSERT INTO tuition_transactions (
+      user_id, academic_year_id, reference_no, total_amount, payment_method_id, status, payment_date, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING id, created_at`,
+    [2, 2, 'TRX-OKT-001', 800000, 1, 'success', createdAt, createdAt]
+  );
+  const tx = txResult.rows[0];
+  if (!tx) throw new Error('Insert tuition_transactions failed');
+
+  await pool.query(
+    `INSERT INTO tuition_transaction_details (
+      transaction_id, transaction_created_at, bill_id, product_id, amount_paid, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [tx.id, tx.created_at, 1, 1, 800000, createdAt]
+  );
+
+  await pool.query(
+    `UPDATE tuition_bills SET paid_amount = total_amount, status = 'paid', updated_at = NOW() WHERE id = 1`
+  );
+
+  await pool.query(
+    `SELECT setval('core_portal_themes_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_portal_themes))`
+  );
+  await pool.query(`SELECT setval('core_schools_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_schools))`);
+  await pool.query(
+    `SELECT setval('core_academic_years_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_academic_years))`
+  );
+  await pool.query(`SELECT setval('core_users_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_users))`);
+  await pool.query(`SELECT setval('core_students_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_students))`);
+  await pool.query(
+    `SELECT setval('core_level_grades_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_level_grades))`
+  );
+  await pool.query(`SELECT setval('core_classes_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_classes))`);
+  await pool.query(
+    `SELECT setval('core_app_modules_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_app_modules))`
+  );
+  await pool.query(
+    `SELECT setval('tuition_products_id_seq', (SELECT COALESCE(MAX(id), 1) FROM tuition_products))`
+  );
+  await pool.query(
+    `SELECT setval('tuition_product_tariffs_id_seq', (SELECT COALESCE(MAX(id), 1) FROM tuition_product_tariffs))`
+  );
+  await pool.query(`SELECT setval('tuition_bills_id_seq', (SELECT COALESCE(MAX(id), 1) FROM tuition_bills))`);
+  await pool.query(
+    `SELECT setval('tuition_payment_methods_id_seq', (SELECT COALESCE(MAX(id), 1) FROM tuition_payment_methods))`
+  );
 
   console.log('✅ Seeding complete!');
 }
 
-seed().catch((err) => {
-  console.error('Seed error:', err);
-  process.exit(1);
-});
+seed()
+  .catch((err) => {
+    console.error('Seed error:', err);
+    process.exit(1);
+  })
+  .finally(() => {
+    void pool.end();
+  });
