@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const [parents, documents, education] = await Promise.all([
+  const [parents, documents, education, classHistories, portalLinks, currentEnroll] = await Promise.all([
     sql`
     SELECT * FROM core_student_parent_profiles WHERE student_id = ${sid} ORDER BY
       CASE relation_type WHEN 'father' THEN 1 WHEN 'mother' THEN 2 ELSE 3 END
@@ -37,13 +37,43 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     sql`
     SELECT * FROM core_student_education_histories WHERE student_id = ${sid} ORDER BY year_from DESC NULLS LAST
   `,
+    sql`
+    SELECT ch.id, ch.student_id, ch.class_id, ch.level_grade_id, ch.academic_year_id, ch.status,
+      c.name AS class_name, lg.name AS level_name, ay.name AS academic_year_name,
+      COALESCE(lg.is_terminal, false) AS level_is_terminal
+    FROM core_student_class_histories ch
+    JOIN core_classes c ON c.id = ch.class_id
+    JOIN core_level_grades lg ON lg.id = ch.level_grade_id
+    JOIN core_academic_years ay ON ay.id = ch.academic_year_id
+    WHERE ch.student_id = ${sid}
+    ORDER BY ch.academic_year_id DESC, ch.id DESC
+  `,
+    sql`
+    SELECT psr.relation_type, u.id AS portal_user_id, u.email AS portal_email, u.full_name AS portal_full_name
+    FROM core_parent_student_relations psr
+    JOIN core_users u ON u.id = psr.user_id
+    WHERE psr.student_id = ${sid}
+  `,
+    sql`
+    SELECT ch.class_id AS current_class_id, ch.academic_year_id AS current_enrollment_year_id
+    FROM core_student_class_histories ch
+    WHERE ch.student_id = ${sid} AND ch.status = 'active'
+    ORDER BY ch.academic_year_id DESC
+    LIMIT 1
+  `,
   ]);
+
+  const cur = currentEnroll[0] as { current_class_id?: number; current_enrollment_year_id?: number } | undefined;
 
   return NextResponse.json({
     ...student,
     parent_profiles: parents,
     documents,
     education_histories: education,
+    class_histories: classHistories,
+    parent_portal_links: portalLinks,
+    current_class_id: cur?.current_class_id ?? null,
+    current_enrollment_year_id: cur?.current_enrollment_year_id ?? null,
   });
 }
 
@@ -73,6 +103,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const sid = Number(id);
   const data = await req.json();
+
+  const [prev] = await sql`
+    SELECT graduated_at, address_latitude, address_longitude FROM core_students WHERE id = ${sid}
+  `;
+  if (!prev) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const mergedGraduatedAt =
+    Object.prototype.hasOwnProperty.call(data, 'graduated_at') ? data.graduated_at ?? null : prev.graduated_at;
+  const mergedLat =
+    Object.prototype.hasOwnProperty.call(data, 'address_latitude') ? data.address_latitude ?? null : prev.address_latitude;
+  const mergedLng =
+    Object.prototype.hasOwnProperty.call(data, 'address_longitude')
+      ? data.address_longitude ?? null
+      : prev.address_longitude;
+
+  const numOrSqlNull = (v: unknown) => {
+    if (v === '' || v == null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
 
   const [row] = await sql`
     UPDATE core_students SET
@@ -136,10 +188,44 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       chronic_diseases = ${data.chronic_diseases ?? null},
       physical_abnormalities = ${data.physical_abnormalities ?? null},
       recurring_diseases = ${data.recurring_diseases ?? null},
+      graduated_at = ${mergedGraduatedAt},
+      address_latitude = ${numOrSqlNull(mergedLat)},
+      address_longitude = ${numOrSqlNull(mergedLng)},
       updated_at = NOW()
     WHERE id = ${sid}
     RETURNING *
   `;
+
+  const ayForClass =
+    data.active_academic_year_id != null && data.active_academic_year_id !== ''
+      ? Number(data.active_academic_year_id)
+      : null;
+  const rawClass = data.current_class_id;
+  const classId =
+    rawClass !== undefined && rawClass !== null && rawClass !== ''
+      ? Number(rawClass)
+      : null;
+  if (classId != null && Number.isFinite(classId) && ayForClass != null) {
+    const [clsRow] = await sql`
+      SELECT level_grade_id, school_id FROM core_classes WHERE id = ${classId}
+    `;
+    const cls = clsRow as { level_grade_id: number; school_id: number } | undefined;
+    const [stuRow] = await sql`
+      SELECT school_id FROM core_students WHERE id = ${sid}
+    `;
+    const stuSchool = stuRow as { school_id: number } | undefined;
+    if (cls && stuSchool && cls.school_id === stuSchool.school_id) {
+      await sql`
+        UPDATE core_student_class_histories
+        SET status = 'completed'
+        WHERE student_id = ${sid} AND academic_year_id = ${ayForClass} AND status = 'active'
+      `;
+      await sql`
+        INSERT INTO core_student_class_histories (student_id, class_id, level_grade_id, academic_year_id, status)
+        VALUES (${sid}, ${classId}, ${cls.level_grade_id}, ${ayForClass}, 'active')
+      `;
+    }
+  }
 
   if (data.parent_profiles && Array.isArray(data.parent_profiles)) {
     for (const p of data.parent_profiles) {

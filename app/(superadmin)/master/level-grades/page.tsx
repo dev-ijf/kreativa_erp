@@ -6,7 +6,14 @@ import { Button } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
-interface LevelGrade { id: number; school_id: number; name: string; level_order: number; school_name?: string; }
+interface LevelGrade {
+  id: number;
+  school_id: number;
+  name: string;
+  level_order: number;
+  is_terminal?: boolean;
+  school_name?: string;
+}
 
 export default function LevelGradesPage() {
   const [data, setData] = useState<LevelGrade[]>([]);
@@ -33,6 +40,12 @@ export default function LevelGradesPage() {
     { key: 'school_name', label: 'Sekolah', sortable: true },
     { key: 'name', label: 'Tingkat Kelas', sortable: true },
     { key: 'level_order', label: 'Urutan Level', sortable: true },
+    {
+      key: 'is_terminal',
+      label: 'Tingkat lulus',
+      sortable: true,
+      render: (r: LevelGrade) => (r.is_terminal ? 'Ya' : 'Tidak'),
+    },
     {
       key: 'actions', label: 'Aksi', className: 'text-right',
       render: (r: LevelGrade) => (

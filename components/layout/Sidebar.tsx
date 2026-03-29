@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, GraduationCap, Users, Wallet, BookOpen,
   CreditCard, Settings, ChevronDown, Banknote, LogOut,
-  Building2, MapPin, UserPlus, ListTree, Layers, FileText,
+  Building2, MapPin, UserPlus, ListTree, Layers,
   Receipt, ScanLine, Bell, ChevronRight, School, CalendarDays,
   UserCog, BarChart3, Landmark, House, Palette,
 } from 'lucide-react';
@@ -24,6 +24,7 @@ const MODULES = [
       { name: 'Tahun Ajaran', href: '/master/academic-years', icon: <CalendarDays size={16} /> },
       { name: 'Tingkat Kelas', href: '/master/level-grades', icon: <Layers size={16} /> },
       { name: 'Data Kelas', href: '/master/classes', icon: <BookOpen size={16} /> },
+      { name: 'Naik kelas / Pembagian', href: '/master/class-promotion', icon: <ListTree size={16} /> },
       { name: 'Provinsi', href: '/master/provinces', icon: <MapPin size={16} /> },
       { name: 'Kabupaten/Kota', href: '/master/cities', icon: <Building2 size={16} /> },
       { name: 'Kecamatan', href: '/master/districts', icon: <Landmark size={16} /> },
@@ -41,8 +42,6 @@ const MODULES = [
     menus: [
       { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
       { name: 'Daftar Peserta Didik', href: '/students', icon: <UserPlus size={16} /> },
-      { name: 'Dokumen Siswa', href: '/students/documents', icon: <FileText size={16} /> },
-      { name: 'Promosi Kelas', href: '/students/promotions', icon: <ListTree size={16} /> },
     ],
   },
   {

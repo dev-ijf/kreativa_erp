@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/FormFields';
 import { Field, Select, Input } from '@/components/ui/FormFields';
 import {
@@ -68,6 +68,7 @@ export default function StudentsPage() {
   const [filterType, setFilterType] = useState('');
   const [filterProgram, setFilterProgram] = useState('');
   const [searchQ, setSearchQ] = useState('');
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const loadRefs = useCallback(() => {
     Promise.all([
@@ -103,6 +104,14 @@ export default function StudentsPage() {
         setTotalPages(d.totalPages || 1);
         setTotal(d.total || 0);
         setLoading(false);
+        try {
+          sessionStorage.setItem(
+            'students_list_nav',
+            JSON.stringify({ ids: (d.data || []).map((row) => row.id), ts: Date.now() })
+          );
+        } catch {
+          /* ignore */
+        }
       })
       .catch(() => setLoading(false));
   }, [
@@ -146,12 +155,57 @@ export default function StudentsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" disabled title="Segera hadir">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (!file) return;
+              const fd = new FormData();
+              fd.set('file', file);
+              const res = await fetch('/api/students/import', { method: 'POST', body: fd });
+              const j = await res.json().catch(() => ({}));
+              if (!res.ok) {
+                alert((j as { error?: string }).error || 'Import gagal');
+                return;
+              }
+              alert(
+                `Import selesai: ${(j as { inserted?: number }).inserted ?? 0} masuk, ${(j as { skipped?: number }).skipped ?? 0} dilewati`
+              );
+              load();
+            }}
+          />
+          <Button variant="outline" size="sm" type="button" onClick={() => importInputRef.current?.click()}>
             <Upload size={14} /> Import
           </Button>
-          <Button variant="outline" size="sm" disabled title="Segera hadir">
-            <Download size={14} /> Export
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={() => {
+              const params = new URLSearchParams();
+              if (filterSchool) params.set('school_id', filterSchool);
+              if (filterAy) params.set('academic_year_id', filterAy);
+              if (filterEntry) params.set('entry_year_id', filterEntry);
+              if (filterClass) params.set('class_id', filterClass);
+              if (filterType) params.set('student_type', filterType);
+              if (filterProgram) params.set('program', filterProgram);
+              if (searchQ.trim()) params.set('q', searchQ.trim());
+              window.open(`/api/students/export?${params}`, '_blank');
+            }}
+          >
+            <Download size={14} /> Export Excel
           </Button>
+          <a
+            href="/samples/students_import_template.csv"
+            download
+            className="inline-flex items-center text-[12px] text-blue-600 underline px-1 self-center"
+          >
+            Template CSV
+          </a>
           <Link href="/students/add">
             <Button size="sm">
               <Plus size={15} /> Tambah Peserta Didik
@@ -376,7 +430,7 @@ export default function StudentsPage() {
                           <Edit2 size={13} />
                         </Button>
                       </Link>
-                      <Link href={`/students/${r.id}?view=1`}>
+                      <Link href={`/students/${r.id}?view=1&nav=1`}>
                         <Button size="sm" variant="outline" title="Detail">
                           <Eye size={13} />
                         </Button>

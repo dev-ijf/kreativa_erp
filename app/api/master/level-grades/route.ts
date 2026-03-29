@@ -12,10 +12,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { school_id, name, level_order } = await req.json();
+  const { school_id, name, level_order, is_terminal } = await req.json();
   const [row] = await sql`
-    INSERT INTO core_level_grades (school_id, name, level_order) 
-    VALUES (${school_id}, ${name}, ${level_order}) RETURNING *
+    INSERT INTO core_level_grades (school_id, name, level_order, is_terminal) 
+    VALUES (${school_id}, ${name}, ${level_order}, ${Boolean(is_terminal)}) RETURNING *
   `;
   return NextResponse.json(row, { status: 201 });
 }

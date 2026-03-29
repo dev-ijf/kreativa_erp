@@ -5,6 +5,13 @@ import { Button, Field, Input, Select } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
 
+interface TeacherClassOption {
+  id: number;
+  name: string;
+  level_name: string;
+  school_id: number;
+}
+
 const LIMIT = 15;
 
 const ROLES = [
@@ -52,6 +59,11 @@ export default function UsersAdmin() {
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [modal, setModal] = useState<{ open: boolean; record: UserFormRecord }>({ open: false, record: {} });
+  const [teacherClassOptions, setTeacherClassOptions] = useState<TeacherClassOption[]>([]);
+  const [teacherClassIds, setTeacherClassIds] = useState<number[]>([]);
+  const [includeEmptyTeacherClasses, setIncludeEmptyTeacherClasses] = useState(false);
+  const [teacherClassesMeta, setTeacherClassesMeta] = useState<{ yearName: string | null }>({ yearName: null });
+  const [teacherClassesLoading, setTeacherClassesLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/master/schools')
@@ -81,6 +93,46 @@ export default function UsersAdmin() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadTeacherClassUi = useCallback(async (record: UserFormRecord) => {
+    const sid = record.school_id === '' || record.school_id == null ? null : Number(record.school_id);
+    if (record.role !== 'teacher' || sid == null) {
+      setTeacherClassOptions([]);
+      setTeacherClassIds([]);
+      setTeacherClassesMeta({ yearName: null });
+      return;
+    }
+    setTeacherClassesLoading(true);
+    try {
+      const q = new URLSearchParams({
+        school_id: String(sid),
+        for_active_year: '1',
+        include_empty: includeEmptyTeacherClasses ? '1' : '0',
+      });
+      const [clsRes, assignRes] = await Promise.all([
+        fetch(`/api/master/classes?${q}`).then((r) => r.json()),
+        record.id
+          ? fetch(`/api/users/${record.id}/teacher-classes`).then((r) => r.json())
+          : Promise.resolve({ class_ids: [] as number[], academic_year_name: null }),
+      ]);
+      setTeacherClassOptions(Array.isArray(clsRes) ? clsRes : []);
+      setTeacherClassIds(
+        Array.isArray((assignRes as { class_ids?: number[] }).class_ids)
+          ? (assignRes as { class_ids: number[] }).class_ids
+          : []
+      );
+      setTeacherClassesMeta({
+        yearName: (assignRes as { academic_year_name?: string | null }).academic_year_name ?? null,
+      });
+    } finally {
+      setTeacherClassesLoading(false);
+    }
+  }, [includeEmptyTeacherClasses]);
+
+  useEffect(() => {
+    if (!modal.open) return;
+    void loadTeacherClassUi(modal.record);
+  }, [modal.open, modal.record.role, modal.record.school_id, modal.record.id, includeEmptyTeacherClasses, loadTeacherClassUi]);
 
   const save = async () => {
     const r = modal.record;
@@ -129,12 +181,27 @@ export default function UsersAdmin() {
         body: JSON.stringify(payload),
       });
     }
-    const j = await res.json().catch(() => ({}));
+    const j = (await res.json().catch(() => ({}))) as { id?: number; error?: string };
     if (!res.ok) {
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      alert(j.error || 'Gagal menyimpan');
       return;
     }
+    const userId = j.id ?? r.id;
+    if (r.role === 'teacher' && school_id != null && userId != null) {
+      const tcRes = await fetch(`/api/users/${userId}/teacher-classes`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_ids: teacherClassIds }),
+      });
+      const tcJ = (await tcRes.json().catch(() => ({}))) as { error?: string };
+      if (!tcRes.ok) {
+        alert(tcJ.error || 'Gagal menyimpan penugasan kelas guru');
+        return;
+      }
+    }
     setModal({ open: false, record: {} });
+    setTeacherClassIds([]);
+    setTeacherClassOptions([]);
     load();
   };
 
@@ -369,6 +436,56 @@ export default function UsersAdmin() {
                 ))}
               </Select>
             </Field>
+            {modal.record?.role === 'teacher' &&
+              modal.record?.school_id !== '' &&
+              modal.record?.school_id != null && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[13px] font-semibold text-slate-700">
+                      Penugasan kelas (tahun ajaran aktif
+                      {teacherClassesMeta.yearName ? `: ${teacherClassesMeta.yearName}` : ''})
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 text-[12px] text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeEmptyTeacherClasses}
+                      onChange={(e) => setIncludeEmptyTeacherClasses(e.target.checked)}
+                    />
+                    Tampilkan juga kelas tanpa siswa
+                  </label>
+                  {teacherClassesLoading ? (
+                    <p className="text-[12px] text-slate-400">Memuat daftar kelas…</p>
+                  ) : teacherClassOptions.length === 0 ? (
+                    <p className="text-[12px] text-slate-500">
+                      Tidak ada kelas aktif (atau belum ada siswa di rombel tahun ini). Centang opsi di atas atau
+                      pastikan tahun ajaran aktif.
+                    </p>
+                  ) : (
+                    <div className="max-h-44 overflow-y-auto space-y-1.5 border border-slate-200 rounded-lg bg-white p-2">
+                      {teacherClassOptions.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer py-0.5"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={teacherClassIds.includes(c.id)}
+                            onChange={(e) => {
+                              setTeacherClassIds((prev) =>
+                                e.target.checked ? [...prev, c.id] : prev.filter((x) => x !== c.id)
+                              );
+                            }}
+                          />
+                          <span>
+                            {c.level_name} {c.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" type="button" onClick={() => setModal({ open: false, record: {} })}>
                 Batal

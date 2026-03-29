@@ -11,7 +11,7 @@ interface School { id: number; name: string; }
 export default function AddLevelGradePage() {
   const router = useRouter();
   const [schools, setSchools] = useState<School[]>([]);
-  const [form, setForm] = useState({ school_id: '', name: '', level_order: '1' });
+  const [form, setForm] = useState({ school_id: '', name: '', level_order: '1', is_terminal: false });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -30,7 +30,8 @@ export default function AddLevelGradePage() {
       body: JSON.stringify({
         school_id: parseInt(form.school_id),
         name: form.name,
-        level_order: parseInt(form.level_order)
+        level_order: parseInt(form.level_order),
+        is_terminal: form.is_terminal,
       }) 
     });
     setSaving(false);
@@ -62,6 +63,14 @@ export default function AddLevelGradePage() {
           <Field label="Urutan Level" required hint="Angka urutan untuk diurutkan (Contoh: 10 untuk kelas 10)">
             <Input type="number" value={form.level_order} onChange={e => setForm(f => ({ ...f, level_order: e.target.value }))} placeholder="1" />
           </Field>
+          <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.is_terminal}
+              onChange={(e) => setForm((f) => ({ ...f, is_terminal: e.target.checked }))}
+            />
+            Tingkat akhir (boleh lulus / keluar)
+          </label>
         </div>
         <div className="bg-slate-50 border-t border-[#E2E8F1] p-5 flex justify-end gap-3">
           <Link href="/master/level-grades"><Button variant="ghost" type="button">Batal</Button></Link>

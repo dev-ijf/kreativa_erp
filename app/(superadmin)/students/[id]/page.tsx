@@ -3,17 +3,25 @@
 import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Field, Select, Button, Input, Textarea } from '@/components/ui/FormFields';
-import { ArrowLeft, Save, Printer } from 'lucide-react';
+import { ArrowLeft, Save, Printer, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { use } from 'react';
 import { format, subMonths } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { StudentPhotoUpload } from '@/components/student/StudentPhotoUpload';
 import { StudentDocumentsSection } from '@/components/student/StudentDocumentsSection';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 
-type TabId = 'personal' | 'parents' | 'documents' | 'education' | 'billing' | 'payments' | 'log';
+type TabId =
+  | 'personal'
+  | 'parents'
+  | 'documents'
+  | 'education'
+  | 'class_history'
+  | 'billing'
+  | 'payments'
+  | 'log';
 
 interface ParentForm {
   relation_type: string;
@@ -76,6 +84,29 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
   const [documents, setDocuments] = useState<
     { id: number; document_type: string; file_name: string; file_path: string }[]
   >([]);
+  const [classHistories, setClassHistories] = useState<
+    {
+      id: number;
+      class_name: string;
+      level_name: string;
+      academic_year_name: string;
+      status: string | null;
+      level_is_terminal?: boolean | string;
+    }[]
+  >([]);
+  const [parentPortalLinks, setParentPortalLinks] = useState<
+    { relation_type: string; portal_email: string; portal_full_name: string; portal_user_id: number }[]
+  >([]);
+  const [allClasses, setAllClasses] = useState<
+    { id: number; school_id: number; name: string; level_name: string }[]
+  >([]);
+  const [parentAccessEmail, setParentAccessEmail] = useState('');
+  const [parentAccessRelation, setParentAccessRelation] = useState('father');
+  const [parentAccessPassword, setParentAccessPassword] = useState('');
+  const [parentAccessBusy, setParentAccessBusy] = useState(false);
+  const [geocodeBusy, setGeocodeBusy] = useState(false);
+  const [graduateBusy, setGraduateBusy] = useState(false);
+  const [listNavIds, setListNavIds] = useState<number[]>([]);
 
   const defaultPayTo = format(new Date(), 'yyyy-MM-dd');
   const defaultPayFrom = format(subMonths(new Date(), 12), 'yyyy-MM-dd');
@@ -101,7 +132,8 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
       fetch('/api/master/schools').then((r) => r.json()),
       fetch('/api/master/academic-years').then((r) => r.json()),
       fetch('/api/master/provinces').then((r) => r.json()),
-    ]).then(([data, sch, ay, prov]) => {
+      fetch('/api/master/classes').then((r) => r.json()),
+    ]).then(([data, sch, ay, prov, cls]) => {
       if (data.error) {
         setLoading(false);
         return;
@@ -109,18 +141,42 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
       setSchools(sch);
       setYears(ay);
       setProvinces(Array.isArray(prov) ? prov : []);
+      setAllClasses(Array.isArray(cls) ? cls : []);
       const parts = [data.province_name, data.city_name, data.district_name, data.subdistrict_name].filter(
         Boolean
       ) as string[];
       setWilayahSummary(parts.length ? parts.join(' › ') : null);
+      setClassHistories(
+        (data.class_histories || []) as {
+          id: number;
+          class_name: string;
+          level_name: string;
+          academic_year_name: string;
+          status: string | null;
+          level_is_terminal?: boolean | string;
+        }[]
+      );
+      setParentPortalLinks(
+        (data.parent_portal_links || []) as {
+          relation_type: string;
+          portal_email: string;
+          portal_full_name: string;
+          portal_user_id: number;
+        }[]
+      );
       const f = { ...data } as Record<string, unknown>;
       delete f.parent_profiles;
       delete f.documents;
       delete f.education_histories;
+      delete f.class_histories;
+      delete f.parent_portal_links;
       delete f.province_name;
       delete f.city_name;
       delete f.district_name;
       delete f.subdistrict_name;
+      if (data.current_class_id != null) {
+        f.current_class_id = data.current_class_id;
+      }
       setForm(
         Object.fromEntries(
           Object.entries(f).map(([k, v]) => [
@@ -186,6 +242,22 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (searchParams.get('nav') !== '1') {
+      setListNavIds([]);
+      return;
+    }
+    try {
+      const raw = sessionStorage.getItem('students_list_nav');
+      if (raw) {
+        const j = JSON.parse(raw) as { ids?: number[] };
+        setListNavIds(Array.isArray(j.ids) ? j.ids : []);
+      }
+    } catch {
+      setListNavIds([]);
+    }
+  }, [searchParams]);
 
   const loadPayments = useCallback(() => {
     setPayLoading(true);
@@ -311,6 +383,10 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
       chronic_diseases: emptyToNull(form.chronic_diseases as string),
       physical_abnormalities: emptyToNull(form.physical_abnormalities as string),
       recurring_diseases: emptyToNull(form.recurring_diseases as string),
+      graduated_at: emptyToNull(form.graduated_at as string),
+      address_latitude: emptyToNull(form.address_latitude as string),
+      address_longitude: emptyToNull(form.address_longitude as string),
+      current_class_id: numOrNull(form.current_class_id as string),
       parent_profiles: [father, mother, guardian].filter((p) => p.full_name.trim()),
       education_histories: educationRows.filter((r) => r.school_name.trim()),
     };
@@ -331,10 +407,24 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
     { id: 'parents', label: 'Orang Tua & Wali' },
     { id: 'documents', label: 'Dokumen' },
     { id: 'education', label: 'Riwayat Pendidikan' },
+    { id: 'class_history', label: 'Histori kelas' },
     { id: 'billing', label: 'Tagihan' },
     { id: 'payments', label: 'Pembayaran' },
     { id: 'log', label: 'Log' },
   ];
+
+  const schoolClasses = allClasses.filter((c) => String(c.school_id) === String(form.school_id || ''));
+  const isTerminalLevel = (v: boolean | string | undefined) =>
+    v === true || String(v).toLowerCase() === 'true' || String(v).toLowerCase() === 't';
+
+  const canGraduate =
+    !viewOnly &&
+    classHistories.some((h) => h.status === 'active' && isTerminalLevel(h.level_is_terminal)) &&
+    !(form.is_alumni === true || form.is_alumni === 'true');
+
+  const navIdx = listNavIds.indexOf(Number(id));
+  const prevStudentId = navIdx > 0 ? listNavIds[navIdx - 1] : null;
+  const nextStudentId = navIdx >= 0 && navIdx < listNavIds.length - 1 ? listNavIds[navIdx + 1] : null;
 
   const photoUrl = String(form.photo_url || '').trim();
   const headerPhoto =
@@ -392,9 +482,25 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" type="button" onClick={() => window.print()}>
-          <Printer size={14} /> Cetak profil
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {viewOnly && searchParams.get('nav') === '1' && (prevStudentId != null || nextStudentId != null) && (
+            <>
+              <Link href={prevStudentId != null ? `/students/${prevStudentId}?view=1&nav=1` : '#'}>
+                <Button variant="outline" size="sm" type="button" disabled={prevStudentId == null}>
+                  <ChevronLeft size={14} /> Sebelumnya
+                </Button>
+              </Link>
+              <Link href={nextStudentId != null ? `/students/${nextStudentId}?view=1&nav=1` : '#'}>
+                <Button variant="outline" size="sm" type="button" disabled={nextStudentId == null}>
+                  Berikutnya <ChevronRight size={14} />
+                </Button>
+              </Link>
+            </>
+          )}
+          <Button variant="outline" size="sm" type="button" onClick={() => window.print()}>
+            <Printer size={14} /> Cetak profil
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
@@ -538,7 +644,56 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                   ))}
                 </Select>
               </Field>
+              <Field label="Rombel (sesuai tahun aktif)" hint="Menyimpan riwayat kelas untuk tahun ajaran aktif">
+                <Select
+                  value={String(form.current_class_id || '')}
+                  onChange={(e) => setForm((f) => ({ ...f, current_class_id: e.target.value }))}
+                  disabled={viewOnly}
+                >
+                  <option value="">—</option>
+                  {schoolClasses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.level_name} {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Tanggal lulus (opsional)">
+                <Input
+                  type="date"
+                  value={String(form.graduated_at || '')}
+                  onChange={(e) => setForm((f) => ({ ...f, graduated_at: e.target.value }))}
+                  disabled={viewOnly}
+                />
+              </Field>
             </div>
+            {canGraduate && (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-[13px] text-amber-900 flex-1">
+                  Siswa di tingkat akhir: catat kelulusan (tutup rombel aktif, tandai alumni).
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  loading={graduateBusy}
+                  onClick={async () => {
+                    if (!confirm('Tandai siswa sebagai lulus?')) return;
+                    setGraduateBusy(true);
+                    const res = await fetch(`/api/students/${id}/graduate`, { method: 'POST' });
+                    const j = await res.json().catch(() => ({}));
+                    setGraduateBusy(false);
+                    if (!res.ok) {
+                      toast.error((j as { error?: string }).error || 'Gagal');
+                      return;
+                    }
+                    toast.success('Kelulusan dicatat');
+                    load();
+                  }}
+                >
+                  Catat lulus
+                </Button>
+              </div>
+            )}
             <h3 className="text-sm font-bold text-blue-700 uppercase tracking-wide border-b border-slate-100 pb-2 pt-4">
               Alamat & lainnya
             </h3>
@@ -551,6 +706,68 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                   rows={2}
                 />
               </Field>
+              <div className="grid grid-cols-2 gap-2 md:col-span-2">
+                <Field label="Lintang (latitude)">
+                  <Input
+                    value={String(form.address_latitude || '')}
+                    onChange={(e) => setForm((f) => ({ ...f, address_latitude: e.target.value }))}
+                    disabled={viewOnly}
+                    placeholder="-6.xxx"
+                  />
+                </Field>
+                <Field label="Bujur (longitude)">
+                  <Input
+                    value={String(form.address_longitude || '')}
+                    onChange={(e) => setForm((f) => ({ ...f, address_longitude: e.target.value }))}
+                    disabled={viewOnly}
+                    placeholder="106.xxx"
+                  />
+                </Field>
+              </div>
+              {!viewOnly && (
+                <div className="md:col-span-2 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    loading={geocodeBusy}
+                    onClick={async () => {
+                      const q = String(form.address || '').trim();
+                      if (q.length < 5) {
+                        toast.error('Isi alamat dulu (min. 5 karakter)');
+                        return;
+                      }
+                      setGeocodeBusy(true);
+                      const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+                      const j = await res.json();
+                      setGeocodeBusy(false);
+                      if (!res.ok || !j.results?.[0]) {
+                        toast.error(j.error || 'Lokasi tidak ditemukan');
+                        return;
+                      }
+                      const r = j.results[0];
+                      setForm((f) => ({
+                        ...f,
+                        address_latitude: String(r.lat),
+                        address_longitude: String(r.lon),
+                      }));
+                      toast.success('Koordinat diisi dari OpenStreetMap');
+                    }}
+                  >
+                    <MapPin size={14} /> Cari koordinat (OSM)
+                  </Button>
+                  {form.address_latitude && form.address_longitude ? (
+                    <a
+                      className="inline-flex items-center text-[13px] text-blue-600 underline px-2"
+                      target="_blank"
+                      rel="noreferrer"
+                      href={`https://www.openstreetmap.org/?mlat=${encodeURIComponent(String(form.address_latitude))}&mlon=${encodeURIComponent(String(form.address_longitude))}#map=16/${form.address_latitude}/${form.address_longitude}`}
+                    >
+                      Buka peta
+                    </a>
+                  ) : null}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <Field label="RT">
                   <Input
@@ -736,6 +953,99 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
 
         {tab === 'parents' && (
           <section className="space-y-8">
+            <div className="bg-white rounded-2xl border border-[#E2E8F1] p-6 space-y-4">
+              <h3 className="text-sm font-bold text-blue-700">Akses portal orang tua</h3>
+              {parentPortalLinks.length > 0 ? (
+                <ul className="text-[13px] text-slate-700 space-y-1">
+                  {parentPortalLinks.map((l) => (
+                    <li key={`${l.portal_user_id}-${l.relation_type}`}>
+                      <span className="font-medium">{l.relation_type}</span>: {l.portal_full_name} —{' '}
+                      <span className="font-mono text-xs">{l.portal_email}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[13px] text-slate-500">Belum ada akun portal terhubung ke siswa ini.</p>
+              )}
+              {!viewOnly && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                  <Field label="Email akun portal">
+                    <Input
+                      type="email"
+                      value={parentAccessEmail}
+                      onChange={(e) => setParentAccessEmail(e.target.value)}
+                      placeholder="ortu@email.com"
+                    />
+                  </Field>
+                  <Field label="Peran relasi">
+                    <Select
+                      value={parentAccessRelation}
+                      onChange={(e) => setParentAccessRelation(e.target.value)}
+                    >
+                      <option value="father">Ayah</option>
+                      <option value="mother">Ibu</option>
+                      <option value="guardian">Wali</option>
+                    </Select>
+                  </Field>
+                  <Field label="Password (jika akun baru, min. 6 karakter)" hint="Kosongkan untuk password acak">
+                    <Input
+                      type="password"
+                      value={parentAccessPassword}
+                      onChange={(e) => setParentAccessPassword(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </Field>
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      loading={parentAccessBusy}
+                      onClick={async () => {
+                        setParentAccessBusy(true);
+                        const res = await fetch(`/api/students/${id}/parent-access`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            email: parentAccessEmail.trim(),
+                            relation_type: parentAccessRelation,
+                            password: parentAccessPassword || undefined,
+                            full_name:
+                              parentAccessRelation === 'mother'
+                                ? mother.full_name
+                                : parentAccessRelation === 'guardian'
+                                  ? guardian.full_name
+                                  : father.full_name,
+                            phone:
+                              parentAccessRelation === 'mother'
+                                ? mother.phone
+                                : parentAccessRelation === 'guardian'
+                                  ? guardian.phone
+                                  : father.phone,
+                          }),
+                        });
+                        const j = await res.json().catch(() => ({}));
+                        setParentAccessBusy(false);
+                        if (!res.ok) {
+                          toast.error((j as { error?: string }).error || 'Gagal');
+                          return;
+                        }
+                        if ((j as { generated_password?: string }).generated_password) {
+                          toast.success(
+                            `Akun dibuat. Simpan password sementara: ${(j as { generated_password: string }).generated_password}`
+                          );
+                        } else {
+                          toast.success('Akun terhubung');
+                        }
+                        setParentAccessEmail('');
+                        setParentAccessPassword('');
+                        load();
+                      }}
+                    >
+                      Buat atau hubungkan akun
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
             {[
               { label: 'Ayah', state: father, set: setFather },
               { label: 'Ibu', state: mother, set: setMother },
@@ -879,6 +1189,40 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                 + Baris riwayat
               </Button>
             )}
+          </section>
+        )}
+
+        {tab === 'class_history' && (
+          <section className="bg-white rounded-2xl border border-[#E2E8F1] p-6 overflow-x-auto">
+            <h3 className="text-sm font-bold text-blue-700 mb-4">Histori rombel</h3>
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-[11px] uppercase text-slate-500">
+                  <th className="py-2 pr-3">Tahun ajaran</th>
+                  <th className="py-2 pr-3">Tingkat</th>
+                  <th className="py-2 pr-3">Kelas</th>
+                  <th className="py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classHistories.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400">
+                      Belum ada riwayat
+                    </td>
+                  </tr>
+                ) : (
+                  classHistories.map((h) => (
+                    <tr key={h.id} className="border-b border-slate-50">
+                      <td className="py-2 pr-3">{h.academic_year_name}</td>
+                      <td className="py-2 pr-3">{h.level_name}</td>
+                      <td className="py-2 pr-3">{h.class_name}</td>
+                      <td className="py-2">{h.status ?? '—'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </section>
         )}
 

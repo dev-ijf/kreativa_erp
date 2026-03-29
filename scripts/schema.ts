@@ -175,6 +175,9 @@ export const coreStudents = pgTable('core_students', {
   chronicDiseases: text('chronic_diseases'),
   physicalAbnormalities: text('physical_abnormalities'),
   recurringDiseases: text('recurring_diseases'),
+  graduatedAt: date('graduated_at'),
+  addressLatitude: decimal('address_latitude', { precision: 10, scale: 7 }),
+  addressLongitude: decimal('address_longitude', { precision: 10, scale: 7 }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -249,6 +252,7 @@ export const coreLevelGrades = pgTable('core_level_grades', {
   schoolId: integer('school_id').notNull(),
   name: varchar('name', { length: 50 }).notNull(),
   levelOrder: integer('level_order').notNull(),
+  isTerminal: boolean('is_terminal').default(false),
 });
 
 // ==============================================================================
@@ -272,6 +276,21 @@ export const coreStudentClassHistories = pgTable('core_student_class_histories',
   academicYearId: integer('academic_year_id').notNull(),
   status: varchar('status', { length: 50 }).default('active'),
 });
+
+// ==============================================================================
+// CORE: TEACHER CLASS ASSIGNMENTS (guru ↔ rombel per tahun ajaran)
+// ==============================================================================
+export const coreTeacherClassAssignments = pgTable(
+  'core_teacher_class_assignments',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull(),
+    classId: integer('class_id').notNull(),
+    academicYearId: integer('academic_year_id').notNull(),
+    assignmentRole: varchar('assignment_role', { length: 30 }).default('homeroom'),
+  },
+  (t) => [unique('unique_teacher_class_year').on(t.userId, t.classId, t.academicYearId)]
+);
 
 // ==============================================================================
 // CORE: APP MODULES & ACCESS

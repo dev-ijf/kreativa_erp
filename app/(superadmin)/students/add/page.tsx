@@ -21,7 +21,9 @@ export default function AddStudentPage() {
     username: '',
     entry_academic_year_id: '',
     active_academic_year_id: '',
+    class_id: '',
   });
+  const [classes, setClasses] = useState<{ id: number; name: string; level_name: string }[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -42,6 +44,20 @@ export default function AddStudentPage() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!form.school_id) {
+      setClasses([]);
+      return;
+    }
+    fetch('/api/master/classes')
+      .then((r) => r.json())
+      .then((cls) => {
+        const list = Array.isArray(cls) ? cls : [];
+        setClasses(list.filter((c: { school_id: number }) => String(c.school_id) === form.school_id));
+      })
+      .catch(() => setClasses([]));
+  }, [form.school_id]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +80,7 @@ export default function AddStudentPage() {
         active_academic_year_id: form.active_academic_year_id
           ? parseInt(form.active_academic_year_id, 10)
           : null,
+        class_id: form.class_id ? parseInt(form.class_id, 10) : undefined,
       }),
     });
     const row = await res.json();
@@ -91,10 +108,10 @@ export default function AddStudentPage() {
         className="bg-white rounded-2xl border border-[#E2E8F1] shadow-sm overflow-hidden"
       >
         <div className="p-6 space-y-5">
-          <Field label="Sekolah" required>
+            <Field label="Sekolah" required>
             <Select
               value={form.school_id}
-              onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value, class_id: '' }))}
             >
               {schools.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -174,6 +191,19 @@ export default function AddStudentPage() {
               </Select>
             </Field>
           </div>
+          <Field label="Rombel (opsional)" hint="Langsung masuk ke riwayat kelas tahun aktif">
+            <Select
+              value={form.class_id}
+              onChange={(e) => setForm((f) => ({ ...f, class_id: e.target.value }))}
+            >
+              <option value="">—</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.level_name} {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
         <div className="bg-slate-50 border-t border-[#E2E8F1] p-5 flex justify-end gap-3">
           <Link href="/students">

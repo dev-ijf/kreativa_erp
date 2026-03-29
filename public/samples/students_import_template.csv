@@ -1,0 +1,2 @@
+school_id,full_name,nis,nisn,gender,student_type,program,username,entry_academic_year_id,active_academic_year_id,class_id
+1,Contoh Siswa Import,IMP-001,0099887766,L,Reguler,Reguler,contoh.import,2,2,1

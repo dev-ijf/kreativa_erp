@@ -14,7 +14,7 @@ export default function EditLevelGradePage({ params }: { params: Promise<{ id: s
   const { id } = use(params);
   
   const [schools, setSchools] = useState<School[]>([]);
-  const [form, setForm] = useState({ school_id: '', name: '', level_order: '1' });
+  const [form, setForm] = useState({ school_id: '', name: '', level_order: '1', is_terminal: false });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -26,10 +26,11 @@ export default function EditLevelGradePage({ params }: { params: Promise<{ id: s
       setSchools(sch);
       const item = grades.find((s: any) => String(s.id) === id);
       if (item) {
-        setForm({ 
-          school_id: String(item.school_id), 
-          name: item.name, 
-          level_order: String(item.level_order) 
+        setForm({
+          school_id: String(item.school_id),
+          name: item.name,
+          level_order: String(item.level_order),
+          is_terminal: Boolean(item.is_terminal),
         });
       }
       setLoading(false);
@@ -45,7 +46,8 @@ export default function EditLevelGradePage({ params }: { params: Promise<{ id: s
       body: JSON.stringify({
         school_id: parseInt(form.school_id),
         name: form.name,
-        level_order: parseInt(form.level_order)
+        level_order: parseInt(form.level_order),
+        is_terminal: form.is_terminal,
       }) 
     });
     setSaving(false);
@@ -79,6 +81,14 @@ export default function EditLevelGradePage({ params }: { params: Promise<{ id: s
           <Field label="Urutan Level" required hint="Angka urutan untuk diurutkan (Contoh: 10 untuk kelas 10)">
             <Input type="number" value={form.level_order} onChange={e => setForm(f => ({ ...f, level_order: e.target.value }))} />
           </Field>
+          <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.is_terminal}
+              onChange={(e) => setForm((f) => ({ ...f, is_terminal: e.target.checked }))}
+            />
+            Tingkat akhir (boleh lulus / keluar)
+          </label>
         </div>
         <div className="bg-slate-50 border-t border-[#E2E8F1] p-5 flex justify-end gap-3">
           <Link href="/master/level-grades"><Button variant="ghost" type="button">Batal</Button></Link>

@@ -215,5 +215,23 @@ export async function POST(req: NextRequest) {
       ${data.active_academic_year_id || null}
     ) RETURNING *
   `;
+  const sid = (row as { id: number }).id;
+  const classId = data.class_id != null && data.class_id !== '' ? Number(data.class_id) : null;
+  const ayId =
+    data.active_academic_year_id || data.entry_academic_year_id
+      ? Number(data.active_academic_year_id || data.entry_academic_year_id)
+      : null;
+  if (sid && classId && ayId && Number.isFinite(classId) && Number.isFinite(ayId)) {
+    const [clsRow] = await sql`
+      SELECT level_grade_id, school_id FROM core_classes WHERE id = ${classId}
+    `;
+    const cls = clsRow as { level_grade_id: number; school_id: number } | undefined;
+    if (cls && cls.school_id === Number(data.school_id)) {
+      await sql`
+        INSERT INTO core_student_class_histories (student_id, class_id, level_grade_id, academic_year_id, status)
+        VALUES (${sid}, ${classId}, ${cls.level_grade_id}, ${ayId}, 'active')
+      `;
+    }
+  }
   return NextResponse.json(row, { status: 201 });
 }
