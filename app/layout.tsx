@@ -1,4 +1,8 @@
 import type { Metadata } from 'next';
+import '@fontsource/source-sans-pro/latin-300.css';
+import '@fontsource/source-sans-pro/latin-400.css';
+import '@fontsource/source-sans-pro/latin-600.css';
+import '@fontsource/source-sans-pro/latin-700.css';
 import './globals.css';
 
 export const metadata: Metadata = {

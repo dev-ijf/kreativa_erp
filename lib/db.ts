@@ -1,12 +1,21 @@
 import { neon } from '@neondatabase/serverless';
 
-// Raw SQL query helper for Next.js API routes
-// Usage: const rows = await sql`SELECT * FROM core_schools`
+/**
+ * Koneksi database untuk route Next.js (App Router) memakai **Neon serverless**:
+ * query dijalankan lewat **HTTP** ke Neon, cocok untuk serverless/edge tanpa
+ * membuka pool TCP `pg` per request (mengurangi cold start & batas koneksi).
+ *
+ * Semua handler API mengimpor `sql` dari sini (`import sql from '@/lib/db'`).
+ * Skrip lokal (migrate, seed, reset) tetap memakai `pg` / Drizzle TCP — lihat `scripts/`.
+ *
+ * @see https://neon.tech/docs/serverless/serverless-driver
+ */
 const sql = neon(process.env.DATABASE_URL!);
 
 export default sql;
+export { sql };
 
-// Helper for typed queries
+/** Helper query bertipe array baris */
 export async function query<T = Record<string, unknown>>(
   strings: TemplateStringsArray,
   ...values: unknown[]

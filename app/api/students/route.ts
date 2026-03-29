@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
   let totalRow: { count: string | number }[];
 
   if (hasAy && hasClass) {
-    rows = await sql`
+    const [r, t] = await Promise.all([
+      sql`
       SELECT DISTINCT ON (s.id)
         s.*,
         sch.name AS school_name,
@@ -58,8 +59,8 @@ export async function GET(req: NextRequest) {
           OR COALESCE(s.nisn, '') ILIKE ${searchPattern})
       ORDER BY s.id DESC
       LIMIT ${limit} OFFSET ${offset}
-    `;
-    totalRow = (await sql`
+    `,
+      sql`
       SELECT COUNT(DISTINCT s.id)::int AS count
       FROM core_students s
       JOIN core_student_class_histories ch ON ch.student_id = s.id
@@ -74,9 +75,13 @@ export async function GET(req: NextRequest) {
           OR COALESCE(s.username, '') ILIKE ${searchPattern}
           OR s.nis ILIKE ${searchPattern}
           OR COALESCE(s.nisn, '') ILIKE ${searchPattern})
-    `) as { count: string | number }[];
+    `,
+    ]);
+    rows = r as Record<string, unknown>[];
+    totalRow = t as { count: string | number }[];
   } else if (hasAy) {
-    rows = await sql`
+    const [r, t] = await Promise.all([
+      sql`
       SELECT DISTINCT ON (s.id)
         s.*,
         sch.name AS school_name,
@@ -104,8 +109,8 @@ export async function GET(req: NextRequest) {
           OR COALESCE(s.nisn, '') ILIKE ${searchPattern})
       ORDER BY s.id DESC
       LIMIT ${limit} OFFSET ${offset}
-    `;
-    totalRow = (await sql`
+    `,
+      sql`
       SELECT COUNT(DISTINCT s.id)::int AS count
       FROM core_students s
       JOIN core_student_class_histories ch ON ch.student_id = s.id
@@ -119,9 +124,13 @@ export async function GET(req: NextRequest) {
           OR COALESCE(s.username, '') ILIKE ${searchPattern}
           OR s.nis ILIKE ${searchPattern}
           OR COALESCE(s.nisn, '') ILIKE ${searchPattern})
-    `) as { count: string | number }[];
+    `,
+    ]);
+    rows = r as Record<string, unknown>[];
+    totalRow = t as { count: string | number }[];
   } else {
-    rows = await sql`
+    const [r, t] = await Promise.all([
+      sql`
       SELECT
         s.*,
         sch.name AS school_name,
@@ -150,8 +159,8 @@ export async function GET(req: NextRequest) {
           OR COALESCE(s.nisn, '') ILIKE ${searchPattern})
       ORDER BY s.id DESC
       LIMIT ${limit} OFFSET ${offset}
-    `;
-    totalRow = (await sql`
+    `,
+      sql`
       SELECT COUNT(*)::int AS count
       FROM core_students s
       WHERE (${schoolIdNum}::int IS NULL OR s.school_id = ${schoolIdNum})
@@ -162,7 +171,10 @@ export async function GET(req: NextRequest) {
           OR COALESCE(s.username, '') ILIKE ${searchPattern}
           OR s.nis ILIKE ${searchPattern}
           OR COALESCE(s.nisn, '') ILIKE ${searchPattern})
-    `) as { count: string | number }[];
+    `,
+    ]);
+    rows = r as Record<string, unknown>[];
+    totalRow = t as { count: string | number }[];
   }
 
   const total = Number(totalRow[0]?.count ?? 0);

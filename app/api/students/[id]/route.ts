@@ -7,27 +7,37 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const [student] = await sql`
     SELECT s.*, sch.name AS school_name,
       ay_e.name AS entry_year_name,
-      ay_a.name AS active_year_name
+      ay_a.name AS active_year_name,
+      p.name AS province_name,
+      c.name AS city_name,
+      d.name AS district_name,
+      sd.name AS subdistrict_name
     FROM core_students s
     JOIN core_schools sch ON s.school_id = sch.id
     LEFT JOIN core_academic_years ay_e ON s.entry_academic_year_id = ay_e.id
     LEFT JOIN core_academic_years ay_a ON s.active_academic_year_id = ay_a.id
+    LEFT JOIN core_provinces p ON s.province_id = p.id
+    LEFT JOIN core_cities c ON s.city_id = c.id
+    LEFT JOIN core_districts d ON s.district_id = d.id
+    LEFT JOIN core_subdistricts sd ON s.subdistrict_id = sd.id
     WHERE s.id = ${sid}
   `;
   if (!student) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const parents = await sql`
+  const [parents, documents, education] = await Promise.all([
+    sql`
     SELECT * FROM core_student_parent_profiles WHERE student_id = ${sid} ORDER BY
       CASE relation_type WHEN 'father' THEN 1 WHEN 'mother' THEN 2 ELSE 3 END
-  `;
-  const documents = await sql`
+  `,
+    sql`
     SELECT * FROM core_student_documents WHERE student_id = ${sid} ORDER BY uploaded_at DESC
-  `;
-  const education = await sql`
+  `,
+    sql`
     SELECT * FROM core_student_education_histories WHERE student_id = ${sid} ORDER BY year_from DESC NULLS LAST
-  `;
+  `,
+  ]);
 
   return NextResponse.json({
     ...student,
@@ -35,6 +45,28 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     documents,
     education_histories: education,
   });
+}
+
+/** Partial update (mis. photo_url setelah upload Blob) */
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const sid = Number(id);
+  const data = (await req.json()) as { photo_url?: string | null };
+
+  if (data.photo_url !== undefined) {
+    const [row] = await sql`
+      UPDATE core_students
+      SET photo_url = ${data.photo_url}, updated_at = NOW()
+      WHERE id = ${sid}
+      RETURNING id, photo_url, updated_at
+    `;
+    if (!row) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    return NextResponse.json(row);
+  }
+
+  return NextResponse.json({ error: 'Tidak ada field yang didukung' }, { status: 400 });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

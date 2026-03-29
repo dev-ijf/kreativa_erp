@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -8,13 +8,13 @@ import {
   CreditCard, Settings, ChevronDown, Banknote, LogOut,
   Building2, MapPin, UserPlus, ListTree, Layers, FileText,
   Receipt, ScanLine, Bell, ChevronRight, School, CalendarDays,
-  UserCog, BarChart3
+  UserCog, BarChart3, Landmark, House, Palette,
 } from 'lucide-react';
 
 const MODULES = [
   {
-    id: 'master',
-    name: 'Master Data',
+    id: 'masterUsers',
+    name: 'Master & Pengguna',
     icon: <Building2 size={16} />,
     color: 'bg-violet-700',
     accent: '#7c3aed',
@@ -24,7 +24,12 @@ const MODULES = [
       { name: 'Tahun Ajaran', href: '/master/academic-years', icon: <CalendarDays size={16} /> },
       { name: 'Tingkat Kelas', href: '/master/level-grades', icon: <Layers size={16} /> },
       { name: 'Data Kelas', href: '/master/classes', icon: <BookOpen size={16} /> },
-      { name: 'Wilayah', href: '/master/regional', icon: <MapPin size={16} /> },
+      { name: 'Provinsi', href: '/master/provinces', icon: <MapPin size={16} /> },
+      { name: 'Kabupaten/Kota', href: '/master/cities', icon: <Building2 size={16} /> },
+      { name: 'Kecamatan', href: '/master/districts', icon: <Landmark size={16} /> },
+      { name: 'Kelurahan', href: '/master/subdistricts', icon: <House size={16} /> },
+      { name: 'Portal & modul', href: '/master/portal-modules', icon: <Palette size={16} /> },
+      { name: 'Data Pengguna', href: '/users', icon: <UserCog size={16} /> },
     ],
   },
   {
@@ -41,8 +46,8 @@ const MODULES = [
     ],
   },
   {
-    id: 'finance',
-    name: 'Keuangan',
+    id: 'financeBilling',
+    name: 'Keuangan & Tagihan',
     icon: <Banknote size={16} />,
     color: 'bg-emerald-700',
     accent: '#047857',
@@ -53,38 +58,35 @@ const MODULES = [
       { name: 'Metode Pembayaran', href: '/finance/payment-methods', icon: <CreditCard size={16} /> },
       { name: 'Instruksi Bayar', href: '/finance/payment-instructions', icon: <ListTree size={16} /> },
       { name: 'Template Notifikasi', href: '/finance/notifications', icon: <Bell size={16} /> },
-    ],
-  },
-  {
-    id: 'billing',
-    name: 'Tagihan & Kasir',
-    icon: <Receipt size={16} />,
-    color: 'bg-orange-700',
-    accent: '#c2410c',
-    menus: [
-      { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
       { name: 'Generate Tagihan', href: '/billing/generate', icon: <BarChart3 size={16} /> },
       { name: 'Matriks SPP', href: '/billing/matrix', icon: <ScanLine size={16} /> },
       { name: 'Kasir', href: '/billing/cashier', icon: <CreditCard size={16} /> },
       { name: 'Riwayat Transaksi', href: '/billing/transactions', icon: <Receipt size={16} /> },
     ],
   },
-  {
-    id: 'users',
-    name: 'Pengguna',
-    icon: <UserCog size={16} />,
-    color: 'bg-rose-700',
-    accent: '#be123c',
-    menus: [
-      { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
-      { name: 'Data Pengguna', href: '/users', icon: <Users size={16} /> },
-    ],
-  },
 ];
+
+function moduleForPathname(pathname: string) {
+  if (pathname.startsWith('/master') || pathname.startsWith('/users') || pathname.startsWith('/settings')) {
+    return MODULES.find((m) => m.id === 'masterUsers') ?? MODULES[0];
+  }
+  if (pathname.startsWith('/students')) {
+    return MODULES.find((m) => m.id === 'students') ?? MODULES[0];
+  }
+  if (pathname.startsWith('/finance') || pathname.startsWith('/billing')) {
+    return MODULES.find((m) => m.id === 'financeBilling') ?? MODULES[0];
+  }
+  return null;
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [activeModule, setActiveModule] = useState(MODULES[0]);
+
+  useEffect(() => {
+    const mod = moduleForPathname(pathname);
+    if (mod) setActiveModule(mod);
+  }, [pathname]);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -165,7 +167,9 @@ export default function Sidebar() {
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-30 px-3 py-2">Menu</p>
           )}
           {activeModule.menus.map((menu) => {
-            const isActive = pathname === menu.href;
+            const isActive =
+              pathname === menu.href ||
+              (menu.href !== '/dashboard' && pathname.startsWith(`${menu.href}/`));
             return (
               <Link
                 key={menu.href}

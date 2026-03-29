@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
 
   try {
     if (sid != null) {
-      const [countRow] = await sql`
+      const [[countRow], rows] = await Promise.all([
+        sql`
         SELECT COUNT(*)::int AS c
         FROM tuition_transactions t
         WHERE t.created_at >= ${rangeStart}
@@ -51,9 +52,8 @@ export async function GET(req: NextRequest) {
               AND d.created_at < ${rangeEndExclusive}
               AND b.student_id = ${sid}
           )
-      `;
-
-      const rows = await sql`
+      `,
+        sql`
         SELECT
           t.id,
           t.created_at,
@@ -83,7 +83,8 @@ export async function GET(req: NextRequest) {
         ORDER BY t.created_at DESC
         LIMIT ${limit}
         OFFSET ${offset}
-      `;
+      `,
+      ]);
 
       return NextResponse.json({
         items: rows,
@@ -95,15 +96,15 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const [countRow] = await sql`
+    const [[countRow], rows] = await Promise.all([
+      sql`
       SELECT COUNT(*)::int AS c
       FROM tuition_transactions t
       WHERE t.created_at >= ${rangeStart}
         AND t.created_at < ${rangeEndExclusive}
         AND (${uidNum}::integer IS NULL OR t.user_id = ${uidNum})
-    `;
-
-    const rows = await sql`
+    `,
+      sql`
       SELECT
         t.id,
         t.created_at,
@@ -123,7 +124,8 @@ export async function GET(req: NextRequest) {
       ORDER BY t.created_at DESC
       LIMIT ${limit}
       OFFSET ${offset}
-    `;
+    `,
+    ]);
 
     return NextResponse.json({
       items: rows,

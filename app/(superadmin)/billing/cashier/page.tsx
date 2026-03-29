@@ -85,7 +85,7 @@ export default function CashierPage() {
             <input 
               value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Ketik NIS, NISN, atau Nama Siswa..."
-              className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-24 py-3.5 text-[14px] outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 shadow-sm"
+              className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-24 py-3.5 text-[14px] outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 shadow-sm"
               autoFocus
             />
             <Button size="sm" loading={loadingSearch} type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 py-2">Cari</Button>

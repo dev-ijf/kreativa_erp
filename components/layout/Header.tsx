@@ -10,7 +10,15 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/master/academic-years': 'Tahun Ajaran',
   '/master/level-grades': 'Tingkat Kelas',
   '/master/classes': 'Data Kelas',
-  '/master/regional': 'Data Wilayah',
+  '/master/provinces': 'Provinsi',
+  '/master/provinces/add': 'Tambah Provinsi',
+  '/master/cities': 'Kabupaten / Kota',
+  '/master/cities/add': 'Tambah Kabupaten/Kota',
+  '/master/districts': 'Kecamatan',
+  '/master/districts/add': 'Tambah Kecamatan',
+  '/master/subdistricts': 'Kelurahan / Desa',
+  '/master/subdistricts/add': 'Tambah Kelurahan',
+  '/master/portal-modules': 'Portal & modul',
   '/students': 'Buku Induk Siswa',
   '/students/documents': 'Dokumen Siswa',
   '/students/promotions': 'Promosi Kelas',
@@ -26,6 +34,23 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/settings': 'Pengaturan',
 };
 
+function resolvePageTitle(pathname: string): string {
+  if (BREADCRUMB_MAP[pathname]) return BREADCRUMB_MAP[pathname];
+  if (pathname.startsWith('/master/provinces/') && pathname !== '/master/provinces/add') {
+    return 'Edit Provinsi';
+  }
+  if (pathname.startsWith('/master/cities/') && pathname !== '/master/cities/add') {
+    return 'Edit Kabupaten/Kota';
+  }
+  if (pathname.startsWith('/master/districts/') && pathname !== '/master/districts/add') {
+    return 'Edit Kecamatan';
+  }
+  if (pathname.startsWith('/master/subdistricts/') && pathname !== '/master/subdistricts/add') {
+    return 'Edit Kelurahan';
+  }
+  return BREADCRUMB_MAP[pathname] || 'Dashboard';
+}
+
 interface HeaderProps {
   onMenuToggle?: () => void;
 }
@@ -34,7 +59,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   const pathname = usePathname();
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const title = BREADCRUMB_MAP[pathname] || 'Dashboard';
+  const title = resolvePageTitle(pathname);
 
   return (
     <header className="h-16 bg-white border-b border-slate-100 px-6 flex items-center justify-between z-20 shrink-0 shadow-sm">

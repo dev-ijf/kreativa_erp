@@ -2,6 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { ChevronUp, ChevronDown, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Select } from '@/components/ui/FormFields';
 
 interface Column<T> {
   key: keyof T | string;
@@ -98,7 +99,7 @@ export default function DataTable<T>({
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 placeholder={searchPlaceholder}
-                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] w-60 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 placeholder:text-slate-400"
+                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] w-60 focus:outline-none focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 placeholder:text-slate-400"
               />
             </div>
           )}
@@ -175,13 +176,22 @@ export default function DataTable<T>({
             </p>
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-slate-400">Baris per halaman:</span>
-              <select 
-                value={limit} 
-                onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-                className="text-[12px] border border-[#E2E8F1] rounded p-1 outline-none text-slate-500 bg-white"
-              >
-                {pageSizeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-              </select>
+              <div className="min-w-[4.5rem] text-slate-500">
+                <Select
+                  variant="compact"
+                  value={String(limit)}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                >
+                  {pageSizeOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </Select>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1">

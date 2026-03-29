@@ -1,4 +1,18 @@
-import { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+'use client';
+
+import {
+  ReactNode,
+  Children,
+  isValidElement,
+  useMemo,
+  useState,
+  useEffect,
+  useId,
+  InputHTMLAttributes,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react';
+import ReactSelect, { StylesConfig, SingleValue } from 'react-select';
 
 interface FieldProps {
   label: string;
@@ -22,18 +36,168 @@ export function Field({ label, required, error, hint, children }: FieldProps) {
 }
 
 const inputCls = (error?: string) =>
-  `w-full bg-white border border-[#E2E8F1] rounded-lg px-3 py-2.5 text-[13.5px] outline-none transition-all placeholder:text-slate-400
-   focus:ring-2 ${error ? 'border-rose-400 focus:ring-rose-500/20' : 'border-violet-400 focus:ring-violet-500/20'}`;
+  `w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-[13.5px] outline-none transition-all placeholder:text-slate-400
+   focus:ring-2 ${error ? 'border-rose-400 focus:ring-rose-500/20' : 'focus:border-slate-400 focus:ring-slate-400/20'}`;
 
 export function Input({ error, ...props }: InputHTMLAttributes<HTMLInputElement> & { error?: string }) {
   return <input className={inputCls(error)} {...props} />;
 }
 
-export function Select({ error, children, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { error?: string }) {
+type RsOption = { value: string; label: string; disabled?: boolean };
+
+function optionLabel(node: ReactNode): string {
+  if (node == null || node === false) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(optionLabel).join('');
+  if (isValidElement(node)) {
+    const ch = (node.props as { children?: ReactNode }).children;
+    return optionLabel(ch);
+  }
+  return '';
+}
+
+function parseOptions(children: ReactNode): RsOption[] {
+  const out: RsOption[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    if (child.type !== 'option') return;
+    const p = child.props as React.OptionHTMLAttributes<HTMLOptionElement> & { children?: ReactNode };
+    const value = p.value != null ? String(p.value) : '';
+    const label = optionLabel(p.children) || value;
+    out.push({ value, label, disabled: !!p.disabled });
+  });
+  return out;
+}
+
+export function Select({
+  error,
+  children,
+  value: valueProp,
+  defaultValue,
+  onChange,
+  disabled,
+  id,
+  name,
+  autoFocus,
+  required,
+  className,
+  variant = 'default',
+  onBlur,
+  onFocus,
+  form,
+  size: _size,
+  multiple: _multiple,
+}: SelectHTMLAttributes<HTMLSelectElement> & { error?: string; variant?: 'default' | 'compact' }) {
+  const options = useMemo(() => parseOptions(children), [children]);
+  const isControlled = valueProp !== undefined;
+  const [internal, setInternal] = useState(() => String(defaultValue ?? ''));
+  const current = isControlled ? String(valueProp ?? '') : internal;
+
+  const selected = useMemo(
+    () => options.find((o) => o.value === current) ?? null,
+    [options, current]
+  );
+
+  const handleChange = (opt: SingleValue<RsOption>) => {
+    const v = opt?.value ?? '';
+    if (!isControlled) setInternal(v);
+    const synthetic = {
+      target: { value: v, name: name ?? '' },
+      currentTarget: { value: v, name: name ?? '' },
+    } as React.ChangeEvent<HTMLSelectElement>;
+    onChange?.(synthetic);
+  };
+
+  const borderIdle = error ? '#f87171' : '#e2e8f0';
+  const borderFocus = error ? '#f87171' : '#94a3b8';
+  const focusRing = error ? 'rgba(244, 63, 94, 0.2)' : 'rgba(148, 163, 184, 0.2)';
+
+  const minH = variant === 'compact' ? 32 : 42;
+  const fontSize = variant === 'compact' ? '12px' : '13.5px';
+
+  const styles: StylesConfig<RsOption, false> = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: minH,
+      borderRadius: 8,
+      borderColor: state.isFocused ? borderFocus : borderIdle,
+      boxShadow: state.isFocused ? `0 0 0 2px ${focusRing}` : 'none',
+      fontSize,
+      cursor: 'pointer',
+      '&:hover': { borderColor: error ? '#f87171' : '#cbd5e1' },
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: variant === 'compact' ? '0 6px' : '2px 8px',
+    }),
+    singleValue: (base) => ({ ...base, color: '#334155' }),
+    input: (base) => ({ ...base, margin: 0, padding: 0 }),
+    placeholder: (base) => ({ ...base, color: '#94a3b8' }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: 8,
+      overflow: 'hidden',
+      border: '1px solid #e2e8f0',
+      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.08)',
+      zIndex: 9999,
+    }),
+    menuPortal: (base) => ({ ...base, zIndex: 10000 }),
+    menuList: (base) => ({ ...base, padding: 4 }),
+    option: (base, state) => ({
+      ...base,
+      fontSize,
+      cursor: 'pointer',
+      backgroundColor: state.isSelected ? '#7c3aed' : state.isFocused ? '#f1f5f9' : 'white',
+      color: state.isSelected ? 'white' : '#334155',
+    }),
+    indicatorsContainer: (base) => ({ ...base, height: minH - 2 }),
+    dropdownIndicator: (base) => ({ ...base, padding: variant === 'compact' ? 4 : 8 }),
+  };
+
+  const hasEmptyOption = options.some((o) => o.value === '');
+  const reactId = useId();
+  const instanceId = (id ?? reactId).replace(/:/g, '');
+
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setPortalTarget(document.body);
+  }, []);
+
   return (
-    <select className={`${inputCls(error)} appearance-none`} {...props}>
-      {children}
-    </select>
+    <div className={[className, 'w-full'].filter(Boolean).join(' ')}>
+      {name != null && name !== '' && (
+        <input type="hidden" name={name} value={current} readOnly form={form} aria-hidden />
+      )}
+      <ReactSelect<RsOption, false>
+        instanceId={instanceId}
+        inputId={id}
+        options={options}
+        value={selected}
+        onChange={handleChange}
+        onBlur={onBlur as React.FocusEventHandler<HTMLInputElement> | undefined}
+        onFocus={onFocus as React.FocusEventHandler<HTMLInputElement> | undefined}
+        isDisabled={disabled}
+        isSearchable
+        isClearable={false}
+        autoFocus={autoFocus}
+        required={required}
+        aria-invalid={error ? true : undefined}
+        styles={styles}
+        menuPosition="fixed"
+        menuPortalTarget={portalTarget}
+        placeholder={hasEmptyOption ? undefined : 'Pilih...'}
+        noOptionsMessage={() => 'Tidak ada data'}
+        classNamePrefix="rs"
+        filterOption={(option, input) => {
+          if (!input) return true;
+          const q = input.toLowerCase();
+          return (
+            option.label.toLowerCase().includes(q) ||
+            option.value.toLowerCase().includes(q)
+          );
+        }}
+      />
+    </div>
   );
 }
 

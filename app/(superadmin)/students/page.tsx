@@ -142,7 +142,7 @@ export default function StudentsPage() {
         <div>
           <h2 className="text-xl font-bold text-slate-800">Daftar Peserta Didik</h2>
           <p className="text-slate-400 text-[13px]">
-            Kelola data siswa — tanpa nomor VA per siswa
+            Manajemen data siswa
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

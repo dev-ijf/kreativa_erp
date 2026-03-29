@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { Suspense, useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Field, Select, Button, Input, Textarea } from '@/components/ui/FormFields';
 import { ArrowLeft, Save, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { use } from 'react';
 import { format, subMonths } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { Toaster } from 'sonner';
+import { StudentPhotoUpload } from '@/components/student/StudentPhotoUpload';
+import { StudentDocumentsSection } from '@/components/student/StudentDocumentsSection';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
 
 type TabId = 'personal' | 'parents' | 'documents' | 'education' | 'billing' | 'payments' | 'log';
 
@@ -43,16 +47,24 @@ const emptyParent = (relation: string): ParentForm => ({
   phone: '',
 });
 
-export default function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const viewOnly = false;
+  const searchParams = useSearchParams();
+  const viewOnly = searchParams.get('view') === '1';
 
   const [tab, setTab] = useState<TabId>('personal');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
   const [years, setYears] = useState<{ id: number; name: string }[]>([]);
+  const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
+  const [cities, setCities] = useState<{ id: number; name: string }[]>([]);
+  const [districts, setDistricts] = useState<{ id: number; name: string }[]>([]);
+  const [subdistricts, setSubdistricts] = useState<
+    { id: number; name: string; postal_code?: string | null }[]
+  >([]);
+  const [wilayahSummary, setWilayahSummary] = useState<string | null>(null);
 
   const [form, setForm] = useState<Record<string, string | boolean | number | null | undefined>>({});
   const [father, setFather] = useState<ParentForm>(emptyParent('father'));
@@ -61,7 +73,6 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const [educationRows, setEducationRows] = useState<EduForm[]>([
     { school_name: '', level_label: '', year_from: '', year_to: '', notes: '' },
   ]);
-  const [docForm, setDocForm] = useState({ document_type: '', file_name: '', file_path: '' });
   const [documents, setDocuments] = useState<
     { id: number; document_type: string; file_name: string; file_path: string }[]
   >([]);
@@ -71,6 +82,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const [payFrom, setPayFrom] = useState(defaultPayFrom);
   const [payTo, setPayTo] = useState(defaultPayTo);
   const [payLoading, setPayLoading] = useState(false);
+  const [headerLightboxOpen, setHeaderLightboxOpen] = useState(false);
   const [payRows, setPayRows] = useState<
     {
       id: number;
@@ -88,17 +100,27 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       fetch(`/api/students/${id}`).then((r) => r.json()),
       fetch('/api/master/schools').then((r) => r.json()),
       fetch('/api/master/academic-years').then((r) => r.json()),
-    ]).then(([data, sch, ay]) => {
+      fetch('/api/master/provinces').then((r) => r.json()),
+    ]).then(([data, sch, ay, prov]) => {
       if (data.error) {
         setLoading(false);
         return;
       }
       setSchools(sch);
       setYears(ay);
+      setProvinces(Array.isArray(prov) ? prov : []);
+      const parts = [data.province_name, data.city_name, data.district_name, data.subdistrict_name].filter(
+        Boolean
+      ) as string[];
+      setWilayahSummary(parts.length ? parts.join(' › ') : null);
       const f = { ...data } as Record<string, unknown>;
       delete f.parent_profiles;
       delete f.documents;
       delete f.education_histories;
+      delete f.province_name;
+      delete f.city_name;
+      delete f.district_name;
+      delete f.subdistrict_name;
       setForm(
         Object.fromEntries(
           Object.entries(f).map(([k, v]) => [
@@ -188,6 +210,42 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     if (tab === 'payments') loadPayments();
   }, [tab, loadPayments]);
 
+  useEffect(() => {
+    const pid = form.province_id;
+    if (pid === '' || pid === undefined || pid === null) {
+      setCities([]);
+      return;
+    }
+    fetch(`/api/master/cities?province_id=${pid}`)
+      .then((r) => r.json())
+      .then((rows) => setCities(Array.isArray(rows) ? rows : []))
+      .catch(() => setCities([]));
+  }, [form.province_id]);
+
+  useEffect(() => {
+    const cid = form.city_id;
+    if (cid === '' || cid === undefined || cid === null) {
+      setDistricts([]);
+      return;
+    }
+    fetch(`/api/master/districts?city_id=${cid}`)
+      .then((r) => r.json())
+      .then((rows) => setDistricts(Array.isArray(rows) ? rows : []))
+      .catch(() => setDistricts([]));
+  }, [form.city_id]);
+
+  useEffect(() => {
+    const did = form.district_id;
+    if (did === '' || did === undefined || did === null) {
+      setSubdistricts([]);
+      return;
+    }
+    fetch(`/api/master/subdistricts?district_id=${did}`)
+      .then((r) => r.json())
+      .then((rows) => setSubdistricts(Array.isArray(rows) ? rows : []))
+      .catch(() => setSubdistricts([]));
+  }, [form.district_id]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (viewOnly) return;
@@ -266,17 +324,6 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     router.refresh();
   };
 
-  const addDocument = async () => {
-    if (!docForm.document_type || !docForm.file_name || !docForm.file_path) return;
-    await fetch(`/api/students/${id}/documents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(docForm),
-    });
-    setDocForm({ document_type: '', file_name: '', file_path: '' });
-    load();
-  };
-
   if (loading) return <div className="p-10 text-center text-slate-400">Memuat...</div>;
 
   const tabBar: { id: TabId; label: string }[] = [
@@ -289,17 +336,51 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     { id: 'log', label: 'Log' },
   ];
 
+  const photoUrl = String(form.photo_url || '').trim();
+  const headerPhoto =
+    photoUrl &&
+    (photoUrl.startsWith('http') || photoUrl.startsWith('blob:') || photoUrl.startsWith('/'));
+
   return (
     <div className="p-6 max-w-[1100px] mx-auto space-y-6">
+      <Toaster position="top-right" richColors />
+      <ImageLightbox
+        open={headerLightboxOpen}
+        onClose={() => setHeaderLightboxOpen(false)}
+        src={photoUrl}
+        alt={String(form.full_name || 'Foto siswa')}
+      />
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-4 min-w-0">
           <Link href="/students">
-            <Button variant="outline" size="sm" className="h-9 w-9 p-0 justify-center mt-1">
+            <Button variant="outline" size="sm" className="h-9 w-9 p-0 justify-center mt-1 shrink-0">
               <ArrowLeft size={16} />
             </Button>
           </Link>
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">{String(form.full_name || 'Siswa')}</h2>
+          {headerPhoto ? (
+            <button
+              type="button"
+              onClick={() => setHeaderLightboxOpen(true)}
+              className="w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-2xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100 shadow-sm ring-1 ring-slate-900/5 cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              aria-label="Perbesar foto siswa"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photoUrl}
+                alt=""
+                className="w-full h-full object-cover object-top pointer-events-none"
+              />
+            </button>
+          ) : null}
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-800">{String(form.full_name || 'Siswa')}</h2>
+              {viewOnly && (
+                <span className="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                  Mode lihat
+                </span>
+              )}
+            </div>
             <p className="text-slate-700 text-[13px] font-medium mt-0.5">
               {schools.find((s) => String(s.id) === String(form.school_id || ''))?.name ||
                 String(form.school_name || '') ||
@@ -339,14 +420,13 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
             <h3 className="text-sm font-bold text-blue-700 uppercase tracking-wide border-b border-slate-100 pb-2">
               Data Pribadi
             </h3>
+            <StudentPhotoUpload
+              studentId={String(id)}
+              photoUrl={form.photo_url as string | undefined}
+              viewOnly={viewOnly}
+              onPhotoSaved={(url) => setForm((f) => ({ ...f, photo_url: url }))}
+            />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="URL Foto">
-                <Input
-                  value={String(form.photo_url || '')}
-                  onChange={(e) => setForm((f) => ({ ...f, photo_url: e.target.value }))}
-                  disabled={viewOnly}
-                />
-              </Field>
               <Field label="Nama Lengkap" required>
                 <Input
                   value={String(form.full_name || '')}
@@ -487,6 +567,129 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                   />
                 </Field>
               </div>
+
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide md:col-span-2 pt-2">
+                Wilayah administratif
+              </h4>
+              {viewOnly && wilayahSummary ? (
+                <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-800 leading-relaxed">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 block mb-1.5">
+                    Wilayah terdaftar
+                  </span>
+                  {wilayahSummary}
+                  {form.postal_code ? (
+                    <span className="block mt-2 text-slate-600">
+                      Kode pos: <span className="font-mono font-semibold">{String(form.postal_code)}</span>
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <Field label="Provinsi">
+                    <Select
+                      value={String(form.province_id || '')}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setForm((f) => ({
+                          ...f,
+                          province_id: v,
+                          city_id: '',
+                          district_id: '',
+                          subdistrict_id: '',
+                          postal_code: '',
+                        }));
+                      }}
+                      disabled={viewOnly}
+                    >
+                      <option value="">— Pilih provinsi —</option>
+                      {provinces.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Kota / Kabupaten">
+                    <Select
+                      value={String(form.city_id || '')}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setForm((f) => ({
+                          ...f,
+                          city_id: v,
+                          district_id: '',
+                          subdistrict_id: '',
+                          postal_code: '',
+                        }));
+                      }}
+                      disabled={viewOnly || !form.province_id}
+                    >
+                      <option value="">— Pilih kota/kab —</option>
+                      {cities.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Kecamatan">
+                    <Select
+                      value={String(form.district_id || '')}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setForm((f) => ({
+                          ...f,
+                          district_id: v,
+                          subdistrict_id: '',
+                          postal_code: '',
+                        }));
+                      }}
+                      disabled={viewOnly || !form.city_id}
+                    >
+                      <option value="">— Pilih kecamatan —</option>
+                      {districts.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Kelurahan / Desa">
+                    <Select
+                      value={String(form.subdistrict_id || '')}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const sub = subdistricts.find((s) => String(s.id) === v);
+                        setForm((f) => ({
+                          ...f,
+                          subdistrict_id: v,
+                          postal_code: sub?.postal_code
+                            ? String(sub.postal_code)
+                            : String(f.postal_code || ''),
+                        }));
+                      }}
+                      disabled={viewOnly || !form.district_id}
+                    >
+                      <option value="">— Pilih kelurahan/desa —</option>
+                      {subdistricts.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                          {s.postal_code ? ` (${s.postal_code})` : ''}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Kode pos">
+                    <Input
+                      value={String(form.postal_code || '')}
+                      onChange={(e) => setForm((f) => ({ ...f, postal_code: e.target.value }))}
+                      disabled={viewOnly}
+                      placeholder="Otomatis dari kelurahan jika tersedia"
+                    />
+                  </Field>
+                </>
+              )}
+
               <Field label="Data periodik — TB (cm)">
                 <Input
                   type="number"
@@ -600,45 +803,12 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {tab === 'documents' && (
-          <section className="bg-white rounded-2xl border border-[#E2E8F1] p-6 space-y-4">
-            <h3 className="text-sm font-bold text-blue-700">Dokumen pendukung</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Field label="Jenis dokumen">
-                <Input
-                  value={docForm.document_type}
-                  onChange={(e) => setDocForm((f) => ({ ...f, document_type: e.target.value }))}
-                  placeholder="Kartu Keluarga"
-                />
-              </Field>
-              <Field label="Nama file">
-                <Input
-                  value={docForm.file_name}
-                  onChange={(e) => setDocForm((f) => ({ ...f, file_name: e.target.value }))}
-                />
-              </Field>
-              <Field label="Path / URL penyimpanan">
-                <Input
-                  value={docForm.file_path}
-                  onChange={(e) => setDocForm((f) => ({ ...f, file_path: e.target.value }))}
-                />
-              </Field>
-            </div>
-            {!viewOnly && (
-              <Button type="button" variant="outline" size="sm" onClick={addDocument}>
-                Tambah dokumen
-              </Button>
-            )}
-            <ul className="divide-y divide-slate-100 text-[13px]">
-              {documents.map((d) => (
-                <li key={d.id} className="py-2 flex justify-between gap-2">
-                  <span>
-                    <strong>{d.document_type}</strong> — {d.file_name}
-                  </span>
-                  <span className="text-slate-400 truncate max-w-[240px]">{d.file_path}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <StudentDocumentsSection
+            studentId={String(id)}
+            documents={documents}
+            viewOnly={viewOnly}
+            onDocumentsChanged={load}
+          />
         )}
 
         {tab === 'education' && (
@@ -816,6 +986,14 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         )}
       </form>
     </div>
+  );
+}
+
+export default function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-slate-400">Memuat…</div>}>
+      <StudentDetailPageInner params={params} />
+    </Suspense>
   );
 }
 
