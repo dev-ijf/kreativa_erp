@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, Field, Input, Select } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 interface TeacherClassOption {
   id: number;
@@ -156,15 +158,15 @@ export default function UsersAdmin() {
   const save = async () => {
     const r = modal.record;
     if (!r.full_name?.trim() || !r.email?.trim() || !r.role) {
-      alert('Nama, email, dan peran wajib');
+      toast.warning('Nama, email, dan peran wajib diisi');
       return;
     }
     if (!r.id && (!r.password || r.password.length < 6)) {
-      alert('Password minimal 6 karakter (wajib untuk pengguna baru)');
+      toast.warning('Password minimal 6 karakter (wajib untuk pengguna baru)');
       return;
     }
     if (r.id && r.password && r.password.length > 0 && r.password.length < 6) {
-      alert('Password minimal 6 karakter');
+      toast.warning('Password minimal 6 karakter');
       return;
     }
     const school_id =
@@ -202,7 +204,7 @@ export default function UsersAdmin() {
     }
     const j = (await res.json().catch(() => ({}))) as { id?: number; error?: string };
     if (!res.ok) {
-      alert(j.error || 'Gagal menyimpan');
+      toast.error(j.error || 'Gagal menyimpan pengguna');
       return;
     }
     const userId = j.id ?? r.id;
@@ -214,7 +216,7 @@ export default function UsersAdmin() {
       });
       const tcJ = (await tcRes.json().catch(() => ({}))) as { error?: string };
       if (!tcRes.ok) {
-        alert(tcJ.error || 'Gagal menyimpan penugasan kelas guru');
+        toast.error(tcJ.error || 'Gagal menyimpan penugasan kelas guru');
         return;
       }
     }
@@ -222,20 +224,26 @@ export default function UsersAdmin() {
     setTeacherClassIds([]);
     setTeacherClassOptions([]);
     setIncludeEmptyTeacherClasses(false);
+    toast.success('Pengguna berhasil disimpan');
     load();
   };
 
-  const del = async (id: number) => {
-    if (!confirm('Hapus pengguna ini?')) return;
-    setDeleting(id);
-    const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
-    const j = await res.json().catch(() => ({}));
-    setDeleting(null);
-    if (!res.ok) {
-      alert((j as { error?: string }).error || 'Gagal menghapus');
-      return;
-    }
-    load();
+  const del = (id: number) => {
+    confirmToast('Hapus pengguna ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error(j.error || 'Gagal menghapus pengguna');
+          return;
+        }
+        toast.success('Pengguna dihapus');
+        load();
+      },
+    });
   };
 
   const roleLabel = (code: string) => ROLES.find((x) => x.value === code)?.label ?? code;

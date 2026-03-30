@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Field, Button, Input } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function AddProvincePage() {
   const router = useRouter();
@@ -21,10 +22,11 @@ export default function AddProvincePage() {
     });
     setSaving(false);
     if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      toast.error(j.error || 'Gagal menyimpan provinsi');
       return;
     }
+    toast.success('Provinsi berhasil ditambahkan');
     router.push('/master/provinces');
   };
 

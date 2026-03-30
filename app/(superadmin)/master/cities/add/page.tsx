@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Field, Button, Input, Select } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function AddCityPage() {
   const router = useRouter();
@@ -32,10 +33,11 @@ export default function AddCityPage() {
     });
     setSaving(false);
     if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      toast.error(j.error || 'Gagal menyimpan kabupaten/kota');
       return;
     }
+    toast.success('Kabupaten/kota berhasil ditambahkan');
     router.push('/master/cities');
   };
 

@@ -5,8 +5,17 @@ import DataTable from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
-interface ClassObj { id: number; school_id: number; level_grade_id: number; name: string; school_name?: string; level_name?: string; }
+interface ClassObj {
+  id: number;
+  school_id: number;
+  level_grade_id: number;
+  name: string;
+  school_name?: string;
+  level_name?: string;
+}
 
 export default function ClassesPage() {
   const [data, setData] = useState<ClassObj[]>([]);
@@ -15,17 +24,33 @@ export default function ClassesPage() {
 
   const load = () => {
     setLoading(true);
-    fetch('/api/master/classes').then(r => r.json()).then(d => { setData(d); setLoading(false); });
+    fetch('/api/master/classes')
+      .then((r) => r.json())
+      .then((d) => {
+        setData(d);
+        setLoading(false);
+      });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Hapus kelas ini?')) return;
-    setDeleting(id);
-    await fetch(`/api/master/classes/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    load();
+    confirmToast('Hapus kelas ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/master/classes/${id}`, { method: 'DELETE' });
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error('Gagal menghapus kelas');
+          return;
+        }
+        toast.success('Kelas dihapus');
+        load();
+      },
+    });
   };
 
   const columns = [

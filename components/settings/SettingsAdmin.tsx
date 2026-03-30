@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, Field, Input, Select } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 const LIMIT = 15;
 
@@ -98,7 +100,7 @@ export default function SettingsAdmin() {
   const save = async () => {
     const r = modal.record;
     if (!r.setting_key?.trim()) {
-      alert('Kunci pengaturan wajib');
+      toast.warning('Kunci pengaturan wajib diisi');
       return;
     }
     const school_id =
@@ -111,7 +113,9 @@ export default function SettingsAdmin() {
         (row) => row.setting_key === key && row.school_id === school_id
       );
       if (exists) {
-        alert('Kombinasi sekolah + kunci pengaturan ini sudah ada. Silakan edit entri tersebut, bukan membuat baru.');
+        toast.warning(
+          'Kombinasi sekolah + kunci pengaturan ini sudah ada. Silakan edit entri tersebut.'
+        );
         return;
       }
     }
@@ -129,25 +133,31 @@ export default function SettingsAdmin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const j = await res.json().catch(() => ({}));
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) {
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      toast.error(j.error || 'Gagal menyimpan pengaturan');
       return;
     }
     setModal({ open: false, record: {} });
+    toast.success('Pengaturan berhasil disimpan');
     load();
   };
 
-  const del = async (id: number) => {
-    if (!confirm('Hapus pengaturan ini?')) return;
-    setDeleting(id);
-    const res = await fetch(`/api/settings/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    if (!res.ok) {
-      alert('Gagal menghapus');
-      return;
-    }
-    load();
+  const del = (id: number) => {
+    confirmToast('Hapus pengaturan ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/settings/${id}`, { method: 'DELETE' });
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error('Gagal menghapus pengaturan');
+          return;
+        }
+        toast.success('Pengaturan dihapus');
+        load();
+      },
+    });
   };
 
   const preview = (v: string | null, len = 48) => {
@@ -422,9 +432,12 @@ export default function SettingsAdmin() {
                                   method: 'POST',
                                   body: form,
                                 });
-                                const j = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+                                const j = (await res.json().catch(() => ({}))) as {
+                                  url?: string;
+                                  error?: string;
+                                };
                                 if (!res.ok || !j.url) {
-                                  alert(j.error || 'Gagal mengunggah logo');
+                                  toast.error(j.error || 'Gagal mengunggah logo');
                                   return;
                                 }
                                 setModal((m) => ({

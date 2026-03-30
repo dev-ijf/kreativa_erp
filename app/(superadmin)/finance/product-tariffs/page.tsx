@@ -5,6 +5,8 @@ import DataTable from '@/components/ui/DataTable';
 import { Button, Field, Input, Select } from '@/components/ui/FormFields';
 import { Plus, Trash2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 interface TariffRow {
   id: number;
@@ -66,7 +68,7 @@ export default function ProductTariffsPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await fetch('/api/finance/product-tariffs', {
+    const res = await fetch('/api/finance/product-tariffs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -78,16 +80,31 @@ export default function ProductTariffsPage() {
       }),
     });
     setSaving(false);
+    if (!res.ok) {
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      toast.error(j.error || 'Gagal menyimpan tarif');
+      return;
+    }
+    toast.success('Tarif berhasil disimpan');
     setForm((f) => ({ ...f, amount: '' }));
     load();
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Hapus baris tarif ini?')) return;
-    setDeleting(id);
-    await fetch(`/api/finance/product-tariffs/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    load();
+    confirmToast('Hapus baris tarif ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/finance/product-tariffs/${id}`, { method: 'DELETE' });
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error('Gagal menghapus tarif');
+          return;
+        }
+        toast.success('Tarif dihapus');
+        load();
+      },
+    });
   };
 
   const columns = [

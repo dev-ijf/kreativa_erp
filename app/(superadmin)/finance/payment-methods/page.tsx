@@ -5,8 +5,17 @@ import DataTable from '@/components/ui/DataTable';
 import { Button, Badge } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, CreditCard } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
-interface PaymentMethod { id: number; name: string; code: string; category: string; is_active: boolean; [key: string]: any; }
+interface PaymentMethod {
+  id: number;
+  name: string;
+  code: string;
+  category: string;
+  is_active: boolean;
+  [key: string]: any;
+}
 
 export default function PaymentMethodsPage() {
   const [data, setData] = useState<PaymentMethod[]>([]);
@@ -15,17 +24,33 @@ export default function PaymentMethodsPage() {
 
   const load = () => {
     setLoading(true);
-    fetch('/api/finance/payment-methods').then(r => r.json()).then(d => { setData(d); setLoading(false); });
+    fetch('/api/finance/payment-methods')
+      .then((r) => r.json())
+      .then((d) => {
+        setData(d);
+        setLoading(false);
+      });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Hapus metode pembayaran ini?')) return;
-    setDeleting(id);
-    await fetch(`/api/finance/payment-methods/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    load();
+    confirmToast('Hapus metode pembayaran ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/finance/payment-methods/${id}`, { method: 'DELETE' });
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error('Gagal menghapus metode pembayaran');
+          return;
+        }
+        toast.success('Metode pembayaran dihapus');
+        load();
+      },
+    });
   };
 
   const columns = [

@@ -20,6 +20,8 @@ import {
 import Link from 'next/link';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 interface StudentRow {
   id: number;
@@ -154,12 +156,22 @@ export default function StudentsPage() {
     };
   }, [templateModalOpen]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Hapus siswa ini?')) return;
-    setDeleting(id);
-    await fetch(`/api/students/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    load();
+  const handleDelete = (id: number) => {
+    confirmToast('Hapus siswa ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error(j.error || 'Gagal menghapus siswa');
+          return;
+        }
+        toast.success('Siswa berhasil dihapus');
+        load();
+      },
+    });
   };
 
   const filteredClasses = filterSchool
@@ -172,7 +184,7 @@ export default function StudentsPage() {
 
   const downloadImportTemplate = () => {
     if (!templateSchoolId) {
-      alert('Pilih sekolah terlebih dahulu agar school_id di file sesuai.');
+      toast.error('Pilih sekolah terlebih dahulu agar kolom school_id di file sesuai.');
       return;
     }
     const sid = Number(templateSchoolId);
@@ -420,19 +432,23 @@ export default function StudentsPage() {
               if (!file) return;
               const name = file.name.toLowerCase();
               if (!name.endsWith('.xlsx')) {
-                alert('Impor siswa hanya mendukung file Microsoft Excel (.xlsx).');
+                toast.error('Impor siswa hanya mendukung file Microsoft Excel (.xlsx).');
                 return;
               }
               const fd = new FormData();
               fd.set('file', file);
               const res = await fetch('/api/students/import', { method: 'POST', body: fd });
-              const j = await res.json().catch(() => ({}));
+              const j = (await res.json().catch(() => ({}))) as {
+                error?: string;
+                inserted?: number;
+                skipped?: number;
+              };
               if (!res.ok) {
-                alert((j as { error?: string }).error || 'Import gagal');
+                toast.error(j.error || 'Import siswa gagal');
                 return;
               }
-              alert(
-                `Import selesai: ${(j as { inserted?: number }).inserted ?? 0} masuk, ${(j as { skipped?: number }).skipped ?? 0} dilewati`
+              toast.success(
+                `Import selesai: ${j.inserted ?? 0} masuk, ${j.skipped ?? 0} dilewati`
               );
               load();
             }}
@@ -708,7 +724,11 @@ export default function StudentsPage() {
                         size="sm"
                         variant="outline"
                         title="Status"
-                        onClick={() => alert('Status / flag — hubungkan field kustom jika perlu')}
+                        onClick={() =>
+                          toast.info(
+                            'Status / flag dapat dihubungkan ke field kustom pada fase berikutnya.'
+                          )
+                        }
                       >
                         <Flag size={13} />
                       </Button>

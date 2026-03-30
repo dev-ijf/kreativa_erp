@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Button, Field, Select } from '@/components/ui/FormFields';
-import { toast, Toaster } from 'sonner';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 export default function ClassPromotionPage() {
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
@@ -76,35 +77,38 @@ export default function ClassPromotionPage() {
   }, [schoolId, srcAy, tgtAy, srcClassIds, tgtClassIds, shuffle, seed]);
 
   const runCommit = async () => {
-    if (!confirm('Jalankan pembagian / naik kelas? Operasi ini mengubah database.')) return;
-    setLoading(true);
-    const res = await fetch('/api/master/class-promotion', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        school_id: Number(schoolId),
-        source_academic_year_id: Number(srcAy),
-        target_academic_year_id: Number(tgtAy),
-        source_class_ids: srcClassIds,
-        target_class_ids: tgtClassIds,
-        shuffle,
-        seed: seed ? Number(seed) : undefined,
-        preview: false,
-      }),
+    confirmToast('Jalankan pembagian / naik kelas? Operasi ini akan mengubah database.', {
+      confirmLabel: 'Jalankan',
+      onConfirm: async () => {
+        setLoading(true);
+        const res = await fetch('/api/master/class-promotion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            school_id: Number(schoolId),
+            source_academic_year_id: Number(srcAy),
+            target_academic_year_id: Number(tgtAy),
+            source_class_ids: srcClassIds,
+            target_class_ids: tgtClassIds,
+            shuffle,
+            seed: seed ? Number(seed) : undefined,
+            preview: false,
+          }),
+        });
+        const j = await res.json();
+        setLoading(false);
+        if (!res.ok) {
+          toast.error(j.error || 'Gagal menjalankan pembagian kelas');
+          return;
+        }
+        toast.success(`Berhasil memindahkan ${j.moved} siswa`);
+        setPreviewCount(null);
+      },
     });
-    const j = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      toast.error(j.error || 'Gagal');
-      return;
-    }
-    toast.success(`Berhasil memindahkan ${j.moved} siswa`);
-    setPreviewCount(null);
   };
 
   return (
     <div className="p-6 max-w-[900px] mx-auto space-y-6">
-      <Toaster position="top-right" richColors />
       <div className="flex items-center gap-4">
         <Link href="/master/classes">
           <Button variant="outline" size="sm" className="h-9 w-9 p-0 justify-center">

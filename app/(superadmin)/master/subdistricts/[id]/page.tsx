@@ -6,6 +6,7 @@ import { Field, Button, Input, Select } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { use } from 'react';
+import { toast } from 'sonner';
 
 export default function EditSubdistrictPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -81,10 +82,11 @@ export default function EditSubdistrictPage({ params }: { params: Promise<{ id: 
     });
     setSaving(false);
     if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      toast.error(j.error || 'Gagal menyimpan kelurahan/desa');
       return;
     }
+    toast.success('Perubahan kelurahan/desa tersimpan');
     router.push('/master/subdistricts');
   };
 

@@ -5,8 +5,14 @@ import DataTable from '@/components/ui/DataTable';
 import { Button, Badge } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
-interface AcademicYear { id: number; name: string; is_active: boolean; }
+interface AcademicYear {
+  id: number;
+  name: string;
+  is_active: boolean;
+}
 
 export default function AcademicYearsPage() {
   const [data, setData] = useState<AcademicYear[]>([]);
@@ -15,17 +21,33 @@ export default function AcademicYearsPage() {
 
   const load = () => {
     setLoading(true);
-    fetch('/api/master/academic-years').then(r => r.json()).then(d => { setData(d); setLoading(false); });
+    fetch('/api/master/academic-years')
+      .then((r) => r.json())
+      .then((d) => {
+        setData(d);
+        setLoading(false);
+      });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Hapus tahun ajaran ini?')) return;
-    setDeleting(id);
-    await fetch(`/api/master/academic-years/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    load();
+    confirmToast('Hapus tahun ajaran ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/master/academic-years/${id}`, { method: 'DELETE' });
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error('Gagal menghapus tahun ajaran');
+          return;
+        }
+        toast.success('Tahun ajaran dihapus');
+        load();
+      },
+    });
   };
 
   const columns = [

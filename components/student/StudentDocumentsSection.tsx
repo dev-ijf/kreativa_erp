@@ -72,21 +72,27 @@ export function StudentDocumentsSection({
   };
 
   const remove = async (docId: number) => {
-    if (!confirm('Hapus dokumen ini dari daftar?')) return;
-    setDeletingId(docId);
-    try {
-      const res = await fetch(
-        `/api/students/${studentId}/documents?document_id=${docId}`,
-        { method: 'DELETE' }
-      );
-      if (!res.ok) throw new Error('Gagal menghapus');
-      toast.success('Dokumen dihapus');
-      onDocumentsChanged();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Gagal');
-    } finally {
-      setDeletingId(null);
-    }
+    toast.warning('Hapus dokumen ini dari daftar?', {
+      action: {
+        label: 'Hapus',
+        onClick: async () => {
+          setDeletingId(docId);
+          try {
+            const res = await fetch(
+              `/api/students/${studentId}/documents?document_id=${docId}`,
+              { method: 'DELETE' }
+            );
+            if (!res.ok) throw new Error('Gagal menghapus');
+            toast.success('Dokumen dihapus');
+            onDocumentsChanged();
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Gagal');
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+    });
   };
 
   return (

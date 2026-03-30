@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { use } from 'react';
 import { format, subMonths } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { Toaster, toast } from 'sonner';
+import { toast } from 'sonner';
 import { StudentPhotoUpload } from '@/components/student/StudentPhotoUpload';
 import { StudentDocumentsSection } from '@/components/student/StudentDocumentsSection';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
@@ -454,7 +454,6 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
 
   return (
     <div className="p-6 max-w-[1100px] mx-auto space-y-6">
-      <Toaster position="top-right" richColors />
       <ImageLightbox
         open={headerLightboxOpen}
         onClose={() => setHeaderLightboxOpen(false)}
@@ -693,22 +692,28 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                 <p className="text-[13px] text-amber-900 flex-1">
                   Siswa di tingkat akhir: catat kelulusan (tutup rombel aktif, tandai alumni).
                 </p>
-                <Button
+            <Button
                   type="button"
                   size="sm"
                   loading={graduateBusy}
                   onClick={async () => {
-                    if (!confirm('Tandai siswa sebagai lulus?')) return;
-                    setGraduateBusy(true);
-                    const res = await fetch(`/api/students/${id}/graduate`, { method: 'POST' });
-                    const j = await res.json().catch(() => ({}));
-                    setGraduateBusy(false);
-                    if (!res.ok) {
-                      toast.error((j as { error?: string }).error || 'Gagal');
-                      return;
-                    }
-                    toast.success('Kelulusan dicatat');
-                    load();
+                    toast.warning('Tandai siswa sebagai lulus? Rombel aktif akan ditutup dan status menjadi alumni.', {
+                      action: {
+                        label: 'Catat lulus',
+                        onClick: async () => {
+                          setGraduateBusy(true);
+                          const res = await fetch(`/api/students/${id}/graduate`, { method: 'POST' });
+                          const j = (await res.json().catch(() => ({}))) as { error?: string };
+                          setGraduateBusy(false);
+                          if (!res.ok) {
+                            toast.error(j.error || 'Gagal mencatat kelulusan');
+                            return;
+                          }
+                          toast.success('Kelulusan dicatat');
+                          load();
+                        },
+                      },
+                    });
                   }}
                 >
                   Catat lulus

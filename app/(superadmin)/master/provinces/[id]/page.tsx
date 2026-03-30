@@ -6,6 +6,7 @@ import { Field, Button, Input } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { use } from 'react';
+import { toast } from 'sonner';
 
 export default function EditProvincePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -34,10 +35,11 @@ export default function EditProvincePage({ params }: { params: Promise<{ id: str
     });
     setSaving(false);
     if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      toast.error(j.error || 'Gagal menyimpan provinsi');
       return;
     }
+    toast.success('Perubahan provinsi tersimpan');
     router.push('/master/provinces');
   };
 

@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/FormFields';
 import { Field, Input } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 interface Row {
   id: number;
@@ -51,17 +53,22 @@ export default function ProvincesPage() {
     load();
   }, [load]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Hapus provinsi ini?')) return;
-    setDeleting(id);
-    const r = await fetch(`/api/master/provinces/${id}`, { method: 'DELETE' });
-    const j = await r.json().catch(() => ({}));
-    setDeleting(null);
-    if (!r.ok) {
-      alert((j as { error?: string }).error || 'Gagal menghapus');
-      return;
-    }
-    load();
+  const handleDelete = (id: number) => {
+    confirmToast('Hapus provinsi ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const r = await fetch(`/api/master/provinces/${id}`, { method: 'DELETE' });
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        setDeleting(null);
+        if (!r.ok) {
+          toast.error(j.error || 'Gagal menghapus provinsi');
+          return;
+        }
+        toast.success('Provinsi dihapus');
+        load();
+      },
+    });
   };
 
   return (

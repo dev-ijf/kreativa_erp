@@ -5,6 +5,8 @@ import DataTable from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, PackageSearch } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 interface Product {
   id: number;
@@ -34,11 +36,20 @@ export default function ProductsPage() {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Hapus produk biaya ini?')) return;
-    setDeleting(id);
-    await fetch(`/api/finance/products/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    load();
+    confirmToast('Hapus produk biaya ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/finance/products/${id}`, { method: 'DELETE' });
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error('Gagal menghapus produk biaya');
+          return;
+        }
+        toast.success('Produk biaya dihapus');
+        load();
+      },
+    });
   };
 
   const paymentTypeColors: Record<string, string> = {

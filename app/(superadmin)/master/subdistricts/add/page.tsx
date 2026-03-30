@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Field, Button, Input, Select } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function AddSubdistrictPage() {
   const router = useRouter();
@@ -77,10 +78,11 @@ export default function AddSubdistrictPage() {
     });
     setSaving(false);
     if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      toast.error(j.error || 'Gagal menyimpan kelurahan/desa');
       return;
     }
+    toast.success('Kelurahan/desa berhasil ditambahkan');
     router.push('/master/subdistricts');
   };
 

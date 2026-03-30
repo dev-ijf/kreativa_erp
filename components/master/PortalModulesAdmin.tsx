@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Field, Input, Select } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 type TabId = 'themes' | 'modules' | 'access';
 
@@ -112,7 +114,7 @@ function ThemesSection() {
   const save = async () => {
     const r = modal.record;
     if (!r?.host_domain?.trim() || !r?.portal_title?.trim()) {
-      alert('Host domain dan judul portal wajib');
+      toast.warning('Host domain dan judul portal wajib diisi');
       return;
     }
     const body = {
@@ -130,26 +132,32 @@ function ThemesSection() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const j = await res.json().catch(() => ({}));
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) {
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      toast.error(j.error || 'Gagal menyimpan tema portal');
       return;
     }
     setModal({ open: false, record: null });
+    toast.success('Tema portal berhasil disimpan');
     load();
   };
 
-  const del = async (id: number) => {
-    if (!confirm('Hapus tema ini?')) return;
-    setDeleting(id);
-    const res = await fetch(`/api/master/portal-themes/${id}`, { method: 'DELETE' });
-    const j = await res.json().catch(() => ({}));
-    setDeleting(null);
-    if (!res.ok) {
-      alert((j as { error?: string }).error || 'Gagal menghapus');
-      return;
-    }
-    load();
+  const del = (id: number) => {
+    confirmToast('Hapus tema portal ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/master/portal-themes/${id}`, { method: 'DELETE' });
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error(j.error || 'Gagal menghapus tema portal');
+          return;
+        }
+        toast.success('Tema portal dihapus');
+        load();
+      },
+    });
   };
 
   return (
@@ -349,7 +357,7 @@ function ModulesSection() {
   const save = async () => {
     const r = modal.record;
     if (!r?.module_code?.trim() || !r?.module_name?.trim()) {
-      alert('Kode dan nama modul wajib');
+      toast.warning('Kode dan nama modul wajib diisi');
       return;
     }
     const body = { module_code: r.module_code.trim(), module_name: r.module_name.trim() };
@@ -360,26 +368,32 @@ function ModulesSection() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const j = await res.json().catch(() => ({}));
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) {
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      toast.error(j.error || 'Gagal menyimpan modul');
       return;
     }
     setModal({ open: false, record: null });
+    toast.success('Modul aplikasi berhasil disimpan');
     load();
   };
 
-  const del = async (id: number) => {
-    if (!confirm('Hapus modul ini?')) return;
-    setDeleting(id);
-    const res = await fetch(`/api/master/app-modules/${id}`, { method: 'DELETE' });
-    const j = await res.json().catch(() => ({}));
-    setDeleting(null);
-    if (!res.ok) {
-      alert((j as { error?: string }).error || 'Gagal menghapus');
-      return;
-    }
-    load();
+  const del = (id: number) => {
+    confirmToast('Hapus modul aplikasi ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/master/app-modules/${id}`, { method: 'DELETE' });
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error(j.error || 'Gagal menghapus modul');
+          return;
+        }
+        toast.success('Modul aplikasi dihapus');
+        load();
+      },
+    });
   };
 
   return (
@@ -579,7 +593,7 @@ function AccessSection() {
   const save = async () => {
     const r = modal.record;
     if (!r?.module_id) {
-      alert('Pilih modul');
+      toast.warning('Pilih modul');
       return;
     }
     const body = {
@@ -595,25 +609,31 @@ function AccessSection() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const j = await res.json().catch(() => ({}));
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) {
-      alert((j as { error?: string }).error || 'Gagal menyimpan');
+      toast.error(j.error || 'Gagal menyimpan aturan akses modul');
       return;
     }
     setModal({ open: false, record: null });
+    toast.success('Aturan akses modul disimpan');
     load();
   };
 
-  const del = async (id: number) => {
-    if (!confirm('Hapus aturan akses ini?')) return;
-    setDeleting(id);
-    const res = await fetch(`/api/master/module-access/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    if (!res.ok) {
-      alert('Gagal menghapus');
-      return;
-    }
-    load();
+  const del = (id: number) => {
+    confirmToast('Hapus aturan akses modul ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/master/module-access/${id}`, { method: 'DELETE' });
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error('Gagal menghapus aturan akses modul');
+          return;
+        }
+        toast.success('Aturan akses modul dihapus');
+        load();
+      },
+    });
   };
 
   return (

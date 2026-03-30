@@ -5,6 +5,8 @@ import DataTable from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 interface LevelGrade {
   id: number;
@@ -28,11 +30,20 @@ export default function LevelGradesPage() {
   useEffect(() => { load(); }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Hapus tingkat kelas ini?')) return;
-    setDeleting(id);
-    await fetch(`/api/master/level-grades/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    load();
+    confirmToast('Hapus tingkat kelas ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/master/level-grades/${id}`, { method: 'DELETE' });
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error('Gagal menghapus tingkat kelas');
+          return;
+        }
+        toast.success('Tingkat kelas dihapus');
+        load();
+      },
+    });
   };
 
   const columns = [

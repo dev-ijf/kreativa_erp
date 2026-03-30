@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/FormFields';
 import { Field, Select, Input } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
 interface Row {
   id: number;
@@ -81,17 +83,22 @@ export default function DistrictsPage() {
     load();
   }, [load]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Hapus kecamatan ini?')) return;
-    setDeleting(id);
-    const r = await fetch(`/api/master/districts/${id}`, { method: 'DELETE' });
-    const j = await r.json().catch(() => ({}));
-    setDeleting(null);
-    if (!r.ok) {
-      alert((j as { error?: string }).error || 'Gagal menghapus');
-      return;
-    }
-    load();
+  const handleDelete = (id: number) => {
+    confirmToast('Hapus kecamatan ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const r = await fetch(`/api/master/districts/${id}`, { method: 'DELETE' });
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        setDeleting(null);
+        if (!r.ok) {
+          toast.error(j.error || 'Gagal menghapus kecamatan');
+          return;
+        }
+        toast.success('Kecamatan dihapus');
+        load();
+      },
+    });
   };
 
   return (

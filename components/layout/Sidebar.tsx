@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { toast } from "sonner";
+import { confirmToast } from "@/components/ui/confirmToast";
 import {
   LayoutDashboard, GraduationCap, Users, Wallet, BookOpen,
   CreditCard, Settings, ChevronDown, Banknote, LogOut,
@@ -265,9 +267,13 @@ export default function Sidebar() {
             <button
               type="button"
               onClick={() => {
-                if (confirm('Yakin ingin keluar dari aplikasi?')) {
-                  signOut({ callbackUrl: "/login" });
-                }
+                confirmToast('Yakin ingin keluar dari aplikasi?', {
+                  confirmLabel: 'Keluar',
+                  onConfirm: () => {
+                    toast.success('Anda telah keluar');
+                    signOut({ callbackUrl: "/login" });
+                  },
+                });
               }}
               className={`flex items-center gap-3 text-left ${collapsed ? "justify-center" : ""}`}
             >

@@ -5,8 +5,16 @@ import DataTable from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { confirmToast } from '@/components/ui/confirmToast';
 
-interface School { id: number; name: string; address: string; created_at: string; [key: string]: any; }
+interface School {
+  id: number;
+  name: string;
+  address: string;
+  created_at: string;
+  [key: string]: any;
+}
 
 export default function SchoolsPage() {
   const [data, setData] = useState<School[]>([]);
@@ -15,17 +23,33 @@ export default function SchoolsPage() {
 
   const load = () => {
     setLoading(true);
-    fetch('/api/master/schools').then(r => r.json()).then(d => { setData(d); setLoading(false); });
+    fetch('/api/master/schools')
+      .then((r) => r.json())
+      .then((d) => {
+        setData(d);
+        setLoading(false);
+      });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Hapus sekolah ini?')) return;
-    setDeleting(id);
-    await fetch(`/api/master/schools/${id}`, { method: 'DELETE' });
-    setDeleting(null);
-    load();
+    confirmToast('Hapus sekolah ini?', {
+      confirmLabel: 'Hapus',
+      onConfirm: async () => {
+        setDeleting(id);
+        const res = await fetch(`/api/master/schools/${id}`, { method: 'DELETE' });
+        setDeleting(null);
+        if (!res.ok) {
+          toast.error('Gagal menghapus sekolah');
+          return;
+        }
+        toast.success('Sekolah dihapus');
+        load();
+      },
+    });
   };
 
   const columns = [
