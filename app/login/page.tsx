@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 
@@ -18,7 +17,6 @@ type PortalTheme = {
 };
 
 export default function LoginPage() {
-  const searchParams = useSearchParams();
   const [theme, setTheme] = useState<PortalTheme>({
     appTitle: "Kreativa",
     logoMainUrl: null,
