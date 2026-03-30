@@ -246,6 +246,9 @@ export default function UsersAdmin() {
         <h2 className="text-xl font-bold text-slate-800">Data Pengguna</h2>
         <p className="text-slate-400 text-[13px]">Kelola akun login (core_users)</p>
         <p className="text-slate-500 text-[12px] mt-1">
+          Email akan digunakan untuk login SSO Google. Pastikan sama dengan alamat email akun Google pengguna.
+        </p>
+        <p className="text-slate-500 text-[12px] mt-1">
           <span className="font-medium text-slate-600">Guru:</span> di form edit/tambah, pilih <strong>Sekolah</strong> lalu
           bagian <strong>Penugasan kelas</strong> (rombel tahun ajaran aktif). Ringkasan muncul di kolom tabel.
         </p>

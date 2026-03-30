@@ -4,6 +4,7 @@ import '@fontsource/source-sans-pro/latin-400.css';
 import '@fontsource/source-sans-pro/latin-600.css';
 import '@fontsource/source-sans-pro/latin-700.css';
 import './globals.css';
+import DynamicFavicon from '@/components/layout/DynamicFavicon';
 
 export const metadata: Metadata = {
   title: 'Kreativa ERP – Superadmin Panel',
@@ -13,7 +14,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" suppressHydrationWarning>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <DynamicFavicon />
+        {children}
+      </body>
     </html>
   );
 }

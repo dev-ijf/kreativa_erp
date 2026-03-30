@@ -7,6 +7,30 @@ import { format } from 'date-fns';
 
 const LIMIT = 15;
 
+const SETTING_KEY_OPTIONS: { key: string; label: string }[] = [
+  { key: 'app_title', label: 'Judul aplikasi (app_title)' },
+  { key: 'logo_main_url', label: 'Logo utama sidebar (logo_main_url)' },
+  { key: 'logo_login_url', label: 'Logo halaman login (logo_login_url)' },
+  { key: 'primary_color', label: 'Warna utama tema (primary_color)' },
+  { key: 'login_welcome_text', label: 'Teks sambutan login (login_welcome_text)' },
+  { key: 'favicon_url', label: 'Favicon / icon tab browser (favicon_url)' },
+  { key: 'login_title', label: 'Judul besar kartu login (login_title)' },
+  { key: 'login_subtitle', label: 'Subjudul / deskripsi singkat login (login_subtitle)' },
+  { key: 'login_cta_text', label: 'Teks tombol login (login_cta_text)' },
+  { key: 'login_bg_url', label: 'Gambar background panel kanan login (login_bg_url)' },
+];
+
+type SettingValueType = 'text' | 'image' | 'color';
+
+function guessValueType(key: string, value: string | null): SettingValueType {
+  const k = key.toLowerCase();
+  if (k.includes('color') || k.includes('colour') || k.endsWith('_color')) return 'color';
+  if (k.includes('logo') || k.includes('image') || k.includes('favicon') || k.endsWith('_url')) {
+    if (value && /^https?:\/\//.test(value)) return 'image';
+  }
+  return 'text';
+}
+
 interface Row {
   id: number;
   school_id: number | null;
@@ -20,6 +44,7 @@ interface Row {
 
 type SettingsFormRecord = Partial<Omit<Row, 'school_id'>> & {
   school_id?: number | null | '';
+  value_type?: SettingValueType;
 };
 
 interface ListResp {
@@ -78,6 +103,19 @@ export default function SettingsAdmin() {
     }
     const school_id =
       r.school_id === '' || r.school_id == null ? null : Number(r.school_id);
+
+    // Cegah duplikasi kombinasi (school_id, setting_key) di sisi UI
+    if (!r.id) {
+      const key = r.setting_key.trim();
+      const exists = rows.some(
+        (row) => row.setting_key === key && row.school_id === school_id
+      );
+      if (exists) {
+        alert('Kombinasi sekolah + kunci pengaturan ini sudah ada. Silakan edit entri tersebut, bukan membuat baru.');
+        return;
+      }
+    }
+
     const body = {
       setting_key: r.setting_key.trim(),
       setting_value: r.setting_value?.trim() ? r.setting_value : null,
@@ -145,7 +183,15 @@ export default function SettingsAdmin() {
           <Button size="sm" variant="outline" onClick={() => { setPage(1); load(); }}>
             Terapkan filter
           </Button>
-          <Button size="sm" onClick={() => setModal({ open: true, record: {} })}>
+          <Button
+            size="sm"
+            onClick={() =>
+              setModal({
+                open: true,
+                record: { value_type: 'text' },
+              })
+            }
+          >
             <Plus size={14} /> Tambah pengaturan
           </Button>
         </div>
@@ -204,6 +250,7 @@ export default function SettingsAdmin() {
                               setting_value: r.setting_value ?? '',
                               description: r.description ?? '',
                               school_id: r.school_id != null ? r.school_id : '',
+                              value_type: guessValueType(r.setting_key, r.setting_value),
                             },
                           })
                         }
@@ -277,25 +324,171 @@ export default function SettingsAdmin() {
               </Select>
             </Field>
             <Field label="Kunci (setting_key)" required>
-              <Input
-                value={modal.record?.setting_key ?? ''}
-                onChange={(e) => setModal((m) => ({ ...m, record: { ...m.record, setting_key: e.target.value } }))}
-                placeholder="contoh: maintenance_mode"
-                disabled={!!modal.record?.id}
-              />
+              {modal.record?.id ? (
+                <Input
+                  value={modal.record.setting_key ?? ''}
+                  disabled
+                />
+              ) : (
+                <Select
+                  value={modal.record?.setting_key ?? ''}
+                  onChange={(e) =>
+                    setModal((m) => ({
+                      ...m,
+                      record: { ...m.record, setting_key: e.target.value },
+                    }))
+                  }
+                >
+                  <option value="">— Pilih kunci —</option>
+                  {SETTING_KEY_OPTIONS.map((opt) => {
+                    const schoolIdForCheck =
+                      modal.record?.school_id === '' || modal.record?.school_id == null
+                        ? null
+                        : Number(modal.record.school_id);
+                    const alreadyUsed = rows.some(
+                      (row) => row.setting_key === opt.key && row.school_id === schoolIdForCheck
+                    );
+                    return (
+                      <option key={opt.key} value={opt.key} disabled={alreadyUsed}>
+                        {opt.label}
+                      </option>
+                    );
+                  })}
+                </Select>
+              )}
             </Field>
             {modal.record?.id && (
               <p className="text-[11px] text-slate-400">Kunci tidak bisa diubah setelah dibuat.</p>
             )}
-            <Field label="Nilai">
-              <textarea
-                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-[13.5px] outline-none min-h-[100px]"
-                value={modal.record?.setting_value ?? ''}
+            <Field label="Jenis nilai">
+              <Select
+                value={modal.record?.value_type ?? 'text'}
                 onChange={(e) =>
-                  setModal((m) => ({ ...m, record: { ...m.record, setting_value: e.target.value } }))
+                  setModal((m) => ({
+                    ...m,
+                    record: { ...m.record, value_type: (e.target.value || 'text') as SettingValueType },
+                  }))
                 }
-              />
+              >
+                <option value="text">Teks / konfigurasi umum</option>
+                <option value="image">Logo / URL gambar</option>
+                <option value="color">Warna (hex)</option>
+              </Select>
             </Field>
+            {(() => {
+              const vt: SettingValueType = modal.record?.value_type ?? 'text';
+              if (vt === 'image') {
+                const url = modal.record?.setting_value ?? '';
+                return (
+                  <div className="space-y-2">
+                    <Field label="Logo / URL gambar">
+                      <div className="space-y-2">
+                        {url ? (
+                          <div className="flex items-center gap-3">
+                            <div className="w-16 h-16 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={url} alt="Preview logo" className="max-w-full max-h-full object-contain" />
+                            </div>
+                            <span className="text-[11px] text-slate-500 break-all">{url}</span>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-slate-400">
+                            Belum ada logo tersimpan. Unggah file atau isi URL gambar publik.
+                          </p>
+                        )}
+                        <Input
+                          value={url}
+                          onChange={(e) =>
+                            setModal((m) => ({
+                              ...m,
+                              record: { ...m.record, setting_value: e.target.value },
+                            }))
+                          }
+                          placeholder="https://contoh.com/logo.png"
+                        />
+                        <div className="flex items-center gap-3">
+                          <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const form = new FormData();
+                                form.set('file', file);
+                                form.set('prefix', 'settings/logo');
+                                const res = await fetch('/api/upload/blob', {
+                                  method: 'POST',
+                                  body: form,
+                                });
+                                const j = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+                                if (!res.ok || !j.url) {
+                                  alert(j.error || 'Gagal mengunggah logo');
+                                  return;
+                                }
+                                setModal((m) => ({
+                                  ...m,
+                                  record: { ...m.record, setting_value: j.url ?? '' },
+                                }));
+                              }}
+                            />
+                            <span className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-[12px]">
+                              Pilih file logo…
+                            </span>
+                          </label>
+                          <p className="text-[11px] text-slate-400">
+                            Disimpan di storage dan otomatis mengisi kolom URL di atas.
+                          </p>
+                        </div>
+                      </div>
+                    </Field>
+                  </div>
+                );
+              }
+              if (vt === 'color') {
+                const val = modal.record?.setting_value ?? '';
+                return (
+                  <Field label="Warna (hex)">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={/^#[0-9a-fA-F]{6}$/.test(val) ? val : '#2f4f4f'}
+                        onChange={(e) =>
+                          setModal((m) => ({
+                            ...m,
+                            record: { ...m.record, setting_value: e.target.value },
+                          }))
+                        }
+                        className="w-10 h-10 rounded-md border border-slate-200 bg-white"
+                      />
+                      <Input
+                        value={val}
+                        onChange={(e) =>
+                          setModal((m) => ({
+                            ...m,
+                            record: { ...m.record, setting_value: e.target.value },
+                          }))
+                        }
+                        placeholder="#2563eb"
+                      />
+                    </div>
+                  </Field>
+                );
+              }
+              return (
+                <Field label="Nilai">
+                  <textarea
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-[13.5px] outline-none min-h-[100px]"
+                    value={modal.record?.setting_value ?? ''}
+                    onChange={(e) =>
+                      setModal((m) => ({ ...m, record: { ...m.record, setting_value: e.target.value } }))
+                    }
+                    placeholder="Nilai pengaturan (teks bebas, JSON, dsb.)"
+                  />
+                </Field>
+              );
+            })()}
             <Field label="Deskripsi">
               <Input
                 value={modal.record?.description ?? ''}

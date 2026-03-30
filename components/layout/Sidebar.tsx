@@ -1,15 +1,22 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import {
   LayoutDashboard, GraduationCap, Users, Wallet, BookOpen,
   CreditCard, Settings, ChevronDown, Banknote, LogOut,
   Building2, MapPin, UserPlus, ListTree, Layers,
   Receipt, ScanLine, Bell, ChevronRight, School, CalendarDays,
   UserCog, BarChart3, Landmark, House, Palette,
-} from 'lucide-react';
+} from "lucide-react";
+
+type PortalThemeState = {
+  appTitle: string;
+  logoMainUrl: string | null;
+  primaryColor: string | null;
+};
 
 const MODULES = [
   {
@@ -73,14 +80,14 @@ function moduleForPathname(pathname: string) {
   ) {
     return MODULES.find((m) => m.id === 'students') ?? MODULES[0];
   }
-  if (pathname.startsWith('/master') || pathname.startsWith('/users') || pathname.startsWith('/settings')) {
-    return MODULES.find((m) => m.id === 'masterUsers') ?? MODULES[0];
+  if (pathname.startsWith("/master") || pathname.startsWith("/users") || pathname.startsWith("/settings")) {
+    return MODULES.find((m) => m.id === "masterUsers") ?? MODULES[0];
   }
-  if (pathname.startsWith('/students')) {
-    return MODULES.find((m) => m.id === 'students') ?? MODULES[0];
+  if (pathname.startsWith("/students")) {
+    return MODULES.find((m) => m.id === "students") ?? MODULES[0];
   }
-  if (pathname.startsWith('/finance') || pathname.startsWith('/billing')) {
-    return MODULES.find((m) => m.id === 'financeBilling') ?? MODULES[0];
+  if (pathname.startsWith("/finance") || pathname.startsWith("/billing")) {
+    return MODULES.find((m) => m.id === "financeBilling") ?? MODULES[0];
   }
   return null;
 }
@@ -88,6 +95,11 @@ function moduleForPathname(pathname: string) {
 export default function Sidebar() {
   const pathname = usePathname();
   const [activeModule, setActiveModule] = useState(MODULES[0]);
+  const [portalTheme, setPortalTheme] = useState<PortalThemeState>({
+    appTitle: "Kreativa",
+    logoMainUrl: null,
+    primaryColor: null,
+  });
 
   useEffect(() => {
     const mod = moduleForPathname(pathname);
@@ -95,6 +107,25 @@ export default function Sidebar() {
   }, [pathname]);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/settings/portal-theme");
+        const j = (await res.json().catch(() => null)) as
+          | { appTitle?: string; logoMainUrl?: string | null; primaryColor?: string | null }
+          | null;
+        if (!j) return;
+        setPortalTheme((prev) => ({
+          appTitle: j.appTitle && j.appTitle.trim() ? j.appTitle : prev.appTitle,
+          logoMainUrl: j.logoMainUrl ?? prev.logoMainUrl,
+          primaryColor: j.primaryColor ?? prev.primaryColor,
+        }));
+      } catch {
+        // ignore theme fetch errors, keep defaults
+      }
+    })();
+  }, []);
 
   return (
     <>
@@ -104,17 +135,27 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`${collapsed ? 'w-20' : 'w-64'} ${activeModule.color} text-white flex flex-col shrink-0 transition-all duration-300 ease-in-out relative z-50 shadow-2xl`}
+        className={`${collapsed ? "w-20" : "w-64"} ${activeModule.color} text-white flex flex-col shrink-0 transition-all duration-300 ease-in-out relative z-50 shadow-2xl`}
+        style={portalTheme.primaryColor ? { backgroundColor: portalTheme.primaryColor } : undefined}
       >
         {/* Logo */}
         <div className="p-5 flex items-center gap-3 border-b border-white/10">
-          <div className="w-9 h-9 bg-white/15 rounded-2xl flex items-center justify-center shrink-0 border border-white/20">
-            <GraduationCap size={20} strokeWidth={1.5} />
+          <div className="w-9 h-9 bg-white/15 rounded-2xl flex items-center justify-center shrink-0 border border-white/20 overflow-hidden">
+            {portalTheme.logoMainUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={portalTheme.logoMainUrl}
+                alt={portalTheme.appTitle}
+                className="max-w-full max-h-full object-contain"
+              />
+            ) : (
+              <GraduationCap size={20} strokeWidth={1.5} />
+            )}
           </div>
           {!collapsed && (
             <div>
-              <p className="font-bold text-base tracking-tight leading-none">Kreativa</p>
-              <p className="text-[9px] font-semibold tracking-[0.2em] opacity-50 mt-0.5">GLOBAL SCHOOL ERP</p>
+              <p className="font-bold text-base tracking-tight leading-none">{portalTheme.appTitle}</p>
+              
             </div>
           )}
         </div>
@@ -204,16 +245,27 @@ export default function Sidebar() {
         {/* User Footer */}
         <div className="p-3 border-t border-white/10">
           <div className={`bg-black/20 rounded-2xl p-3 flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-            <div className="w-8 h-8 rounded-lg bg-white/90 flex items-center justify-center text-slate-700 font-bold text-sm shrink-0">
-              S
-            </div>
-            {!collapsed && (
-              <div className="flex-1 overflow-hidden">
-                <p className="text-[13px] font-semibold truncate">Superadmin</p>
-                <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Yayasan</p>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className={`flex items-center gap-3 text-left ${collapsed ? "justify-center" : ""}`}
+            >
+              <div className="w-8 h-8 rounded-lg bg-white/90 flex items-center justify-center text-slate-700 font-bold text-sm shrink-0">
+                S
               </div>
-            )}
-            {!collapsed && <LogOut size={14} className="text-white/20 hover:text-white cursor-pointer transition-colors shrink-0" />}
+              {!collapsed && (
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-[13px] font-semibold truncate">Superadmin</p>
+                  <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Yayasan</p>
+                </div>
+              )}
+              {!collapsed && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-white/70 hover:text-white">
+                  <LogOut size={14} className="shrink-0" />
+                  <span>Keluar</span>
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </aside>
