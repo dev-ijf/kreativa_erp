@@ -34,17 +34,17 @@ const handler = NextAuth({
       const email = user.email?.toLowerCase();
       if (!email) return false;
 
-      const rows = await sql<{
+      const rows = (await sql`
+        SELECT id, full_name, email, role, school_id
+        FROM core_users
+        WHERE email = ${email}
+      `) as {
         id: number;
         full_name: string;
         email: string;
         role: string;
         school_id: number | null;
-      }>`
-        SELECT id, full_name, email, role, school_id
-        FROM core_users
-        WHERE email = ${email}
-      `;
+      }[];
 
       const dbUser = rows[0];
       if (!dbUser) {
