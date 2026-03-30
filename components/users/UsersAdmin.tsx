@@ -12,6 +12,18 @@ interface TeacherClassOption {
   school_id: number;
 }
 
+/** Respons kosong / HTML error / bukan JSON tidak membuat runtime crash. */
+async function parseResponseJson<T>(res: Response): Promise<T | null> {
+  const text = await res.text();
+  const t = text.trim();
+  if (!t) return null;
+  try {
+    return JSON.parse(t) as T;
+  } catch {
+    return null;
+  }
+}
+
 const LIMIT = 15;
 
 const ROLES = [
@@ -31,6 +43,8 @@ interface Row {
   role: string;
   created_at?: string | null;
   school_name?: string | null;
+  /** Daftar rombel (tahun ajaran aktif) untuk peran guru */
+  teacher_classes_summary?: string | null;
 }
 
 /** Form state: select HTML memakai '' untuk “tidak pilih sekolah”. */
@@ -109,20 +123,25 @@ export default function UsersAdmin() {
         for_active_year: '1',
         include_empty: includeEmptyTeacherClasses ? '1' : '0',
       });
-      const [clsRes, assignRes] = await Promise.all([
-        fetch(`/api/master/classes?${q}`).then((r) => r.json()),
-        record.id
-          ? fetch(`/api/users/${record.id}/teacher-classes`).then((r) => r.json())
-          : Promise.resolve({ class_ids: [] as number[], academic_year_name: null }),
-      ]);
-      setTeacherClassOptions(Array.isArray(clsRes) ? clsRes : []);
-      setTeacherClassIds(
-        Array.isArray((assignRes as { class_ids?: number[] }).class_ids)
-          ? (assignRes as { class_ids: number[] }).class_ids
-          : []
+      const emptyAssign = new Response(
+        JSON.stringify({ class_ids: [], academic_year_name: null }),
+        { headers: { 'Content-Type': 'application/json' } }
       );
+      const [clsR, assignR] = await Promise.all([
+        fetch(`/api/master/classes?${q}`),
+        record.id ? fetch(`/api/users/${record.id}/teacher-classes`) : Promise.resolve(emptyAssign),
+      ]);
+      const clsRes = await parseResponseJson<unknown>(clsR);
+      const assignRes =
+        (await parseResponseJson<{ class_ids?: number[]; academic_year_name?: string | null }>(assignR)) ?? {
+          class_ids: [] as number[],
+          academic_year_name: null as string | null,
+        };
+
+      setTeacherClassOptions(Array.isArray(clsRes) ? (clsRes as TeacherClassOption[]) : []);
+      setTeacherClassIds(Array.isArray(assignRes.class_ids) ? assignRes.class_ids : []);
       setTeacherClassesMeta({
-        yearName: (assignRes as { academic_year_name?: string | null }).academic_year_name ?? null,
+        yearName: assignRes.academic_year_name ?? null,
       });
     } finally {
       setTeacherClassesLoading(false);
@@ -202,6 +221,7 @@ export default function UsersAdmin() {
     setModal({ open: false, record: {} });
     setTeacherClassIds([]);
     setTeacherClassOptions([]);
+    setIncludeEmptyTeacherClasses(false);
     load();
   };
 
@@ -225,6 +245,10 @@ export default function UsersAdmin() {
       <div>
         <h2 className="text-xl font-bold text-slate-800">Data Pengguna</h2>
         <p className="text-slate-400 text-[13px]">Kelola akun login (core_users)</p>
+        <p className="text-slate-500 text-[12px] mt-1">
+          <span className="font-medium text-slate-600">Guru:</span> di form edit/tambah, pilih <strong>Sekolah</strong> lalu
+          bagian <strong>Penugasan kelas</strong> (rombel tahun ajaran aktif). Ringkasan muncul di kolom tabel.
+        </p>
       </div>
 
       <div className="bg-white rounded-2xl border border-[#E2E8F1] shadow-sm p-4 space-y-3">
@@ -279,6 +303,7 @@ export default function UsersAdmin() {
               <th className="px-3 py-3">Telepon</th>
               <th className="px-3 py-3">Peran</th>
               <th className="px-3 py-3">Sekolah</th>
+              <th className="px-3 py-3 min-w-[160px]">Kelas (guru)</th>
               <th className="px-3 py-3">Dibuat</th>
               <th className="px-3 py-3 text-right">Aksi</th>
             </tr>
@@ -286,13 +311,13 @@ export default function UsersAdmin() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
                   Memuat...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
                   Tidak ada data
                 </td>
               </tr>
@@ -304,6 +329,17 @@ export default function UsersAdmin() {
                   <td className="px-3 py-2">{r.phone ?? '—'}</td>
                   <td className="px-3 py-2">{roleLabel(r.role)}</td>
                   <td className="px-3 py-2">{r.school_name ?? <span className="text-slate-400">Yayasan</span>}</td>
+                  <td className="px-3 py-2 text-[12px] text-slate-700 max-w-[220px]">
+                    {r.role === 'teacher' ? (
+                      r.teacher_classes_summary ? (
+                        <span className="leading-snug">{r.teacher_classes_summary}</span>
+                      ) : (
+                        <span className="text-slate-400 italic">Belum ditugaskan</span>
+                      )
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-slate-500 whitespace-nowrap text-[12px]">
                     {r.created_at ? format(new Date(r.created_at), 'dd/MM/yyyy HH:mm') : '—'}
                   </td>
@@ -364,12 +400,36 @@ export default function UsersAdmin() {
 
       {modal.open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 space-y-4">
+          <div
+            className={`bg-white rounded-2xl shadow-xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4 ${
+              modal.record?.role === 'teacher' &&
+              modal.record?.school_id !== '' &&
+              modal.record?.school_id != null
+                ? 'max-w-xl'
+                : 'max-w-md'
+            }`}
+          >
             <div className="flex justify-between items-start">
-              <h3 className="text-lg font-bold text-slate-800">
-                {modal.record?.id ? 'Edit pengguna' : 'Tambah pengguna'}
-              </h3>
-              <button type="button" className="text-slate-400" onClick={() => setModal({ open: false, record: {} })}>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">
+                  {modal.record?.id ? 'Edit pengguna' : 'Tambah pengguna'}
+                </h3>
+                {modal.record?.role === 'teacher' && (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Penugasan ke rombel mengikuti tahun ajaran yang sedang <strong>aktif</strong>.
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                className="text-slate-400"
+                onClick={() => {
+                  setModal({ open: false, record: {} });
+                  setTeacherClassIds([]);
+                  setTeacherClassOptions([]);
+                  setIncludeEmptyTeacherClasses(false);
+                }}
+              >
                 <X size={20} />
               </button>
             </div>
@@ -437,15 +497,27 @@ export default function UsersAdmin() {
               </Select>
             </Field>
             {modal.record?.role === 'teacher' &&
+              (modal.record?.school_id === '' || modal.record?.school_id == null) && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-900">
+                  Pilih <strong>Sekolah</strong> di atas agar muncul daftar rombel untuk penugasan guru (kelas aktif tahun
+                  ajaran berjalan).
+                </div>
+              )}
+            {modal.record?.role === 'teacher' &&
               modal.record?.school_id !== '' &&
               modal.record?.school_id != null && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                <div className="rounded-xl border-2 border-violet-200 bg-violet-50/60 p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[13px] font-semibold text-slate-700">
-                      Penugasan kelas (tahun ajaran aktif
-                      {teacherClassesMeta.yearName ? `: ${teacherClassesMeta.yearName}` : ''})
+                    <p className="text-[13px] font-bold text-violet-900">
+                      Penugasan kelas guru
+                      {teacherClassesMeta.yearName ? (
+                        <span className="font-semibold text-violet-700"> · {teacherClassesMeta.yearName}</span>
+                      ) : null}
                     </p>
                   </div>
+                  <p className="text-[11px] text-violet-800/90">
+                    Centang satu atau lebih rombel yang menjadi wali / tanggung jawab guru ini.
+                  </p>
                   <label className="flex items-center gap-2 text-[12px] text-slate-600 cursor-pointer">
                     <input
                       type="checkbox"
@@ -487,7 +559,16 @@ export default function UsersAdmin() {
                 </div>
               )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" type="button" onClick={() => setModal({ open: false, record: {} })}>
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => {
+                  setModal({ open: false, record: {} });
+                  setTeacherClassIds([]);
+                  setTeacherClassOptions([]);
+                  setIncludeEmptyTeacherClasses(false);
+                }}
+              >
                 Batal
               </Button>
               <Button type="button" onClick={save}>

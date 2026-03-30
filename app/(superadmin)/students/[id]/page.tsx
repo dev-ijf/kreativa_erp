@@ -12,6 +12,7 @@ import { Toaster, toast } from 'sonner';
 import { StudentPhotoUpload } from '@/components/student/StudentPhotoUpload';
 import { StudentDocumentsSection } from '@/components/student/StudentDocumentsSection';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import { OsmEmbedMap } from '@/components/map/OsmEmbedMap';
 
 type TabId =
   | 'personal'
@@ -54,6 +55,23 @@ const emptyParent = (relation: string): ParentForm => ({
   special_needs_note: '',
   phone: '',
 });
+
+/** Koordinat tersimpan; string kosong jangan di-`Number()` (menjadi 0 → titik di laut, bukan Bandung). */
+function parseStoredLatLon(
+  rawLat: unknown,
+  rawLon: unknown
+): { lat: number; lon: number } | null {
+  const sLat = String(rawLat ?? '').trim();
+  const sLon = String(rawLon ?? '').trim();
+  if (!sLat || !sLon) return null;
+  const lat = Number(sLat);
+  const lon = Number(sLon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  /* 0,0 = bug umum dari field kosong / data rusak; untuk sekolah di ID tidak dipakai sebagai lokasi nyata */
+  if (lat === 0 && lon === 0) return null;
+  return { lat, lon };
+}
 
 function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -105,6 +123,9 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
   const [parentAccessPassword, setParentAccessPassword] = useState('');
   const [parentAccessBusy, setParentAccessBusy] = useState(false);
   const [geocodeBusy, setGeocodeBusy] = useState(false);
+  const [geocodeCandidates, setGeocodeCandidates] = useState<
+    { lat: number; lon: number; display_name?: string }[]
+  >([]);
   const [graduateBusy, setGraduateBusy] = useState(false);
   const [listNavIds, setListNavIds] = useState<number[]>([]);
 
@@ -698,14 +719,92 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
               Alamat & lainnya
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
               <Field label="Alamat">
-                <Textarea
-                  value={String(form.address || '')}
-                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                  disabled={viewOnly}
-                  rows={2}
-                />
+                {viewOnly ? (
+                  <Textarea
+                    value={String(form.address || '')}
+                    onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                    disabled
+                    rows={2}
+                  />
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-start">
+                    <Textarea
+                      value={String(form.address || '')}
+                      onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                      rows={3}
+                      className="min-h-[5.5rem] flex-1 min-w-0"
+                      placeholder="Contoh: nama jalan, kompleks, kelurahan…"
+                    />
+                    <div className="flex flex-col gap-1.5 shrink-0 sm:w-[min(100%,14rem)] sm:pt-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        className="w-full flex-col gap-1 whitespace-normal h-auto py-2.5 px-3 shadow-md hover:shadow-lg border-0 ring-1 ring-violet-500/30"
+                        loading={geocodeBusy}
+                        onClick={async () => {
+                          const q = String(form.address || '').trim();
+                          if (q.length < 5) {
+                            toast.error('Isi alamat dulu (min. 5 karakter)');
+                            return;
+                          }
+                          setGeocodeBusy(true);
+                          const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+                          const text = await res.text();
+                          setGeocodeBusy(false);
+                          let j: {
+                            error?: string;
+                            results?: { lat: number; lon: number; display_name?: string }[];
+                          } = {};
+                          try {
+                            if (text.trim()) j = JSON.parse(text) as typeof j;
+                          } catch {
+                            toast.error('Respons pencarian lokasi tidak valid');
+                            return;
+                          }
+                          if (!res.ok) {
+                            toast.error(j.error || 'Pencarian lokasi gagal');
+                            setGeocodeCandidates([]);
+                            return;
+                          }
+                          const list = j.results ?? [];
+                          if (!list.length) {
+                            toast.error(j.error || 'Lokasi tidak ditemukan');
+                            setGeocodeCandidates([]);
+                            return;
+                          }
+                          const r0 = list[0]!;
+                          setGeocodeCandidates(list.length > 1 ? list : []);
+                          setForm((f) => ({
+                            ...f,
+                            address_latitude: String(r0.lat),
+                            address_longitude: String(r0.lon),
+                          }));
+                          toast.success(
+                            list.length > 1
+                              ? `Ditemukan ${list.length} lokasi — pilih yang paling sesuai di bawah jika perlu.`
+                              : 'Koordinat diisi dari pencarian lokasi'
+                          );
+                        }}
+                      >
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-white/95 leading-none">
+                          Klik di sini
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 justify-center w-full text-[12px] leading-snug">
+                          <MapPin size={15} className="shrink-0 opacity-95" />
+                          <span>Cari koordinat dari alamat</span>
+                        </span>
+                      </Button>
+                      <p className="text-[11px] text-slate-500 leading-snug text-center sm:text-left">
+                        Mengisi lintang &amp; bujur dari teks alamat di samping.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </Field>
+              </div>
               <div className="grid grid-cols-2 gap-2 md:col-span-2">
                 <Field label="Lintang (latitude)">
                   <Input
@@ -723,51 +822,84 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                     placeholder="106.xxx"
                   />
                 </Field>
-              </div>
-              {!viewOnly && (
-                <div className="md:col-span-2 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    loading={geocodeBusy}
-                    onClick={async () => {
-                      const q = String(form.address || '').trim();
-                      if (q.length < 5) {
-                        toast.error('Isi alamat dulu (min. 5 karakter)');
-                        return;
-                      }
-                      setGeocodeBusy(true);
-                      const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
-                      const j = await res.json();
-                      setGeocodeBusy(false);
-                      if (!res.ok || !j.results?.[0]) {
-                        toast.error(j.error || 'Lokasi tidak ditemukan');
-                        return;
-                      }
-                      const r = j.results[0];
-                      setForm((f) => ({
-                        ...f,
-                        address_latitude: String(r.lat),
-                        address_longitude: String(r.lon),
-                      }));
-                      toast.success('Koordinat diisi dari OpenStreetMap');
-                    }}
-                  >
-                    <MapPin size={14} /> Cari koordinat (OSM)
-                  </Button>
-                  {form.address_latitude && form.address_longitude ? (
+                {form.address_latitude && form.address_longitude ? (
+                  <div className="col-span-2 flex justify-end -mt-1">
                     <a
-                      className="inline-flex items-center text-[13px] text-blue-600 underline px-2"
+                      className="inline-flex items-center text-[13px] text-blue-600 underline"
                       target="_blank"
                       rel="noreferrer"
                       href={`https://www.openstreetmap.org/?mlat=${encodeURIComponent(String(form.address_latitude))}&mlon=${encodeURIComponent(String(form.address_longitude))}#map=16/${form.address_latitude}/${form.address_longitude}`}
                     >
-                      Buka peta
+                      Buka peta penuh di tab baru
                     </a>
-                  ) : null}
+                  </div>
+                ) : null}
+              </div>
+              {(() => {
+                /** Pusat Kota Bandung (Alun-alun / inti kota) — default bila koordinat siswa kosong */
+                const BANDUNG_LAT = -6.9147;
+                const BANDUNG_LON = 107.6098;
+                const pin = parseStoredLatLon(form.address_latitude, form.address_longitude);
+                const hasPin = pin != null;
+                return (
+                  <div className="md:col-span-2 space-y-1.5">
+                    <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+                      <OsmEmbedMap
+                        latitude={hasPin ? pin.lat : BANDUNG_LAT}
+                        longitude={hasPin ? pin.lon : BANDUNG_LON}
+                        zoom={hasPin ? 16 : 13}
+                        showMarker={hasPin}
+                        height={280}
+                      />
+                    </div>
+                    {!hasPin && !viewOnly ? (
+                      <p className="text-[11px] text-slate-500 px-0.5">
+                        Pratinjau peta default: <span className="font-semibold text-slate-600">Kota Bandung</span>.
+                        Isi alamat lalu tekan <span className="font-semibold">Klik di sini</span> agar penanda mengikuti lokasi.
+                      </p>
+                    ) : null}
+                    {!hasPin && viewOnly ? (
+                      <p className="text-[11px] text-slate-500 px-0.5">
+                        Koordinat belum tercatat — peta menampilkan <span className="font-semibold text-slate-600">Kota Bandung</span> sebagai acuan.
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })()}
+              {!viewOnly && geocodeCandidates.length > 1 ? (
+                <div className="md:col-span-2">
+                  <Field label="Pilih hasil pencarian">
+                    <Select
+                      value={String(
+                        Math.max(
+                          0,
+                          geocodeCandidates.findIndex(
+                            (c) =>
+                              String(c.lat) === String(form.address_latitude) &&
+                              String(c.lon) === String(form.address_longitude)
+                          )
+                        )
+                      )}
+                      onChange={(e) => {
+                        const idx = Number(e.target.value);
+                        const r = geocodeCandidates[idx];
+                        if (!r) return;
+                        setForm((f) => ({
+                          ...f,
+                          address_latitude: String(r.lat),
+                          address_longitude: String(r.lon),
+                        }));
+                      }}
+                    >
+                      {geocodeCandidates.map((c, i) => (
+                        <option key={`${c.lat}-${c.lon}-${i}`} value={i}>
+                          {(c.display_name || `${c.lat}, ${c.lon}`).slice(0, 120)}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
                 </div>
-              )}
+              ) : null}
               <div className="grid grid-cols-2 gap-2">
                 <Field label="RT">
                   <Input

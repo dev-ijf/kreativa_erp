@@ -201,8 +201,18 @@ export function Select({
   );
 }
 
-export function Textarea({ error, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { error?: string; rows?: number }) {
-  return <textarea className={`${inputCls(error)} resize-none`} rows={props.rows ?? 3} {...props} />;
+export function Textarea({
+  error,
+  className,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & { error?: string; rows?: number }) {
+  return (
+    <textarea
+      className={`${inputCls(error)} resize-none ${className ?? ''}`}
+      rows={props.rows ?? 3}
+      {...props}
+    />
+  );
 }
 
 interface BadgeProps {

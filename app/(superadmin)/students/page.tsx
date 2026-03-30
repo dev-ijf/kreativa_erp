@@ -14,9 +14,12 @@ import {
   Search,
   Download,
   Upload,
+  FileDown,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 interface StudentRow {
   id: number;
@@ -55,7 +58,9 @@ export default function StudentsPage() {
   const limit = 20;
   const [deleting, setDeleting] = useState<number | null>(null);
 
-  const [academicYears, setAcademicYears] = useState<{ id: number; name: string }[]>([]);
+  const [academicYears, setAcademicYears] = useState<
+    { id: number; name: string; is_active?: boolean }[]
+  >([]);
   const [classes, setClasses] = useState<
     { id: number; school_id: number; name: string; level_name: string }[]
   >([]);
@@ -69,6 +74,9 @@ export default function StudentsPage() {
   const [filterProgram, setFilterProgram] = useState('');
   const [searchQ, setSearchQ] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [templateSchoolId, setTemplateSchoolId] = useState('');
+  const [templateClassId, setTemplateClassId] = useState('');
 
   const loadRefs = useCallback(() => {
     Promise.all([
@@ -133,6 +141,19 @@ export default function StudentsPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!templateModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setTemplateModalOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [templateModalOpen]);
+
   const handleDelete = async (id: number) => {
     if (!confirm('Hapus siswa ini?')) return;
     setDeleting(id);
@@ -145,8 +166,144 @@ export default function StudentsPage() {
     ? classes.filter((c) => String(c.school_id) === filterSchool)
     : classes;
 
+  const templateClasses = templateSchoolId
+    ? classes.filter((c) => String(c.school_id) === templateSchoolId)
+    : [];
+
+  const downloadImportTemplate = () => {
+    if (!templateSchoolId) {
+      alert('Pilih sekolah terlebih dahulu agar school_id di file sesuai.');
+      return;
+    }
+    const sid = Number(templateSchoolId);
+    const school = schools.find((s) => s.id === sid);
+    const activeAyRow = academicYears.find((y) => y.is_active);
+    const ayId =
+      activeAyRow?.id ?? (filterAy && filterAy !== '' ? Number(filterAy) : NaN);
+    const ayNum = Number.isFinite(ayId) ? ayId : '';
+    const classNum = templateClassId.trim() ? Number(templateClassId.trim()) : '';
+    const sampleNis = `${sid}-NIS-001`;
+    const header = [
+      'school_id',
+      'full_name',
+      'nis',
+      'nisn',
+      'gender',
+      'student_type',
+      'program',
+      'username',
+      'entry_academic_year_id',
+      'active_academic_year_id',
+      'class_id',
+    ];
+    const sampleRow: (string | number)[] = [
+      sid,
+      'Contoh Nama Lengkap',
+      sampleNis,
+      '',
+      'L',
+      'Reguler',
+      'Reguler',
+      'opsional_username',
+      ayNum === '' ? '' : ayNum,
+      ayNum === '' ? '' : ayNum,
+      classNum === '' ? '' : classNum,
+    ];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([header, sampleRow]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Siswa');
+    const safe = (school?.name || String(sid))
+      .replace(/[/\\?%*:|"<>]/g, '_')
+      .replace(/\s+/g, '_');
+    XLSX.writeFile(wb, `template_import_siswa_${safe}.xlsx`);
+    setTemplateModalOpen(false);
+  };
+
   return (
     <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
+      {templateModalOpen ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="template-import-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
+            aria-label="Tutup"
+            onClick={() => setTemplateModalOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 id="template-import-title" className="text-lg font-bold text-slate-800">
+                  Unduh template import Excel (.xlsx)
+                </h3>
+                <p className="text-[13px] text-slate-500 mt-1">
+                  Pilih sekolah dulu supaya kolom <span className="font-mono text-[12px]">school_id</span>{' '}
+                  dan contoh baris sudah benar. Impor hanya menerima file <strong>.xlsx</strong>.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTemplateModalOpen(false)}
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Tutup"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <Field label="Sekolah (wajib)">
+                <Select
+                  value={templateSchoolId}
+                  onChange={(e) => {
+                    const sid = e.target.value;
+                    setTemplateSchoolId(sid);
+                    const first = classes.find((c) => String(c.school_id) === sid);
+                    setTemplateClassId(first ? String(first.id) : '');
+                  }}
+                >
+                  <option value="">— Pilih sekolah —</option>
+                  {schools.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Contoh rombel (opsional)">
+                <Select
+                  value={templateClassId}
+                  onChange={(e) => setTemplateClassId(e.target.value)}
+                  disabled={!templateSchoolId}
+                >
+                  <option value="">Kosong — tanpa rombel di baris contoh</option>
+                  {templateClasses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.level_name} {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <p className="text-[12px] text-slate-500 leading-relaxed">
+                Kolom wajib (baris pertama = header): <span className="font-mono">school_id</span>,{' '}
+                <span className="font-mono">full_name</span>, <span className="font-mono">nis</span>.
+                Tahun ajaran aktif diisi otomatis di baris contoh jika ada di master data.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-end pt-2">
+                <Button variant="outline" type="button" onClick={() => setTemplateModalOpen(false)}>
+                  Batal
+                </Button>
+                <Button type="button" onClick={downloadImportTemplate}>
+                  <FileDown size={14} /> Unduh .xlsx
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Daftar Peserta Didik</h2>
@@ -158,12 +315,17 @@ export default function StudentsPage() {
           <input
             ref={importInputRef}
             type="file"
-            accept=".xlsx,.xls,.csv"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="hidden"
             onChange={async (e) => {
               const file = e.target.files?.[0];
               e.target.value = '';
               if (!file) return;
+              const name = file.name.toLowerCase();
+              if (!name.endsWith('.xlsx')) {
+                alert('Impor siswa hanya mendukung file Microsoft Excel (.xlsx).');
+                return;
+              }
               const fd = new FormData();
               fd.set('file', file);
               const res = await fetch('/api/students/import', { method: 'POST', body: fd });
@@ -199,13 +361,23 @@ export default function StudentsPage() {
           >
             <Download size={14} /> Export Excel
           </Button>
-          <a
-            href="/samples/students_import_template.csv"
-            download
-            className="inline-flex items-center text-[12px] text-blue-600 underline px-1 self-center"
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={() => {
+              setTemplateSchoolId(filterSchool || '');
+              if (filterSchool) {
+                const first = classes.find((c) => String(c.school_id) === filterSchool);
+                setTemplateClassId(first ? String(first.id) : '');
+              } else {
+                setTemplateClassId('');
+              }
+              setTemplateModalOpen(true);
+            }}
           >
-            Template CSV
-          </a>
+            <FileDown size={14} /> Template Excel
+          </Button>
           <Link href="/students/add">
             <Button size="sm">
               <Plus size={15} /> Tambah Peserta Didik

@@ -10,6 +10,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/master/academic-years': 'Tahun Ajaran',
   '/master/level-grades': 'Tingkat Kelas',
   '/master/classes': 'Data Kelas',
+  '/master/class-promotion': 'Naik kelas / Pembagian',
   '/master/provinces': 'Provinsi',
   '/master/provinces/add': 'Tambah Provinsi',
   '/master/cities': 'Kabupaten / Kota',

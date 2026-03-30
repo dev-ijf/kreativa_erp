@@ -15,7 +15,15 @@ export async function GET(req: NextRequest) {
     const roleF = role && role !== '' ? role : null;
     const rows = await sql`
       SELECT u.id, u.school_id, u.full_name, u.email, u.phone, u.role, u.created_at,
-        s.name AS school_name
+        s.name AS school_name,
+        (
+          SELECT string_agg(lg.name || ' ' || c.name, ', ' ORDER BY lg.level_order ASC, c.name ASC)
+          FROM core_teacher_class_assignments tca
+          INNER JOIN core_academic_years ay ON ay.id = tca.academic_year_id AND ay.is_active = true
+          INNER JOIN core_classes c ON c.id = tca.class_id
+          INNER JOIN core_level_grades lg ON lg.id = c.level_grade_id
+          WHERE tca.user_id = u.id
+        ) AS teacher_classes_summary
       FROM core_users u
       LEFT JOIN core_schools s ON u.school_id = s.id
       WHERE (${like}::text IS NULL OR u.full_name ILIKE ${like} OR u.email ILIKE ${like} OR COALESCE(u.phone, '') ILIKE ${like})
@@ -43,7 +51,15 @@ export async function GET(req: NextRequest) {
   `,
     sql`
     SELECT u.id, u.school_id, u.full_name, u.email, u.phone, u.role, u.created_at,
-      s.name AS school_name
+      s.name AS school_name,
+      (
+        SELECT string_agg(lg.name || ' ' || c.name, ', ' ORDER BY lg.level_order ASC, c.name ASC)
+        FROM core_teacher_class_assignments tca
+        INNER JOIN core_academic_years ay ON ay.id = tca.academic_year_id AND ay.is_active = true
+        INNER JOIN core_classes c ON c.id = tca.class_id
+        INNER JOIN core_level_grades lg ON lg.id = c.level_grade_id
+        WHERE tca.user_id = u.id
+      ) AS teacher_classes_summary
     FROM core_users u
     LEFT JOIN core_schools s ON u.school_id = s.id
     WHERE (${pattern}::text IS NULL OR u.full_name ILIKE ${pattern} OR u.email ILIKE ${pattern}

@@ -23,14 +23,13 @@ const MODULES = [
       { name: 'Sekolah', href: '/master/schools', icon: <School size={16} /> },
       { name: 'Tahun Ajaran', href: '/master/academic-years', icon: <CalendarDays size={16} /> },
       { name: 'Tingkat Kelas', href: '/master/level-grades', icon: <Layers size={16} /> },
-      { name: 'Data Kelas', href: '/master/classes', icon: <BookOpen size={16} /> },
-      { name: 'Naik kelas / Pembagian', href: '/master/class-promotion', icon: <ListTree size={16} /> },
       { name: 'Provinsi', href: '/master/provinces', icon: <MapPin size={16} /> },
       { name: 'Kabupaten/Kota', href: '/master/cities', icon: <Building2 size={16} /> },
       { name: 'Kecamatan', href: '/master/districts', icon: <Landmark size={16} /> },
       { name: 'Kelurahan', href: '/master/subdistricts', icon: <House size={16} /> },
       { name: 'Portal & modul', href: '/master/portal-modules', icon: <Palette size={16} /> },
       { name: 'Data Pengguna', href: '/users', icon: <UserCog size={16} /> },
+      { name: 'Pengaturan', href: '/settings', icon: <Settings size={16} /> },
     ],
   },
   {
@@ -42,6 +41,8 @@ const MODULES = [
     menus: [
       { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
       { name: 'Daftar Peserta Didik', href: '/students', icon: <UserPlus size={16} /> },
+      { name: 'Data Kelas', href: '/master/classes', icon: <BookOpen size={16} /> },
+      { name: 'Naik kelas / Pembagian', href: '/master/class-promotion', icon: <ListTree size={16} /> },
     ],
   },
   {
@@ -66,6 +67,12 @@ const MODULES = [
 ];
 
 function moduleForPathname(pathname: string) {
+  if (
+    pathname.startsWith('/master/classes') ||
+    pathname.startsWith('/master/class-promotion')
+  ) {
+    return MODULES.find((m) => m.id === 'students') ?? MODULES[0];
+  }
   if (pathname.startsWith('/master') || pathname.startsWith('/users') || pathname.startsWith('/settings')) {
     return MODULES.find((m) => m.id === 'masterUsers') ?? MODULES[0];
   }
@@ -193,17 +200,6 @@ export default function Sidebar() {
             );
           })}
         </nav>
-
-        {/* Settings link */}
-        <div className="px-3 pb-2 border-t border-white/10 pt-3">
-          <Link
-            href="/settings"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all text-white/50 hover:text-white hover:bg-white/10 ${collapsed ? 'justify-center' : ''}`}
-          >
-            <Settings size={16} />
-            {!collapsed && <span className="text-[13.5px]">Pengaturan</span>}
-          </Link>
-        </div>
 
         {/* User Footer */}
         <div className="p-3 border-t border-white/10">

@@ -27,9 +27,25 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const file = form.get('file');
     if (!file || !(file instanceof Blob)) {
-      return NextResponse.json({ error: 'Field file wajib (xlsx/csv)' }, { status: 400 });
+      return NextResponse.json({ error: 'Field file wajib (.xlsx)' }, { status: 400 });
+    }
+    if (file instanceof File) {
+      const lower = file.name.toLowerCase();
+      if (!lower.endsWith('.xlsx')) {
+        return NextResponse.json(
+          { error: 'Format impor harus Microsoft Excel (.xlsx)' },
+          { status: 400 }
+        );
+      }
     }
     const ab = await file.arrayBuffer();
+    const u8 = new Uint8Array(ab);
+    if (u8.length < 4 || u8[0] !== 0x50 || u8[1] !== 0x4b) {
+      return NextResponse.json(
+        { error: 'File harus berupa workbook Excel .xlsx (bukan CSV atau format lain)' },
+        { status: 400 }
+      );
+    }
     workbook = XLSX.read(ab, { type: 'array' });
   } else {
     const body = (await req.json()) as { base64?: string };
@@ -37,6 +53,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Kirim multipart file atau JSON { base64 }' }, { status: 400 });
     }
     const buf = Buffer.from(body.base64, 'base64');
+    if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
+      return NextResponse.json(
+        { error: 'Isi base64 harus berupa file .xlsx (bukan CSV atau format lain)' },
+        { status: 400 }
+      );
+    }
     workbook = XLSX.read(buf, { type: 'buffer' });
   }
 
