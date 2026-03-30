@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   LayoutDashboard, GraduationCap, Users, Wallet, BookOpen,
@@ -94,6 +94,7 @@ function moduleForPathname(pathname: string) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [activeModule, setActiveModule] = useState(MODULES[0]);
   const [portalTheme, setPortalTheme] = useState<PortalThemeState>({
     appTitle: "Kreativa",
@@ -185,7 +186,14 @@ export default function Sidebar() {
               {MODULES.map((mod) => (
                 <button
                   key={mod.id}
-                  onClick={() => { setActiveModule(mod); setIsSwitcherOpen(false); }}
+                  onClick={() => {
+                    setActiveModule(mod);
+                    setIsSwitcherOpen(false);
+                    const firstMenu = mod.menus[0];
+                    if (firstMenu) {
+                      router.push(firstMenu.href);
+                    }
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 mx-1 mb-0.5 rounded-lg transition-all text-left ${
                     activeModule.id === mod.id
                       ? 'bg-slate-100 text-slate-800'
@@ -218,10 +226,15 @@ export default function Sidebar() {
               pathname === menu.href ||
               (menu.href !== '/dashboard' && pathname.startsWith(`${menu.href}/`));
             return (
-              <Link
+              <button
                 key={menu.href}
-                href={menu.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all group ${
+                type="button"
+                onClick={() => {
+                  if (pathname !== menu.href) {
+                    router.push(menu.href);
+                  }
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all group text-left ${
                   collapsed ? 'justify-center' : ''
                 } ${
                   isActive
@@ -233,11 +246,15 @@ export default function Sidebar() {
                   {menu.icon}
                 </span>
                 {!collapsed && (
-                  <span className={`text-[13.5px] tracking-tight ${isActive ? 'font-semibold text-slate-800' : 'font-normal'}`}>
+                  <span
+                    className={`text-[13.5px] tracking-tight ${
+                      isActive ? 'font-semibold text-slate-800' : 'font-normal'
+                    }`}
+                  >
                     {menu.name}
                   </span>
                 )}
-              </Link>
+              </button>
             );
           })}
         </nav>
@@ -247,7 +264,11 @@ export default function Sidebar() {
           <div className={`bg-black/20 rounded-2xl p-3 flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
             <button
               type="button"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => {
+                if (confirm('Yakin ingin keluar dari aplikasi?')) {
+                  signOut({ callbackUrl: "/login" });
+                }
+              }}
               className={`flex items-center gap-3 text-left ${collapsed ? "justify-center" : ""}`}
             >
               <div className="w-8 h-8 rounded-lg bg-white/90 flex items-center justify-center text-slate-700 font-bold text-sm shrink-0">
