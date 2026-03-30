@@ -76,7 +76,9 @@ export function confirmToast(message: string, options: ConfirmToastOptions) {
 
   const handleClose = () => {
     root.unmount();
-    container.remove();
+    if (container.parentNode) {
+      container.parentNode.removeChild(container);
+    }
   };
 
   root.render(
