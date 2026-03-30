@@ -15,14 +15,14 @@ type PortalThemeResp = {
 };
 
 export async function GET(_req: NextRequest) {
-  const rows = await sql<{
-    setting_key: string;
-    setting_value: string | null;
-  }>`
+  const rows = (await sql`
     SELECT setting_key, setting_value
     FROM core_settings
     WHERE school_id IS NULL
-  `;
+  `) as {
+    setting_key: string;
+    setting_value: string | null;
+  }[];
 
   const map: Record<string, string | null> = {};
   for (const r of rows) {
