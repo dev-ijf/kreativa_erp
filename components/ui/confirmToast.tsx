@@ -73,11 +73,22 @@ export function confirmToast(message: string, options: ConfirmToastOptions) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
+  let closed = false;
 
   const handleClose = () => {
-    root.unmount();
-    if (container.parentNode) {
-      container.parentNode.removeChild(container);
+    if (closed) return;
+    closed = true;
+    try {
+      root.unmount();
+    } catch {
+      // ignore
+    }
+    try {
+      if (container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
+    } catch {
+      // ignore detach errors
     }
   };
 
