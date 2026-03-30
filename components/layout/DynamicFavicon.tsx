@@ -15,16 +15,33 @@ export default function DynamicFavicon() {
         const head = document.head;
         if (!head) return;
 
-        // Pakai satu tag favicon khusus, tanpa menghapus node lain
-        let link = head.querySelector<HTMLLinkElement>("link#dynamic-favicon");
-        if (!link) {
-          link = document.createElement("link");
-          link.id = "dynamic-favicon";
-          link.rel = "icon";
-          link.type = "image/png";
-          head.appendChild(link);
+        // Update semua favicon yang sudah ada (termasuk bawaan Vercel)
+        const allIcons = head.querySelectorAll<HTMLLinkElement>("link[rel*='icon']");
+        allIcons.forEach((el) => {
+          el.href = href;
+        });
+
+        // Favicon utama khusus (fallback jika browser hanya baca sebagian)
+        let icon = head.querySelector<HTMLLinkElement>("link#dynamic-favicon");
+        if (!icon) {
+          icon = document.createElement("link");
+          icon.id = "dynamic-favicon";
+          icon.rel = "icon";
+          icon.type = "image/png";
+          head.appendChild(icon);
         }
-        link.href = href;
+        icon.href = href;
+
+        // Shortcut icon (beberapa browser masih mengandalkan ini)
+        let shortcut = head.querySelector<HTMLLinkElement>("link#dynamic-favicon-shortcut");
+        if (!shortcut) {
+          shortcut = document.createElement("link");
+          shortcut.id = "dynamic-favicon-shortcut";
+          shortcut.rel = "shortcut icon";
+          shortcut.type = "image/png";
+          head.appendChild(shortcut);
+        }
+        shortcut.href = href;
       } catch {
         // abaikan error, gunakan favicon default
       }
