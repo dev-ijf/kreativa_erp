@@ -15,22 +15,16 @@ export default function DynamicFavicon() {
         const head = document.head;
         if (!head) return;
 
-        // Hapus semua favicon lama dengan aman
-        const existingIcons = head.querySelectorAll<HTMLLinkElement>(
-          "link[rel='icon'], link[rel='shortcut icon']"
-        );
-        existingIcons.forEach((el) => {
-          if (el.parentNode) {
-            el.parentNode.removeChild(el);
-          }
-        });
-
-        // Tambahkan favicon baru dari core_settings
-        const link = document.createElement("link");
-        link.rel = "icon";
-        link.type = "image/png";
+        // Pakai satu tag favicon khusus, tanpa menghapus node lain
+        let link = head.querySelector<HTMLLinkElement>("link#dynamic-favicon");
+        if (!link) {
+          link = document.createElement("link");
+          link.id = "dynamic-favicon";
+          link.rel = "icon";
+          link.type = "image/png";
+          head.appendChild(link);
+        }
         link.href = href;
-        head.appendChild(link);
       } catch {
         // abaikan error, gunakan favicon default
       }
