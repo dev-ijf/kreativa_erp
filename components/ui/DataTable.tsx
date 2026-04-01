@@ -37,13 +37,14 @@ export default function DataTable<T>({
   pageSizeOptions = [10, 20, 50, 100],
   rowKey,
 }: DataTableProps<T>) {
+  const safeData = Array.isArray(data) ? data : [];
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(pageSize);
 
-  const filtered = data.filter((row) =>
+  const filtered = safeData.filter((row) =>
     !search ||
     Object.values(row as Record<string, unknown>).some((v) =>
       String(v ?? '').toLowerCase().includes(search.toLowerCase())
@@ -195,10 +196,22 @@ export default function DataTable<T>({
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setPage(1)} disabled={currentPage === 1} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all">
+            <button
+              onClick={() => setPage(1)}
+              disabled={currentPage === 1}
+              aria-label="Halaman pertama"
+              title="Halaman pertama"
+              className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all"
+            >
               <ChevronsLeft size={15} />
             </button>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              aria-label="Halaman sebelumnya"
+              title="Halaman sebelumnya"
+              className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all"
+            >
               <ChevronLeft size={15} />
             </button>
             {pageNumbers().map((p, i) =>
@@ -218,10 +231,22 @@ export default function DataTable<T>({
                 </button>
               )
             )}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all">
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              aria-label="Halaman berikutnya"
+              title="Halaman berikutnya"
+              className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all"
+            >
               <ChevronRight size={15} />
             </button>
-            <button onClick={() => setPage(totalPages)} disabled={currentPage === totalPages} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all">
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={currentPage === totalPages}
+              aria-label="Halaman terakhir"
+              title="Halaman terakhir"
+              className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all"
+            >
               <ChevronsRight size={15} />
             </button>
           </div>

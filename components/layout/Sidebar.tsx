@@ -143,7 +143,7 @@ export default function Sidebar() {
       >
         {/* Logo */}
         <div className="p-5 flex items-center gap-3 border-b border-white/10">
-          <div className="w-9 h-9 bg-white/15 rounded-2xl flex items-center justify-center shrink-0 border border-white/20 overflow-hidden">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden">
             {portalTheme.logoMainUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img

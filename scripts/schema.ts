@@ -359,24 +359,22 @@ export const tuitionPaymentMethods = pgTable('tuition_payment_methods', {
   code: varchar('code', { length: 50 }).notNull().unique(),
   category: varchar('category', { length: 50 }).notNull(),
   coa: varchar('coa', { length: 50 }),
+  sortOrder: integer('sort_order'),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
 // ==============================================================================
-// TUITION: PAYMENT INSTRUCTION GROUPS & STEPS
+// PAYMENT: INSTRUCTIONS (single table)
 // ==============================================================================
-export const tuitionPaymentInstructionGroups = pgTable('tuition_payment_instruction_groups', {
-  id: serial('id').primaryKey(),
-  paymentMethodId: integer('payment_method_id').notNull(),
-  title: varchar('title', { length: 100 }).notNull(),
-});
-
-export const tuitionPaymentInstructionSteps = pgTable('tuition_payment_instruction_steps', {
-  id: serial('id').primaryKey(),
-  groupId: integer('group_id').notNull(),
-  stepNumber: integer('step_number').notNull(),
-  instructionText: text('instruction_text').notNull(),
+export const paymentInstructions = pgTable('payment_instructions', {
+  id: bigint('id', { mode: 'number' }).primaryKey(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  stepOrder: bigint('step_order', { mode: 'number' }),
+  paymentChannelId: integer('payment_channel_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
 // ==============================================================================
@@ -482,8 +480,11 @@ export const notifTemplates = pgTable('notif_templates', {
   name: varchar('name', { length: 100 }).notNull(),
   type: varchar('type', { length: 50 }).notNull(),
   triggerEvent: varchar('trigger_event', { length: 50 }).notNull(),
+  subject: text('subject'),
   content: text('content').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+  isActive: boolean('is_active').default(true),
 });
 
 export const notifLogs = pgTable('notif_logs', {

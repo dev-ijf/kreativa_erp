@@ -85,9 +85,31 @@ export default function LoginPage() {
     theme.loginSubtitle ||
     "Masuk ke sistem manajemen sekolah Anda. Gunakan akun Google yang telah terdaftar untuk mengakses dashboard admin.";
   const loginCtaText = theme.loginCtaText || "Masuk dengan Google";
+  const rightPanelText =
+    theme.loginWelcomeText ||
+    "Selamat datang di portal administrasi Kreativa ERP.\n\n• Pantau aktivitas dan transaksi dalam satu tampilan.\n• Akses aman berbasis akun Google yayasan.\n• Dirancang untuk admin, operator, dan pimpinan sekolah.";
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-slate-50 relative overflow-hidden">
+      {theme.loginBgUrl ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={theme.loginBgUrl}
+            alt="Background login"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-slate-900/55" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.25),transparent_55%),radial-gradient(circle_at_bottom,rgba(15,23,42,0.9),transparent_60%)]" />
+        </>
+      ) : (
+        <>
+          <div className="absolute inset-0 opacity-60 bg-gradient-to-br from-sky-500 via-indigo-600 to-fuchsia-500" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.35),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.9),_transparent_60%)]" />
+        </>
+      )}
+
+      <div className="relative min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
         <div className="p-8 md:p-10 flex flex-col justify-center gap-6">
           <div className="flex items-center gap-3">
@@ -161,40 +183,20 @@ export default function LoginPage() {
         </div>
 
         <div className="hidden md:block relative bg-slate-900">
-          {theme.loginBgUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={theme.loginBgUrl}
-                alt="Background login"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-purple-900/60" />
-            </>
-          ) : (
-            <>
-              <div className="absolute inset-0 opacity-60 bg-gradient-to-br from-sky-500 via-indigo-600 to-fuchsia-500" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.35),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.9),_transparent_60%)]" />
-            </>
-          )}
+          <div className="absolute inset-0 bg-purple-900/50" />
+          <div className="absolute inset-0 opacity-50 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.25),transparent_55%),radial-gradient(circle_at_bottom,rgba(15,23,42,0.9),transparent_60%)]" />
           <div className="relative h-full flex flex-col justify-between p-8 text-white">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-sky-100/80 mb-3">
                 {theme.appTitle.toUpperCase()}
               </p>
-              <h3 className="text-2xl font-semibold leading-snug">
-                Kelola data dan kehadiran
-                <br />
-                dengan lebih efisien.
-              </h3>
-            </div>
-            <div className="space-y-2 text-[12px] text-sky-50/90">
-              <p>• Pantau aktivitas dan transaksi dalam satu tampilan.</p>
-              <p>• Akses aman berbasis akun Google yayasan.</p>
-              <p>• Dirancang untuk admin, operator, dan pimpinan sekolah.</p>
+              <div className="text-[13px] text-sky-50/90 whitespace-pre-line leading-relaxed">
+                {rightPanelText}
+              </div>
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
