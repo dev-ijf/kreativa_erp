@@ -89,9 +89,14 @@ async function seed() {
   await db.insert(schema.coreProvinces).values([{ id: 1, name: 'Jawa Barat' }]).onConflictDoNothing();
   await db.insert(schema.coreCities).values([{ id: 1, provinceId: 1, name: 'Kota Bandung' }]).onConflictDoNothing();
   await db.insert(schema.coreDistricts).values([{ id: 1, cityId: 1, name: 'Coblong' }]).onConflictDoNothing();
+  await db.insert(schema.coreSubdistricts).values([{ id: 1, districtId: 1, name: 'Dago', postalCode: '40135' }]).onConflictDoNothing();
+
   await db
-    .insert(schema.coreSubdistricts)
-    .values([{ id: 1, districtId: 1, name: 'Dago', postalCode: '40135' }])
+    .insert(schema.coreCohorts)
+    .values([
+      { id: 1, schoolId: 1, name: 'Angkatan 2024' },
+      { id: 2, schoolId: 4, name: 'Angkatan 2024' },
+    ])
     .onConflictDoNothing();
 
   await db
@@ -100,6 +105,7 @@ async function seed() {
       {
         id: 1,
         schoolId: 1,
+        cohortId: 1,
         userId: null,
         fullName: 'Revy Ahmad',
         username: 'revy.ahmad',
@@ -115,6 +121,7 @@ async function seed() {
       {
         id: 2,
         schoolId: 4,
+        cohortId: 2,
         userId: 3,
         fullName: 'Zevanya',
         username: 'zevanya',
@@ -229,12 +236,10 @@ async function seed() {
   await db
     .insert(schema.tuitionProductTariffs)
     .values([
-      { schoolId: 1, productId: 1, academicYearId: 1, levelGradeId: 1, amount: '750000' },
-      { schoolId: 1, productId: 1, academicYearId: 1, levelGradeId: 2, amount: '750000' },
-      { schoolId: 4, productId: 1, academicYearId: 1, levelGradeId: 3, amount: '1100000' },
-      { schoolId: 1, productId: 1, academicYearId: 2, levelGradeId: 1, amount: '800000' },
-      { schoolId: 1, productId: 1, academicYearId: 2, levelGradeId: 2, amount: '850000' },
-      { schoolId: 4, productId: 1, academicYearId: 2, levelGradeId: 3, amount: '1200000' },
+      { schoolId: 1, productId: 1, academicYearId: 1, cohortId: 1, amount: '750000' },
+      { schoolId: 4, productId: 1, academicYearId: 1, cohortId: 2, amount: '1100000' },
+      { schoolId: 1, productId: 1, academicYearId: 2, cohortId: 1, amount: '800000' },
+      { schoolId: 4, productId: 1, academicYearId: 2, cohortId: 2, amount: '1200000' },
     ])
     .onConflictDoNothing();
 
@@ -326,6 +331,9 @@ async function seed() {
   );
   await pool.query(`SELECT setval('core_users_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_users))`);
   await pool.query(`SELECT setval('core_students_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_students))`);
+  await pool.query(
+    `SELECT setval('core_cohorts_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_cohorts))`
+  );
   await pool.query(
     `SELECT setval('core_level_grades_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_level_grades))`
   );
