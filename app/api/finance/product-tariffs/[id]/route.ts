@@ -9,7 +9,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       school_id=${data.school_id},
       product_id=${data.product_id},
       academic_year_id=${data.academic_year_id},
-      level_grade_id=${data.level_grade_id},
+      cohort_id=${data.cohort_id},
       amount=${data.amount},
       updated_at=NOW()
     WHERE id=${Number(id)} RETURNING *

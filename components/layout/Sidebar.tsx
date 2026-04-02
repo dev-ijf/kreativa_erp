@@ -30,6 +30,7 @@ const MODULES = [
     menus: [
       { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
       { name: 'Sekolah', href: '/master/schools', icon: <School size={16} /> },
+      { name: 'Master Angkatan', href: '/master/cohorts', icon: <Users size={16} /> },
       { name: 'Tahun Ajaran', href: '/master/academic-years', icon: <CalendarDays size={16} /> },
       { name: 'Tingkat Kelas', href: '/master/level-grades', icon: <Layers size={16} /> },
       { name: 'Provinsi', href: '/master/provinces', icon: <MapPin size={16} /> },
@@ -65,7 +66,6 @@ const MODULES = [
       { name: 'Produk / Biaya', href: '/finance/products', icon: <Wallet size={16} /> },
       { name: 'Matriks Tarif', href: '/finance/product-tariffs', icon: <ScanLine size={16} /> },
       { name: 'Metode Pembayaran', href: '/finance/payment-methods', icon: <CreditCard size={16} /> },
-      { name: 'Instruksi Bayar', href: '/finance/payment-instructions', icon: <ListTree size={16} /> },
       { name: 'Template Notifikasi', href: '/finance/notifications', icon: <Bell size={16} /> },
       { name: 'Generate Tagihan', href: '/billing/generate', icon: <BarChart3 size={16} /> },
       { name: 'Matriks SPP', href: '/billing/matrix', icon: <ScanLine size={16} /> },

@@ -8,7 +8,16 @@ import Link from 'next/link';
 
 export default function AddPaymentMethodPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: '', code: '', category: 'bank_transfer', coa: '', is_active: true });
+  const [form, setForm] = useState({ 
+    name: '', 
+    code: '', 
+    category: 'bank_transfer', 
+    coa: '', 
+    vendor: '',
+    is_publish: true,
+    is_redirect: false,
+    is_active: true 
+  });
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -40,6 +49,12 @@ export default function AddPaymentMethodPage() {
           <Field label="Nama Bank / E-Wallet" required hint="Contoh: Bank BSI, BCA, GoPay, Tunai">
             <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
           </Field>
+          <Field label="Vendor / Penyedia" hint="Contoh: Zains, Midtrans, atau Nama Bank">
+            <Input value={form.vendor} onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))} />
+          </Field>
+          <Field label="Kode COA (Accounting)" hint="Contoh: 1-1101 (Kas) atau 1-1102 (Bank)">
+            <Input value={form.coa} onChange={e => setForm(f => ({ ...f, coa: e.target.value }))} />
+          </Field>
           <Field label="Kode Identifikasi" required hint="Contoh: BSI, BCA, GOPAY (Gunakan huruf kapital blok)">
             <Input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} />
           </Field>
@@ -51,10 +66,24 @@ export default function AddPaymentMethodPage() {
               <option value="cash">Pembayaran Tunai (Kasir)</option>
             </Select>
           </Field>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <Field label="Status Publish">
+              <Select value={form.is_publish ? 'true' : 'false'} onChange={e => setForm(f => ({ ...f, is_publish: e.target.value === 'true' }))}>
+                <option value="true">Published - Muncul di Portal</option>
+                <option value="false">Draft - Disembunyikan</option>
+              </Select>
+            </Field>
+            <Field label="Redirect ke Vendor?">
+              <Select value={form.is_redirect ? 'true' : 'false'} onChange={e => setForm(f => ({ ...f, is_redirect: e.target.value === 'true' }))}>
+                <option value="false">Tidak - Tetap di App</option>
+                <option value="true">Ya - Buka Halaman Vendor</option>
+              </Select>
+            </Field>
+          </div>
           <Field label="Status Aktif">
             <Select value={form.is_active ? 'true' : 'false'} onChange={e => setForm(f => ({ ...f, is_active: e.target.value === 'true' }))}>
               <option value="true">Aktif - Bisa digunakan</option>
-              <option value="false">Tidak Aktif - Disembunyikan</option>
+              <option value="false">Tidak Aktif - Nonaktifkan Permanen</option>
             </Select>
           </Field>
         </div>

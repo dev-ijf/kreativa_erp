@@ -87,6 +87,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
   const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
   const [cities, setCities] = useState<{ id: number; name: string }[]>([]);
   const [districts, setDistricts] = useState<{ id: number; name: string }[]>([]);
+  const [cohorts, setCohorts] = useState<{ id: number; name: string }[]>([]);
   const [subdistricts, setSubdistricts] = useState<
     { id: number; name: string; postal_code?: string | null }[]
   >([]);
@@ -339,12 +340,25 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
       .catch(() => setSubdistricts([]));
   }, [form.district_id]);
 
+  useEffect(() => {
+    const sid = form.school_id;
+    if (sid === '' || sid === undefined || sid === null) {
+      setCohorts([]);
+      return;
+    }
+    fetch(`/api/master/cohorts?school_id=${sid}`)
+      .then((r) => r.json())
+      .then((rows) => setCohorts(Array.isArray(rows) ? rows : []))
+      .catch(() => setCohorts([]));
+  }, [form.school_id]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (viewOnly) return;
     setSaving(true);
     const payload = {
       school_id: Number(form.school_id),
+      cohort_id: Number(form.cohort_id),
       full_name: form.full_name,
       nickname: emptyToNull(form.nickname as string),
       username: emptyToNull(form.username as string),
@@ -632,6 +646,21 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                   {schools.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Angkatan Masuk" required>
+                <Select
+                  value={String(form.cohort_id || '')}
+                  onChange={(e) => setForm((f) => ({ ...f, cohort_id: e.target.value }))}
+                  disabled={viewOnly}
+                  required
+                >
+                  <option value="">— Pilih Angkatan —</option>
+                  {cohorts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
                     </option>
                   ))}
                 </Select>

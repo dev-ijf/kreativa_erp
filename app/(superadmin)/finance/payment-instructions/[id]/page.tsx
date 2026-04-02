@@ -1,7 +1,7 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { use, useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Button, Field, Input, Select } from '@/components/ui/FormFields';
@@ -18,9 +18,11 @@ type Instruction = {
   payment_channel_id: number;
 };
 
-export default function EditPaymentInstructionPage({ params }: { params: Promise<{ id: string }> }) {
+function EditInstructionForm({ id }: { id: string }) {
   const router = useRouter();
-  const { id } = use(params);
+  const searchParams = useSearchParams();
+  const redirectParams = searchParams.get('redirect');
+  
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,6 +32,8 @@ export default function EditPaymentInstructionPage({ params }: { params: Promise
     step_order: '',
     description: '',
   });
+
+  const redirect = redirectParams || (form.payment_channel_id ? `/finance/payment-methods/${form.payment_channel_id}#instructions` : '/finance/payment-methods');
 
   useEffect(() => {
     void (async () => {
@@ -41,7 +45,7 @@ export default function EditPaymentInstructionPage({ params }: { params: Promise
       setMethods(m);
       if (!rowRes.ok) {
         toast.error('Instruksi tidak ditemukan');
-        router.push('/finance/payment-instructions');
+        router.push(redirect);
         return;
       }
       const row = (await rowRes.json()) as Instruction;
@@ -53,7 +57,7 @@ export default function EditPaymentInstructionPage({ params }: { params: Promise
       });
       setLoading(false);
     })();
-  }, [id, router]);
+  }, [id, router, redirect]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,22 +78,22 @@ export default function EditPaymentInstructionPage({ params }: { params: Promise
       return;
     }
     toast.success('Instruksi diperbarui');
-    router.push('/finance/payment-instructions');
+    router.push(redirect);
   };
 
   return (
-    <div className="p-6 max-w-[900px] mx-auto space-y-6">
+    <div className="p-6 max-w-[900px] mx-auto space-y-6 pb-20">
       <div className="flex items-center gap-4">
-        <Link href="/finance/payment-instructions">
+        <Link href={redirect}>
           <Button variant="outline" size="sm" className="h-9 w-9 p-0 justify-center"><ArrowLeft size={16} /></Button>
         </Link>
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Edit Payment Instruction</h2>
-          <p className="text-slate-400 text-[13px]">Update instruksi pembayaran</p>
+          <h2 className="text-xl font-bold text-slate-800 tracking-tight">Edit Instruksi Pembayaran</h2>
+          <p className="text-slate-400 text-[13px]">Update detail instruksi pembayaran</p>
         </div>
       </div>
 
-      <form onSubmit={handleSave} className="bg-white rounded-2xl border border-[#E2E8F1] shadow-sm overflow-hidden">
+      <form onSubmit={handleSave} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="p-6 space-y-5">
           <Field label="Payment Channel" required>
             <Select disabled={loading} value={form.payment_channel_id} onChange={(e) => setForm((f) => ({ ...f, payment_channel_id: e.target.value }))}>
@@ -99,7 +103,7 @@ export default function EditPaymentInstructionPage({ params }: { params: Promise
               ))}
             </Select>
           </Field>
-          <Field label="Judul Instruksi" required>
+          <Field label="Judul Instruksi" required hint="Contoh: Pembayaran melalui ATM Mandiri">
             <Input disabled={loading} value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} autoFocus />
           </Field>
           <Field label="Urutan Langkah (opsional)" hint="Kosongkan jika tidak ingin diurutkan">
@@ -109,14 +113,23 @@ export default function EditPaymentInstructionPage({ params }: { params: Promise
             <RichTextEditor value={form.description} onChange={(html) => setForm((f) => ({ ...f, description: html }))} />
           </Field>
         </div>
-        <div className="bg-slate-50 border-t border-[#E2E8F1] p-5 flex justify-end gap-3">
-          <Link href="/finance/payment-instructions"><Button variant="ghost" type="button">Batal</Button></Link>
+        <div className="bg-slate-50/80 border-t border-slate-100 p-5 flex justify-end gap-3 mt-4">
+          <Link href={redirect}><Button variant="ghost" type="button">Batal</Button></Link>
           <Button loading={saving} type="submit" disabled={loading || !form.title || !form.payment_channel_id || !form.description}>
-            Update
+            Update Instruksi
           </Button>
         </div>
       </form>
     </div>
+  );
+}
+
+export default function EditPaymentInstructionPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-slate-400">Loading form...</div>}>
+      <EditInstructionForm id={id} />
+    </Suspense>
   );
 }
 

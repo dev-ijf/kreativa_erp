@@ -13,12 +13,12 @@ interface TariffRow {
   school_id: number;
   product_id: number;
   academic_year_id: number;
-  level_grade_id: number;
+  cohort_id: number;
   amount: string;
   school_name: string;
   product_name: string;
   academic_year_name: string;
-  level_grade_name: string;
+  cohort_name: string;
 }
 
 interface Opt {
@@ -31,14 +31,14 @@ export default function ProductTariffsPage() {
   const [schools, setSchools] = useState<Opt[]>([]);
   const [products, setProducts] = useState<Opt[]>([]);
   const [years, setYears] = useState<Opt[]>([]);
-  const [levels, setLevels] = useState<Opt[]>([]);
+  const [cohorts, setCohorts] = useState<Opt[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [form, setForm] = useState({
     school_id: '',
     product_id: '',
     academic_year_id: '',
-    level_grade_id: '',
+    cohort_id: '',
     amount: '',
   });
   const [saving, setSaving] = useState(false);
@@ -50,13 +50,11 @@ export default function ProductTariffsPage() {
       fetch('/api/master/schools').then((r) => r.json()),
       fetch('/api/finance/products').then((r) => r.json()),
       fetch('/api/master/academic-years').then((r) => r.json()),
-      fetch('/api/master/level-grades').then((r) => r.json()),
-    ]).then(([t, sch, prod, ay, lg]) => {
+    ]).then(([t, sch, prod, ay]) => {
       setRows(t);
       setSchools(sch);
       setProducts(prod);
       setYears(ay);
-      setLevels(lg);
       setLoading(false);
     });
   };
@@ -64,6 +62,17 @@ export default function ProductTariffsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!form.school_id) {
+      setCohorts([]);
+      return;
+    }
+    fetch(`/api/master/cohorts?school_id=${form.school_id}`)
+      .then((r) => r.json())
+      .then((data) => setCohorts(Array.isArray(data) ? data : []))
+      .catch(() => setCohorts([]));
+  }, [form.school_id]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +84,7 @@ export default function ProductTariffsPage() {
         school_id: Number(form.school_id),
         product_id: Number(form.product_id),
         academic_year_id: Number(form.academic_year_id),
-        level_grade_id: Number(form.level_grade_id),
+        cohort_id: Number(form.cohort_id),
         amount: Number(form.amount),
       }),
     });
@@ -110,7 +119,7 @@ export default function ProductTariffsPage() {
   const columns = [
     { key: 'school_name', label: 'Sekolah', sortable: true },
     { key: 'academic_year_name', label: 'Tahun Ajaran', sortable: true },
-    { key: 'level_grade_name', label: 'Tingkat', sortable: true },
+    { key: 'cohort_name', label: 'Angkatan', sortable: true },
     { key: 'product_name', label: 'Produk', sortable: true },
     {
       key: 'amount',
@@ -149,7 +158,7 @@ export default function ProductTariffsPage() {
         <div>
           <h2 className="text-xl font-bold text-slate-800">Matriks Tarif</h2>
           <p className="text-slate-400 text-[13px]">
-            Harga per sekolah, tahun ajaran, dan tingkat kelas
+            Harga per sekolah, tahun ajaran, dan angkatan siswa
           </p>
         </div>
       </div>
@@ -186,16 +195,16 @@ export default function ProductTariffsPage() {
             ))}
           </Select>
         </Field>
-        <Field label="Tingkat Kelas">
+        <Field label="Angkatan">
           <Select
-            value={form.level_grade_id}
-            onChange={(e) => setForm((f) => ({ ...f, level_grade_id: e.target.value }))}
+            value={form.cohort_id}
+            onChange={(e) => setForm((f) => ({ ...f, cohort_id: e.target.value }))}
             required
           >
             <option value="">—</option>
-            {levels.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
+            {cohorts.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </Select>

@@ -115,6 +115,7 @@ export const coreSubdistricts = pgTable('core_subdistricts', {
 export const coreStudents = pgTable('core_students', {
   id: serial('id').primaryKey(),
   schoolId: integer('school_id').notNull(),
+  cohortId: integer('cohort_id').notNull().references(() => coreCohorts.id),
   userId: integer('user_id').unique(),
   fullName: varchar('full_name', { length: 100 }).notNull(),
   nickname: varchar('nickname', { length: 100 }),
@@ -245,6 +246,16 @@ export const coreParentStudentRelations = pgTable(
 );
 
 // ==============================================================================
+// CORE: COHORTS (Angkatan)
+// ==============================================================================
+export const coreCohorts = pgTable('core_cohorts', {
+  id: serial('id').primaryKey(),
+  schoolId: integer('school_id').notNull().references(() => coreSchools.id),
+  name: varchar('name', { length: 100 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ==============================================================================
 // CORE: LEVEL GRADES
 // ==============================================================================
 export const coreLevelGrades = pgTable('core_level_grades', {
@@ -335,7 +346,7 @@ export const tuitionProductTariffs = pgTable(
     schoolId: integer('school_id').notNull(),
     productId: integer('product_id').notNull(),
     academicYearId: integer('academic_year_id').notNull(),
-    levelGradeId: integer('level_grade_id').notNull(),
+    cohortId: integer('cohort_id').notNull(),
     amount: decimal('amount', { precision: 15, scale: 2 }).notNull(),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
@@ -345,7 +356,7 @@ export const tuitionProductTariffs = pgTable(
       t.schoolId,
       t.productId,
       t.academicYearId,
-      t.levelGradeId
+      t.cohortId
     ),
   ]
 );
@@ -359,6 +370,9 @@ export const tuitionPaymentMethods = pgTable('tuition_payment_methods', {
   code: varchar('code', { length: 50 }).notNull().unique(),
   category: varchar('category', { length: 50 }).notNull(),
   coa: varchar('coa', { length: 50 }),
+  vendor: varchar('vendor', { length: 100 }),
+  isRedirect: boolean('is_redirect').default(false),
+  isPublish: boolean('is_publish').default(true),
   sortOrder: integer('sort_order'),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),

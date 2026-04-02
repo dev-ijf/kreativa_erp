@@ -7,13 +7,13 @@ export async function GET() {
       s.name AS school_name,
       p.name AS product_name,
       ay.name AS academic_year_name,
-      lg.name AS level_grade_name
+      c.name AS cohort_name
     FROM tuition_product_tariffs t
     JOIN core_schools s ON t.school_id = s.id
     JOIN tuition_products p ON t.product_id = p.id
     JOIN core_academic_years ay ON t.academic_year_id = ay.id
-    JOIN core_level_grades lg ON t.level_grade_id = lg.id
-    ORDER BY s.name, ay.name, lg.level_order, p.name
+    JOIN core_cohorts c ON t.cohort_id = c.id
+    ORDER BY s.name, ay.name, c.name, p.name
   `;
   return NextResponse.json(rows);
 }
@@ -24,14 +24,14 @@ export async function POST(req: NextRequest) {
     school_id,
     product_id,
     academic_year_id,
-    level_grade_id,
+    cohort_id,
     amount,
   } = body;
   const [row] = await sql`
     INSERT INTO tuition_product_tariffs (
-      school_id, product_id, academic_year_id, level_grade_id, amount
+      school_id, product_id, academic_year_id, cohort_id, amount
     ) VALUES (
-      ${school_id}, ${product_id}, ${academic_year_id}, ${level_grade_id}, ${amount}
+      ${school_id}, ${product_id}, ${academic_year_id}, ${cohort_id}, ${amount}
     )
     ON CONFLICT ON CONSTRAINT unique_tariff_matrix
     DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()

@@ -192,11 +192,12 @@ export async function POST(req: NextRequest) {
   const data = await req.json();
   const [row] = await sql`
     INSERT INTO core_students (
-      school_id, full_name, nickname, username, nis, nisn, nik, gender, date_of_birth,
+      school_id, cohort_id, full_name, nickname, username, nis, nisn, nik, gender, date_of_birth,
       phone, address, student_type, program, curriculum, photo_url,
       entry_academic_year_id, active_academic_year_id
     ) VALUES (
       ${data.school_id},
+      ${data.cohort_id},
       ${data.full_name},
       ${data.nickname || null},
       ${data.username || null},

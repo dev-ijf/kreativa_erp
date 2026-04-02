@@ -293,6 +293,9 @@ CREATE TABLE "tuition_payment_methods" (
 	"code" varchar(50) NOT NULL,
 	"category" varchar(50) NOT NULL,
 	"coa" varchar(50),
+	"vendor" varchar(100),
+	"is_redirect" boolean DEFAULT false,
+	"is_publish" boolean DEFAULT true,
 	"is_active" boolean DEFAULT true,
 	"created_at" timestamp DEFAULT now(),
 	CONSTRAINT "tuition_payment_methods_code_unique" UNIQUE("code")

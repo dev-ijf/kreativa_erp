@@ -129,6 +129,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const [row] = await sql`
     UPDATE core_students SET
       school_id = ${data.school_id},
+      cohort_id = ${data.cohort_id},
       full_name = ${data.full_name},
       nickname = ${data.nickname ?? null},
       username = ${data.username ?? null},

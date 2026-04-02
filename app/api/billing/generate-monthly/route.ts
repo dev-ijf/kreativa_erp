@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const [cls] = await sql`
-      SELECT c.school_id, c.level_grade_id
+      SELECT c.school_id
       FROM core_classes c
       WHERE c.id = ${Number(class_id)}
     `;
@@ -65,41 +65,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Format tahun ajaran tidak valid' }, { status: 400 });
     }
 
-    const [tariff] = await sql`
-      SELECT amount FROM tuition_product_tariffs
-      WHERE school_id = ${cls.school_id}
-        AND product_id = ${Number(product_id)}
-        AND academic_year_id = ${Number(academic_year_id)}
-        AND level_grade_id = ${cls.level_grade_id}
-      LIMIT 1
-    `;
-    if (!tariff) {
-      return NextResponse.json(
-        {
-          error:
-            'Tarif tidak ditemukan untuk kombinasi sekolah, produk, tahun ajaran, dan tingkat kelas ini. Atur di Matriks Tarif.',
-        },
-        { status: 400 }
-      );
-    }
-
-    const amount = tariff.amount;
-
     const students = await sql`
-      SELECT student_id
-      FROM core_student_class_histories
-      WHERE class_id = ${Number(class_id)}
-        AND academic_year_id = ${Number(academic_year_id)}
-        AND status = 'active'
+      SELECT ch.student_id, s.cohort_id
+      FROM core_student_class_histories ch
+      JOIN core_students s ON ch.student_id = s.id
+      WHERE ch.class_id = ${Number(class_id)}
+        AND ch.academic_year_id = ${Number(academic_year_id)}
+        AND ch.status = 'active'
     `;
 
     if (students.length === 0) {
       return NextResponse.json({ error: 'Tidak ada siswa aktif di kelas ini' }, { status: 400 });
     }
 
+    // Get unique cohorts in this class
+    const cohortIds = [...new Set(students.map((s) => s.cohort_id))];
+
+    // Fetch tariffs for these cohorts
+    const tariffs = await sql`
+      SELECT cohort_id, amount 
+      FROM tuition_product_tariffs
+      WHERE school_id = ${cls.school_id}
+        AND product_id = ${Number(product_id)}
+        AND academic_year_id = ${Number(academic_year_id)}
+        AND cohort_id = ANY(${cohortIds}::int[])
+    `;
+
+    const tariffMap = new Map(tariffs.map((t) => [t.cohort_id, t.amount]));
+
     let billsCreated = 0;
+    let studentsProcessed = 0;
 
     for (const student of students) {
+      const amount = tariffMap.get(student.cohort_id);
+      
+      // If a student's cohort does not have a tariff, we log/skip them, but still process others
+      // Alternatively, we could fail the entire process if strict consistency is needed. 
+      // For now, we skip generating bills for students without matching tariff matrices.
+      if (amount == null) continue;
+      
+      studentsProcessed++;
+
       for (const month of MONTHS) {
         const title = `SPP ${month}`;
         const billYear = billYearForMonth(month, startYear);
@@ -139,11 +145,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (studentsProcessed === 0) {
+      return NextResponse.json({ 
+        error: 'Tidak ada siswa yang diproses. Pastikan tagihan untuk angkatan siswa di kelas ini sudah diatur di Matriks Tarif.' 
+      }, { status: 400 });
+    }
+
     return NextResponse.json({
       success: true,
-      students_processed: students.length,
+      students_processed: studentsProcessed,
+      students_skipped: students.length - studentsProcessed,
       bills_created: billsCreated,
-      unit_amount: amount,
     });
   } catch (err: unknown) {
     console.error('Billing gen err', err);

@@ -10,8 +10,10 @@ export default function AddStudentPage() {
   const router = useRouter();
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
   const [years, setYears] = useState<{ id: number; name: string }[]>([]);
+  const [cohorts, setCohorts] = useState<{ id: number; name: string }[]>([]);
   const [form, setForm] = useState({
     school_id: '',
+    cohort_id: '',
     full_name: '',
     nis: '',
     nisn: '',
@@ -48,25 +50,45 @@ export default function AddStudentPage() {
   useEffect(() => {
     if (!form.school_id) {
       setClasses([]);
+      setCohorts([]);
       return;
     }
-    fetch('/api/master/classes')
-      .then((r) => r.json())
-      .then((cls) => {
-        const list = Array.isArray(cls) ? cls : [];
-        setClasses(list.filter((c: { school_id: number }) => String(c.school_id) === form.school_id));
-      })
-      .catch(() => setClasses([]));
+    
+    // Fetch classes and cohorts based on school_id
+    Promise.all([
+      fetch('/api/master/classes').then((r) => r.json()),
+      fetch(`/api/master/cohorts?school_id=${form.school_id}`).then((r) => r.json())
+    ]).then(([cls, coh]) => {
+      const clsList = Array.isArray(cls) ? cls : [];
+      const cohList = Array.isArray(coh) ? coh : [];
+      setClasses(clsList.filter((c: { school_id: number }) => String(c.school_id) === form.school_id));
+      setCohorts(cohList);
+      
+      // Auto-select cohort if only one or reset if not found
+      if (cohList.length > 0 && !form.cohort_id) {
+        // Find default or first
+        const defaultCohort = cohList.find((c: any) => c.name === 'Angkatan Migrasi') || cohList[0];
+        setForm(prev => ({ ...prev, cohort_id: String(defaultCohort.id) }));
+      }
+    }).catch(() => {
+      setClasses([]);
+      setCohorts([]);
+    });
   }, [form.school_id]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.cohort_id) {
+      toast.error('Angkatan harus dipilih');
+      return;
+    }
     setSaving(true);
     const res = await fetch('/api/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         school_id: parseInt(form.school_id, 10),
+        cohort_id: parseInt(form.cohort_id, 10),
         full_name: form.full_name,
         nis: form.nis,
         nisn: form.nisn || null,
@@ -85,6 +107,10 @@ export default function AddStudentPage() {
     });
     const row = await res.json();
     setSaving(false);
+    if (!res.ok) {
+       toast.error(row.error || 'Gagal menyimpan siswa');
+       return;
+    }
     if (row?.id) router.push(`/students/${row.id}`);
     else router.push('/students');
   };
@@ -111,11 +137,25 @@ export default function AddStudentPage() {
             <Field label="Sekolah" required>
             <Select
               value={form.school_id}
-              onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value, class_id: '' }))}
+              onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value, class_id: '', cohort_id: '' }))}
             >
               {schools.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Angkatan Masuk" required>
+            <Select
+              value={form.cohort_id}
+              onChange={(e) => setForm((f) => ({ ...f, cohort_id: e.target.value }))}
+              required
+            >
+              <option value="">— Pilih Angkatan —</option>
+              {cohorts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </Select>
