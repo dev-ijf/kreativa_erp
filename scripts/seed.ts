@@ -297,6 +297,135 @@ async function seed() {
     ])
     .onConflictDoNothing();
 
+  // ==============================================================================
+  // ACADEMIC SEED DATA
+  // ==============================================================================
+
+  await db
+    .insert(schema.academicSubjects)
+    .values([
+      { id: 1, code: 'MATH', nameEn: 'Math', nameId: 'Matematika', colorTheme: 'bg-blue-100 text-blue-600' },
+      { id: 2, code: 'SCI', nameEn: 'Science', nameId: 'Ilmu Pengetahuan Alam', colorTheme: 'bg-emerald-100 text-emerald-600' },
+      { id: 3, code: 'ENG', nameEn: 'English', nameId: 'Bahasa Inggris', colorTheme: 'bg-orange-100 text-orange-600' },
+      { id: 4, code: 'ART', nameEn: 'Art', nameId: 'Seni Budaya', colorTheme: 'bg-purple-100 text-purple-600' },
+      { id: 5, code: 'HIST', nameEn: 'History', nameId: 'Sejarah', colorTheme: 'bg-yellow-100 text-yellow-600' },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicTeachers)
+    .values([
+      { id: 1, fullName: 'Mr. Hendra' },
+      { id: 2, fullName: 'Mrs. Rina' },
+      { id: 3, fullName: 'Mr. John' },
+      { id: 4, fullName: 'Mrs. Susi' },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicSemesters)
+    .values([{ id: 1, academicYear: '2023/2024', semesterLabel: '1', isActive: true }])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicSchedules)
+    .values([
+      { studentId: 1, subjectId: 1, teacherId: 1, dayOfWeek: 'Monday', startTime: '07:30', endTime: '09:00', isBreak: false },
+      { studentId: 1, subjectId: 2, teacherId: 2, dayOfWeek: 'Monday', startTime: '09:00', endTime: '10:30', isBreak: false },
+      { studentId: 1, subjectId: null, teacherId: null, dayOfWeek: 'Monday', startTime: '10:30', endTime: '11:00', isBreak: true },
+      { studentId: 1, subjectId: 3, teacherId: 3, dayOfWeek: 'Monday', startTime: '11:00', endTime: '12:30', isBreak: false },
+      { studentId: 2, subjectId: 4, teacherId: 4, dayOfWeek: 'Monday', startTime: '08:00', endTime: '09:30', isBreak: false },
+      { studentId: 2, subjectId: null, teacherId: null, dayOfWeek: 'Monday', startTime: '09:30', endTime: '10:00', isBreak: true },
+      { studentId: 2, subjectId: 1, teacherId: 1, dayOfWeek: 'Monday', startTime: '10:00', endTime: '11:30', isBreak: false },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicAttendances)
+    .values([
+      { studentId: 1, attendanceDate: '2023-11-12', status: 'sick', noteEn: 'Fever', noteId: 'Demam' },
+      { studentId: 1, attendanceDate: '2023-10-05', status: 'permission', noteEn: 'Family event', noteId: 'Acara keluarga' },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicGrades)
+    .values([
+      { studentId: 1, semesterId: 1, subjectId: 1, score: '88' },
+      { studentId: 1, semesterId: 1, subjectId: 2, score: '92' },
+      { studentId: 1, semesterId: 1, subjectId: 3, score: '85' },
+      { studentId: 1, semesterId: 1, subjectId: 5, score: '78' },
+      { studentId: 2, semesterId: 1, subjectId: 1, score: '95' },
+      { studentId: 2, semesterId: 1, subjectId: 2, score: '90' },
+      { studentId: 2, semesterId: 1, subjectId: 4, score: '98' },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicAgendas)
+    .values([
+      { schoolId: 4, targetGrade: null, eventDate: '2023-11-20', titleEn: 'Mid-term Examinations', titleId: 'Ujian Tengah Semester', timeRange: '07:30 - 12:00 WIB', eventType: 'exam' },
+      { schoolId: 4, targetGrade: 'Grade 4', eventDate: '2023-11-25', titleEn: 'Museum Field Trip (Grade 4)', titleId: 'Kunjungan Museum (Kelas 4)', timeRange: '08:00 - 14:00 WIB', eventType: 'event' },
+      { schoolId: 4, targetGrade: null, eventDate: '2023-12-01', titleEn: "National Teacher's Day", titleId: 'Peringatan Hari Guru Nasional', timeRange: '07:00 - 10:00 WIB', eventType: 'event' },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicAnnouncements)
+    .values([
+      {
+        schoolId: 4,
+        publishDate: '2023-11-18',
+        titleEn: 'New School Bus Route',
+        titleId: 'Rute Bus Sekolah Baru',
+        contentEn: 'Starting next month, we are adding a new route covering the South District.',
+        contentId: 'Mulai bulan depan, kami menambahkan rute baru yang mencakup Area Selatan.',
+        featuredImage: '/assets/announcements/school-bus.jpg',
+      },
+      {
+        schoolId: 4,
+        publishDate: '2023-11-15',
+        titleEn: 'Library Renovation Completed',
+        titleId: 'Renovasi Perpustakaan Selesai',
+        contentEn: 'Students can now enjoy the newly renovated library.',
+        contentId: 'Siswa kini dapat menikmati perpustakaan yang baru direnovasi.',
+        featuredImage: '/assets/announcements/library.jpg',
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicClinicVisits)
+    .values([
+      { studentId: 1, visitDate: '2023-11-12', complaintEn: 'Fever', complaintId: 'Demam', actionEn: 'Given paracetamol and rested', actionId: 'Diberi paracetamol dan istirahat' },
+      { studentId: 2, visitDate: '2023-09-02', complaintEn: 'Scraped knee', complaintId: 'Lutut lecet', actionEn: 'Cleaned and bandaged', actionId: 'Dibersihkan dan diperban' },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicHabits)
+    .values([
+      { studentId: 1, habitDate: '2023-11-18', fajr: true, dhuhr: true, asr: false, maghrib: false, isha: false, dhuha: true, tahajud: false, readQuran: false, wakeUpEarly: true, helpParents: true },
+      { studentId: 1, habitDate: '2023-11-17', fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true, dhuha: false, tahajud: false, readQuran: true, wakeUpEarly: true, helpParents: true },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicAdaptiveQuestions)
+    .values([
+      { subjectId: 1, gradeBand: 'g4-6', difficulty: '0.75', questionText: 'What is 12 x 15?', optionsJson: ["180", "165", "170", "175"], correctAnswer: '180', explanation: '12 x 15 = 12 x 10 + 12 x 5 = 120 + 60 = 180' },
+      { subjectId: 1, gradeBand: 'g4-6', difficulty: '0.50', questionText: 'What is 15 + 25?', optionsJson: ["30", "40", "50", "45"], correctAnswer: '40', explanation: '15 + 25 = 40. Basic addition.' },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(schema.academicAdaptiveTests)
+    .values([
+      { studentId: 1, subjectId: 1, testDate: new Date('2023-11-18 14:00:00'), score: 85, masteryLevel: '0.85' },
+      { studentId: 1, subjectId: 2, testDate: new Date('2023-11-15 09:30:00'), score: 70, masteryLevel: '0.70' },
+    ])
+    .onConflictDoNothing();
+
   const createdAt = new Date('2024-10-15T10:00:00.000Z');
   const txResult = await pool.query<{
     id: string;
@@ -305,22 +434,25 @@ async function seed() {
     `INSERT INTO tuition_transactions (
       user_id, academic_year_id, reference_no, total_amount, payment_method_id, status, payment_date, created_at
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    ON CONFLICT DO NOTHING
     RETURNING id, created_at`,
     [2, 2, 'TRX-OKT-001', 800000, 1, 'success', createdAt, createdAt]
   );
-  const tx = txResult.rows[0];
-  if (!tx) throw new Error('Insert tuition_transactions failed');
 
-  await pool.query(
-    `INSERT INTO tuition_transaction_details (
-      transaction_id, transaction_created_at, bill_id, product_id, amount_paid, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6)`,
-    [tx.id, tx.created_at, 1, 1, 800000, createdAt]
-  );
+  if (txResult.rows.length > 0) {
+    const tx = txResult.rows[0];
+    await pool.query(
+      `INSERT INTO tuition_transaction_details (
+        transaction_id, transaction_created_at, bill_id, product_id, amount_paid, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT DO NOTHING`,
+      [tx.id, tx.created_at, 1, 1, 800000, createdAt]
+    );
 
-  await pool.query(
-    `UPDATE tuition_bills SET paid_amount = total_amount, status = 'paid', updated_at = NOW() WHERE id = 1`
-  );
+    await pool.query(
+      `UPDATE tuition_bills SET paid_amount = total_amount, status = 'paid', updated_at = NOW() WHERE id = 1`
+    );
+  }
 
   await pool.query(
     `SELECT setval('core_portal_themes_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_portal_themes))`
@@ -351,6 +483,20 @@ async function seed() {
   await pool.query(
     `SELECT setval('tuition_payment_methods_id_seq', (SELECT COALESCE(MAX(id), 1) FROM tuition_payment_methods))`
   );
+
+  // Academic sequence resets
+  await pool.query(`SELECT setval('academic_subjects_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_subjects))`);
+  await pool.query(`SELECT setval('academic_teachers_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_teachers))`);
+  await pool.query(`SELECT setval('academic_semesters_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_semesters))`);
+  await pool.query(`SELECT setval('academic_schedules_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_schedules))`);
+  await pool.query(`SELECT setval('academic_attendances_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_attendances))`);
+  await pool.query(`SELECT setval('academic_grades_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_grades))`);
+  await pool.query(`SELECT setval('academic_agendas_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_agendas))`);
+  await pool.query(`SELECT setval('academic_announcements_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_announcements))`);
+  await pool.query(`SELECT setval('academic_clinic_visits_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_clinic_visits))`);
+  await pool.query(`SELECT setval('academic_habits_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_habits))`);
+  await pool.query(`SELECT setval('academic_adaptive_questions_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_adaptive_questions))`);
+  await pool.query(`SELECT setval('academic_adaptive_tests_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_adaptive_tests))`);
 
   console.log('✅ Seeding complete!');
 }

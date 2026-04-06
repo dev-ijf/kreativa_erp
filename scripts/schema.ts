@@ -13,6 +13,7 @@ import {
   unique,
   index,
   foreignKey,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 
 // ==============================================================================
@@ -512,3 +513,221 @@ export const notifLogs = pgTable('notif_logs', {
   status: varchar('status', { length: 50 }).default('pending'),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+// ==============================================================================
+// ACADEMIC: MASTER (SUBJECTS, TEACHERS, SEMESTERS)
+// ==============================================================================
+export const academicSubjects = pgTable('academic_subjects', {
+  id: serial('id').primaryKey(),
+  code: varchar('code', { length: 50 }),
+  nameEn: varchar('name_en', { length: 100 }).notNull(),
+  nameId: varchar('name_id', { length: 100 }).notNull(),
+  colorTheme: varchar('color_theme', { length: 100 }),
+});
+
+export const academicTeachers = pgTable('academic_teachers', {
+  id: serial('id').primaryKey(),
+  fullName: varchar('full_name', { length: 100 }).notNull(),
+  nip: varchar('nip', { length: 50 }),
+});
+
+export const academicSemesters = pgTable('academic_semesters', {
+  id: serial('id').primaryKey(),
+  academicYear: varchar('academic_year', { length: 20 }).notNull(),
+  semesterLabel: varchar('semester_label', { length: 10 }).notNull(),
+  isActive: boolean('is_active').default(false),
+});
+
+// ==============================================================================
+// ACADEMIC: SCHEDULES
+// ==============================================================================
+export const academicSchedules = pgTable(
+  'academic_schedules',
+  {
+    id: serial('id').primaryKey(),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => coreStudents.id),
+    subjectId: bigint('subject_id', { mode: 'number' }).references(() => academicSubjects.id, {
+      onDelete: 'set null',
+    }),
+    teacherId: bigint('teacher_id', { mode: 'number' }).references(() => academicTeachers.id, {
+      onDelete: 'set null',
+    }),
+    dayOfWeek: varchar('day_of_week', { length: 20 }).notNull(),
+    startTime: varchar('start_time', { length: 10 }).notNull(),
+    endTime: varchar('end_time', { length: 10 }).notNull(),
+    isBreak: boolean('is_break').default(false),
+  },
+  (t) => [index('idx_acad_sch_student_day').on(t.studentId, t.dayOfWeek)]
+);
+
+// ==============================================================================
+// ACADEMIC: ATTENDANCES
+// ==============================================================================
+export const academicAttendances = pgTable(
+  'academic_attendances',
+  {
+    id: serial('id').primaryKey(),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => coreStudents.id),
+    attendanceDate: date('attendance_date').notNull(),
+    status: varchar('status', { length: 20 }).notNull(),
+    noteEn: varchar('note_en', { length: 255 }),
+    noteId: varchar('note_id', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => [
+    index('idx_acad_att_student_date').on(t.studentId, t.attendanceDate),
+    index('idx_acad_att_status').on(t.status),
+  ]
+);
+
+// ==============================================================================
+// ACADEMIC: GRADES
+// ==============================================================================
+export const academicGrades = pgTable(
+  'academic_grades',
+  {
+    id: serial('id').primaryKey(),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => coreStudents.id),
+    semesterId: bigint('semester_id', { mode: 'number' })
+      .notNull()
+      .references(() => academicSemesters.id, { onDelete: 'cascade' }),
+    subjectId: bigint('subject_id', { mode: 'number' })
+      .notNull()
+      .references(() => academicSubjects.id, { onDelete: 'cascade' }),
+    score: decimal('score', { precision: 5, scale: 2 }).notNull(),
+    letterGrade: varchar('letter_grade', { length: 10 }),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => [index('idx_acad_grd_student_sem').on(t.studentId, t.semesterId)]
+);
+
+// ==============================================================================
+// ACADEMIC: AGENDA & ANNOUNCEMENTS
+// ==============================================================================
+export const academicAgendas = pgTable(
+  'academic_agendas',
+  {
+    id: serial('id').primaryKey(),
+    schoolId: integer('school_id')
+      .notNull()
+      .references(() => coreSchools.id),
+    targetGrade: varchar('target_grade', { length: 50 }),
+    eventDate: date('event_date').notNull(),
+    titleEn: varchar('title_en', { length: 200 }).notNull(),
+    titleId: varchar('title_id', { length: 200 }).notNull(),
+    timeRange: varchar('time_range', { length: 100 }),
+    eventType: varchar('event_type', { length: 50 }).notNull(),
+  },
+  (t) => [index('idx_acad_agd_school_date').on(t.schoolId, t.eventDate)]
+);
+
+export const academicAnnouncements = pgTable(
+  'academic_announcements',
+  {
+    id: serial('id').primaryKey(),
+    schoolId: integer('school_id')
+      .notNull()
+      .references(() => coreSchools.id),
+    publishDate: date('publish_date').notNull(),
+    titleEn: varchar('title_en', { length: 200 }).notNull(),
+    titleId: varchar('title_id', { length: 200 }).notNull(),
+    contentEn: text('content_en').notNull(),
+    contentId: text('content_id').notNull(),
+    featuredImage: text('featured_image'),
+  },
+  (t) => [index('idx_acad_ann_school_date').on(t.schoolId, t.publishDate)]
+);
+
+// ==============================================================================
+// ACADEMIC: CLINIC VISITS
+// ==============================================================================
+export const academicClinicVisits = pgTable(
+  'academic_clinic_visits',
+  {
+    id: serial('id').primaryKey(),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => coreStudents.id),
+    visitDate: date('visit_date').notNull(),
+    complaintEn: varchar('complaint_en', { length: 255 }),
+    complaintId: varchar('complaint_id', { length: 255 }),
+    actionEn: text('action_en'),
+    actionId: text('action_id'),
+    handledBy: varchar('handled_by', { length: 100 }),
+  },
+  (t) => [index('idx_acad_cln_student_date').on(t.studentId, t.visitDate)]
+);
+
+// ==============================================================================
+// ACADEMIC: HABITS
+// ==============================================================================
+export const academicHabits = pgTable(
+  'academic_habits',
+  {
+    id: serial('id').primaryKey(),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => coreStudents.id),
+    habitDate: date('habit_date').notNull(),
+    fajr: boolean('fajr').default(false),
+    dhuhr: boolean('dhuhr').default(false),
+    asr: boolean('asr').default(false),
+    maghrib: boolean('maghrib').default(false),
+    isha: boolean('isha').default(false),
+    dhuha: boolean('dhuha').default(false),
+    tahajud: boolean('tahajud').default(false),
+    readQuran: boolean('read_quran').default(false),
+    sunnahFasting: boolean('sunnah_fasting').default(false),
+    wakeUpEarly: boolean('wake_up_early').default(false),
+    helpParents: boolean('help_parents').default(false),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (t) => [
+    index('idx_acad_hbt_student_date').on(t.studentId, t.habitDate),
+    unique('unique_student_habit_date').on(t.studentId, t.habitDate),
+  ]
+);
+
+// ==============================================================================
+// ACADEMIC: ADAPTIVE LEARNING
+// ==============================================================================
+export const academicAdaptiveQuestions = pgTable(
+  'academic_adaptive_questions',
+  {
+    id: serial('id').primaryKey(),
+    subjectId: bigint('subject_id', { mode: 'number' })
+      .notNull()
+      .references(() => academicSubjects.id, { onDelete: 'cascade' }),
+    gradeBand: varchar('grade_band', { length: 50 }).notNull(),
+    difficulty: decimal('difficulty', { precision: 3, scale: 2 }).notNull(),
+    questionText: text('question_text').notNull(),
+    optionsJson: jsonb('options_json').notNull(),
+    correctAnswer: varchar('correct_answer', { length: 255 }).notNull(),
+    explanation: text('explanation'),
+  },
+  (t) => [index('idx_acad_adq_subj_grade_diff').on(t.subjectId, t.gradeBand, t.difficulty)]
+);
+
+export const academicAdaptiveTests = pgTable(
+  'academic_adaptive_tests',
+  {
+    id: serial('id').primaryKey(),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => coreStudents.id),
+    subjectId: bigint('subject_id', { mode: 'number' })
+      .notNull()
+      .references(() => academicSubjects.id, { onDelete: 'cascade' }),
+    testDate: timestamp('test_date').defaultNow(),
+    score: integer('score').notNull(),
+    masteryLevel: decimal('mastery_level', { precision: 3, scale: 2 }).notNull(),
+  },
+  (t) => [index('idx_acad_adt_student_subj').on(t.studentId, t.subjectId)]
+);

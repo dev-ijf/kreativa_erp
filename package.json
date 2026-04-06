@@ -8,12 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "db:push": "drizzle-kit push",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx scripts/migrate.ts",
     "db:reset": "tsx scripts/db-reset.ts",
     "db:baseline": "tsx scripts/baseline-drizzle.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:ensure-partitions": "tsx scripts/ensure-tuition-partitions.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:all": "npm run db:migrate && npm run db:seed"
   },
   "dependencies": {
     "@auth/core": "^0.34.3",
