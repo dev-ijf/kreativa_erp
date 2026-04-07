@@ -7,14 +7,14 @@ export async function GET(req: NextRequest) {
   const q = (searchParams.get('q') ?? '').trim();
 
   const [{ has_table }] = (await sql`
-    SELECT to_regclass('public.payment_instructions') IS NOT NULL AS has_table
+    SELECT to_regclass('public.tuition_payment_instructions') IS NOT NULL AS has_table
   `) as { has_table: boolean }[];
 
   if (!has_table) {
     return NextResponse.json(
       {
         error:
-          'Tabel payment_instructions belum ada. Jalankan migrasi database (0002_payment_instructions_notifications_sort.sql) terlebih dahulu.',
+          'Tabel tuition_payment_instructions belum ada. Jalankan migrasi database (npm run db:migrate) terlebih dahulu.',
       },
       { status: 503 }
     );
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       pi.*,
       pm.name AS payment_channel_name,
       pm.code AS payment_channel_code
-    FROM payment_instructions pi
+    FROM tuition_payment_instructions pi
     JOIN tuition_payment_methods pm ON pm.id = pi.payment_channel_id
     WHERE
       (${paymentChannelId}::text IS NULL OR ${paymentChannelId}::text = '' OR pi.payment_channel_id = ${Number(paymentChannelId)})
@@ -38,14 +38,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const [{ has_table }] = (await sql`
-    SELECT to_regclass('public.payment_instructions') IS NOT NULL AS has_table
+    SELECT to_regclass('public.tuition_payment_instructions') IS NOT NULL AS has_table
   `) as { has_table: boolean }[];
 
   if (!has_table) {
     return NextResponse.json(
       {
         error:
-          'Tabel payment_instructions belum ada. Jalankan migrasi database (0002_payment_instructions_notifications_sort.sql) terlebih dahulu.',
+          'Tabel tuition_payment_instructions belum ada. Jalankan migrasi database (npm run db:migrate) terlebih dahulu.',
       },
       { status: 503 }
     );
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   }
 
   const [row] = await sql`
-    INSERT INTO payment_instructions (title, description, step_order, payment_channel_id)
+    INSERT INTO tuition_payment_instructions (title, description, step_order, payment_channel_id)
     VALUES (
       ${String(data.title)},
       ${String(data.description)},

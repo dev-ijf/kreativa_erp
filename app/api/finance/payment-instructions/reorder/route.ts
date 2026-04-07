@@ -17,7 +17,7 @@ export async function PATCH(req: NextRequest) {
   try {
     for (let i = 0; i < ids.length; i++) {
       await sql`
-        UPDATE payment_instructions
+        UPDATE tuition_payment_instructions
         SET step_order=${i + 1}
         WHERE id=${ids[i]}
       `;

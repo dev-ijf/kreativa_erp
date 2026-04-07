@@ -8,7 +8,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       pi.*,
       pm.name AS payment_channel_name,
       pm.code AS payment_channel_code
-    FROM payment_instructions pi
+    FROM tuition_payment_instructions pi
     JOIN tuition_payment_methods pm ON pm.id = pi.payment_channel_id
     WHERE pi.id=${Number(id)}
   `;
@@ -25,7 +25,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const [row] = await sql`
-    UPDATE payment_instructions SET
+    UPDATE tuition_payment_instructions SET
       title=${String(data.title)},
       description=${String(data.description)},
       step_order=${data.step_order === null || data.step_order === undefined || data.step_order === '' ? null : Number(data.step_order)},
@@ -39,7 +39,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await sql`DELETE FROM payment_instructions WHERE id=${Number(id)}`;
+  await sql`DELETE FROM tuition_payment_instructions WHERE id=${Number(id)}`;
   return NextResponse.json({ success: true });
 }
 

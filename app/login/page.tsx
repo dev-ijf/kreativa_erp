@@ -8,7 +8,6 @@ type PortalTheme = {
   appTitle: string;
   logoMainUrl: string | null;
   logoLoginUrl: string | null;
-  primaryColor: string | null;
   loginWelcomeText: string | null;
    loginTitle: string | null;
    loginSubtitle: string | null;
@@ -21,7 +20,6 @@ export default function LoginPage() {
     appTitle: "Kreativa",
     logoMainUrl: null,
     logoLoginUrl: null,
-    primaryColor: null,
     loginWelcomeText:
       "Selamat datang di portal administrasi Kreativa ERP. Silakan masuk menggunakan akun Google yang terdaftar.",
     loginTitle: null,
@@ -79,7 +77,6 @@ export default function LoginPage() {
   };
 
   const logoUrl = theme.logoLoginUrl || theme.logoMainUrl;
-  const primaryColor = theme.primaryColor || "#4f46e5";
   const loginTitle = theme.loginTitle || "Masuk ke dashboard";
   const loginSubtitle =
     theme.loginSubtitle ||

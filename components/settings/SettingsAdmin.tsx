@@ -13,7 +13,6 @@ const SETTING_KEY_OPTIONS: { key: string; label: string }[] = [
   { key: 'app_title', label: 'Judul aplikasi (app_title)' },
   { key: 'logo_main_url', label: 'Logo utama sidebar (logo_main_url)' },
   { key: 'logo_login_url', label: 'Logo halaman login (logo_login_url)' },
-  { key: 'primary_color', label: 'Warna utama tema (primary_color)' },
   { key: 'login_welcome_text', label: 'Teks sambutan login (login_welcome_text)' },
   { key: 'favicon_url', label: 'Favicon / icon tab browser (favicon_url)' },
   { key: 'login_title', label: 'Judul besar kartu login (login_title)' },

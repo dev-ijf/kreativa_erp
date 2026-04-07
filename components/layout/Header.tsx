@@ -20,6 +20,26 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/master/subdistricts': 'Kelurahan / Desa',
   '/master/subdistricts/add': 'Tambah Kelurahan',
   '/master/portal-modules': 'Portal & modul',
+  '/master/teachers': 'Data Guru',
+  '/master/teachers/add': 'Tambah Guru',
+  '/academic/subjects': 'Mata Pelajaran',
+  '/academic/subjects/add': 'Tambah Mapel',
+  '/academic/semesters': 'Semester',
+  '/academic/semesters/add': 'Tambah Semester',
+  '/academic/schedules': 'Jadwal',
+  '/academic/schedules/add': 'Tambah Jadwal',
+  '/academic/attendances': 'Kehadiran',
+  '/academic/attendances/add': 'Tambah Kehadiran',
+  '/academic/grades': 'Nilai / Rapor',
+  '/academic/grades/add': 'Tambah Nilai',
+  '/academic/agendas': 'Agenda',
+  '/academic/agendas/add': 'Tambah Agenda',
+  '/academic/announcements': 'Pengumuman',
+  '/academic/announcements/add': 'Tambah Pengumuman',
+  '/academic/clinic-visits': 'Klinik UKS',
+  '/academic/clinic-visits/add': 'Tambah Kunjungan UKS',
+  '/academic/habits': 'Pembiasaan',
+  '/academic/adaptive-tests': 'Tes adaptif',
   '/students': 'Buku Induk Siswa',
   '/students/documents': 'Dokumen Siswa',
   '/students/promotions': 'Promosi Kelas',
@@ -48,6 +68,39 @@ function resolvePageTitle(pathname: string): string {
   }
   if (pathname.startsWith('/master/subdistricts/') && pathname !== '/master/subdistricts/add') {
     return 'Edit Kelurahan';
+  }
+  if (/^\/master\/teachers\/\d+$/.test(pathname)) {
+    return 'Edit Guru';
+  }
+  if (/^\/academic\/subjects\/\d+$/.test(pathname)) {
+    return 'Edit Mapel';
+  }
+  if (/^\/academic\/semesters\/\d+$/.test(pathname)) {
+    return 'Edit Semester';
+  }
+  if (/^\/academic\/schedules\/\d+$/.test(pathname)) {
+    return 'Edit Jadwal';
+  }
+  if (/^\/academic\/attendances\/\d+$/.test(pathname)) {
+    return 'Edit Kehadiran';
+  }
+  if (/^\/academic\/grades\/\d+$/.test(pathname)) {
+    return 'Edit Nilai';
+  }
+  if (/^\/academic\/agendas\/\d+$/.test(pathname)) {
+    return 'Edit Agenda';
+  }
+  if (/^\/academic\/announcements\/\d+$/.test(pathname)) {
+    return 'Edit Pengumuman';
+  }
+  if (/^\/academic\/clinic-visits\/\d+$/.test(pathname)) {
+    return 'Edit Kunjungan UKS';
+  }
+  if (/^\/academic\/habits\/\d+$/.test(pathname)) {
+    return 'Detail pembiasaan';
+  }
+  if (/^\/academic\/adaptive-tests\/\d+$/.test(pathname)) {
+    return 'Detail tes adaptif';
   }
   return BREADCRUMB_MAP[pathname] || 'Dashboard';
 }

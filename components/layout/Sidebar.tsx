@@ -11,13 +11,13 @@ import {
   CreditCard, Settings, ChevronDown, Banknote, LogOut,
   Building2, MapPin, UserPlus, ListTree, Layers,
   Receipt, ScanLine, Bell, ChevronRight, School, CalendarDays,
-  UserCog, BarChart3, Landmark, House, Palette,
+  UserCog, BarChart3, Landmark, House, Palette, ClipboardList,
+  Megaphone, UserCheck, Stethoscope, Calendar, BookMarked, Brain,
 } from "lucide-react";
 
 type PortalThemeState = {
   appTitle: string;
   logoMainUrl: string | null;
-  primaryColor: string | null;
 };
 
 const MODULES = [
@@ -38,6 +38,7 @@ const MODULES = [
       { name: 'Kecamatan', href: '/master/districts', icon: <Landmark size={16} /> },
       { name: 'Kelurahan', href: '/master/subdistricts', icon: <House size={16} /> },
       { name: 'Portal & modul', href: '/master/portal-modules', icon: <Palette size={16} /> },
+      { name: 'Data Guru', href: '/master/teachers', icon: <GraduationCap size={16} /> },
       { name: 'Data Pengguna', href: '/users', icon: <UserCog size={16} /> },
       { name: 'Pengaturan', href: '/settings', icon: <Settings size={16} /> },
     ],
@@ -73,6 +74,26 @@ const MODULES = [
       { name: 'Riwayat Transaksi', href: '/billing/transactions', icon: <Receipt size={16} /> },
     ],
   },
+  {
+    id: 'academic',
+    name: 'Akademik',
+    icon: <BookMarked size={16} />,
+    color: 'bg-sky-700',
+    accent: '#0369a1',
+    menus: [
+      { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
+      { name: 'Mapel', href: '/academic/subjects', icon: <BookOpen size={16} /> },
+      { name: 'Semester', href: '/academic/semesters', icon: <CalendarDays size={16} /> },
+      { name: 'Jadwal', href: '/academic/schedules', icon: <Calendar size={16} /> },
+      { name: 'Kehadiran', href: '/academic/attendances', icon: <UserCheck size={16} /> },
+      { name: 'Nilai / Rapor', href: '/academic/grades', icon: <ClipboardList size={16} /> },
+      { name: 'Agenda', href: '/academic/agendas', icon: <Calendar size={16} /> },
+      { name: 'Pengumuman', href: '/academic/announcements', icon: <Megaphone size={16} /> },
+      { name: 'Klinik UKS', href: '/academic/clinic-visits', icon: <Stethoscope size={16} /> },
+      { name: 'Pembiasaan (lihat)', href: '/academic/habits', icon: <UserCheck size={16} /> },
+      { name: 'Tes adaptif (lihat)', href: '/academic/adaptive-tests', icon: <Brain size={16} /> },
+    ],
+  },
 ];
 
 function moduleForPathname(pathname: string) {
@@ -91,6 +112,9 @@ function moduleForPathname(pathname: string) {
   if (pathname.startsWith("/finance") || pathname.startsWith("/billing")) {
     return MODULES.find((m) => m.id === "financeBilling") ?? MODULES[0];
   }
+  if (pathname.startsWith("/academic")) {
+    return MODULES.find((m) => m.id === "academic") ?? MODULES[0];
+  }
   return null;
 }
 
@@ -101,7 +125,6 @@ export default function Sidebar() {
   const [portalTheme, setPortalTheme] = useState<PortalThemeState>({
     appTitle: "Kreativa",
     logoMainUrl: null,
-    primaryColor: null,
   });
 
   useEffect(() => {
@@ -116,13 +139,12 @@ export default function Sidebar() {
       try {
         const res = await fetch("/api/settings/portal-theme");
         const j = (await res.json().catch(() => null)) as
-          | { appTitle?: string; logoMainUrl?: string | null; primaryColor?: string | null }
+          | { appTitle?: string; logoMainUrl?: string | null }
           | null;
         if (!j) return;
         setPortalTheme((prev) => ({
           appTitle: j.appTitle && j.appTitle.trim() ? j.appTitle : prev.appTitle,
           logoMainUrl: j.logoMainUrl ?? prev.logoMainUrl,
-          primaryColor: j.primaryColor ?? prev.primaryColor,
         }));
       } catch {
         // ignore theme fetch errors, keep defaults
@@ -139,7 +161,6 @@ export default function Sidebar() {
 
       <aside
         className={`${collapsed ? "w-20" : "w-64"} ${activeModule.color} text-white flex flex-col shrink-0 transition-all duration-300 ease-in-out relative z-50 shadow-2xl`}
-        style={portalTheme.primaryColor ? { backgroundColor: portalTheme.primaryColor } : undefined}
       >
         {/* Logo */}
         <div className="p-5 flex items-center gap-3 border-b border-white/10">

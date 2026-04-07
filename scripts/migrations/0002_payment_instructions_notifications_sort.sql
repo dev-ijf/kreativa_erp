@@ -1,9 +1,10 @@
 -- =============================================================================
 -- 0002: Payment Instructions (single table), Payment Methods sorting, Notif templates upgrades
+-- Tabel instruksi pembayaran: tuition_payment_instructions
 -- =============================================================================
 
 -- 1) Payment Instructions: new single-table model
-CREATE TABLE IF NOT EXISTS "payment_instructions" (
+CREATE TABLE IF NOT EXISTS "tuition_payment_instructions" (
   "id" bigserial PRIMARY KEY,
   "title" text NOT NULL,
   "description" text NOT NULL,
@@ -18,10 +19,10 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_constraint
-    WHERE conname = 'payment_instructions_payment_channel_id_fkey'
+    WHERE conname = 'tuition_payment_instructions_payment_channel_id_fkey'
   ) THEN
-    ALTER TABLE "payment_instructions"
-      ADD CONSTRAINT "payment_instructions_payment_channel_id_fkey"
+    ALTER TABLE "tuition_payment_instructions"
+      ADD CONSTRAINT "tuition_payment_instructions_payment_channel_id_fkey"
       FOREIGN KEY ("payment_channel_id")
       REFERENCES "public"."tuition_payment_methods"("id")
       ON DELETE CASCADE
@@ -29,11 +30,11 @@ BEGIN
   END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS "idx_payment_instructions_payment_channel_id"
-  ON "payment_instructions" ("payment_channel_id");
+CREATE INDEX IF NOT EXISTS "idx_tuition_payment_instructions_payment_channel_id"
+  ON "tuition_payment_instructions" ("payment_channel_id");
 
-CREATE INDEX IF NOT EXISTS "idx_payment_instructions_step_order"
-  ON "payment_instructions" ("payment_channel_id", "step_order");
+CREATE INDEX IF NOT EXISTS "idx_tuition_payment_instructions_step_order"
+  ON "tuition_payment_instructions" ("payment_channel_id", "step_order");
 
 -- Optional uniqueness for step_order within a channel (only when step_order is set)
 DO $$
@@ -42,10 +43,10 @@ BEGIN
     SELECT 1
     FROM pg_indexes
     WHERE schemaname = 'public'
-      AND indexname = 'uniq_payment_instructions_channel_step_order'
+      AND indexname = 'uniq_tuition_payment_instructions_channel_step_order'
   ) THEN
-    EXECUTE 'CREATE UNIQUE INDEX uniq_payment_instructions_channel_step_order
-             ON payment_instructions(payment_channel_id, step_order)
+    EXECUTE 'CREATE UNIQUE INDEX uniq_tuition_payment_instructions_channel_step_order
+             ON tuition_payment_instructions(payment_channel_id, step_order)
              WHERE step_order IS NOT NULL';
   END IF;
 END $$;
@@ -61,7 +62,7 @@ BEGIN
     SELECT 1 FROM information_schema.tables
     WHERE table_schema = 'public' AND table_name = 'tuition_payment_instruction_steps'
   ) THEN
-    INSERT INTO payment_instructions (title, description, step_order, payment_channel_id, created_at, updated_at)
+    INSERT INTO tuition_payment_instructions (title, description, step_order, payment_channel_id, created_at, updated_at)
     SELECT
       g.title,
       s.instruction_text,
@@ -105,4 +106,3 @@ ALTER TABLE "notif_templates"
 
 ALTER TABLE "notif_templates"
   ADD COLUMN IF NOT EXISTS "subject" text;
-

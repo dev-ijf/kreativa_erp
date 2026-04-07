@@ -32,7 +32,6 @@ export async function GET(_req: NextRequest) {
       key === 'app_title' ||
       key === 'logo_main_url' ||
       key === 'logo_login_url' ||
-      key === 'primary_color' ||
       key === 'login_welcome_text' ||
       key === 'favicon_url' ||
       key === 'login_title' ||
@@ -48,7 +47,8 @@ export async function GET(_req: NextRequest) {
     appTitle: map.app_title || 'Kreativa',
     logoMainUrl: map.logo_main_url ?? null,
     logoLoginUrl: map.logo_login_url ?? map.logo_main_url ?? null,
-    primaryColor: map.primary_color ?? null,
+    // Warna sidebar/login tidak lagi diambil dari core_settings.primary_color (pakai warna per modul / default UI).
+    primaryColor: null,
     loginWelcomeText:
       map.login_welcome_text ??
       'Selamat datang di portal administrasi Kreativa ERP. Silakan masuk menggunakan akun Google yang terdaftar.',

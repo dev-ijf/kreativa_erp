@@ -11,11 +11,18 @@ CREATE TABLE IF NOT EXISTS "public"."academic_subjects" (
     "color_theme" varchar -- e.g., 'bg-blue-100 text-blue-600'
 );
 
-CREATE TABLE IF NOT EXISTS "public"."academic_teachers" (
-    "id" bigserial PRIMARY KEY,
-    "full_name" varchar NOT NULL,
-    "nip" varchar
+CREATE TABLE IF NOT EXISTS "public"."core_teachers" (
+    "id" serial PRIMARY KEY,
+    "user_id" int4 NOT NULL UNIQUE REFERENCES "public"."core_users"("id") ON DELETE CASCADE,
+    "nip" varchar(50),
+    "join_date" date,
+    "latest_education" varchar(100)
 );
+
+ALTER TABLE "public"."core_teachers"
+  ADD COLUMN IF NOT EXISTS "join_date" date;
+ALTER TABLE "public"."core_teachers"
+  ADD COLUMN IF NOT EXISTS "latest_education" varchar(100);
 
 CREATE TABLE IF NOT EXISTS "public"."academic_semesters" (
     "id" bigserial PRIMARY KEY,
@@ -33,7 +40,7 @@ CREATE TABLE IF NOT EXISTS "public"."academic_schedules" (
     "id" bigserial PRIMARY KEY,
     "student_id" int4 NOT NULL,
     "subject_id" bigint REFERENCES "public"."academic_subjects"("id") ON DELETE SET NULL,
-    "teacher_id" bigint REFERENCES "public"."academic_teachers"("id") ON DELETE SET NULL,
+    "teacher_id" int4 REFERENCES "public"."core_teachers"("id") ON DELETE SET NULL,
     "day_of_week" varchar NOT NULL, -- 'Monday', 'Tuesday', dll
     "start_time" varchar NOT NULL, -- format 'HH:MM'
     "end_time" varchar NOT NULL, -- format 'HH:MM'
@@ -146,29 +153,37 @@ CREATE INDEX IF NOT EXISTS "idx_acad_hbt_student_date" ON "public"."academic_hab
 
 
 -- ==============================================================================
--- 9. ADAPTIVE LEARNING (SOAL IRT & RIWAYAT TES)
+-- 9. ADAPTIVE LEARNING (tes dulu; soal many-to-one ke tes)
 -- ==============================================================================
-CREATE TABLE IF NOT EXISTS "public"."academic_adaptive_questions" (
-    "id" bigserial PRIMARY KEY,
-    "subject_id" bigint NOT NULL REFERENCES "public"."academic_subjects"("id") ON DELETE CASCADE,
-    "grade_band" varchar NOT NULL, -- e.g., 'g4-6', 'g7-9'
-    "difficulty" numeric(3,2) NOT NULL, -- Skala 0.00 hingga 1.00 (IRT algorithm input)
-    "question_text" text NOT NULL,
-    "options_json" jsonb NOT NULL, -- ["180", "165", "170", "175"]
-    "correct_answer" varchar NOT NULL,
-    "explanation" text
-);
-CREATE INDEX IF NOT EXISTS "idx_acad_adq_subj_grade_diff" ON "public"."academic_adaptive_questions" ("subject_id", "grade_band", "difficulty");
-
 CREATE TABLE IF NOT EXISTS "public"."academic_adaptive_tests" (
     "id" bigserial PRIMARY KEY,
     "student_id" int4 NOT NULL,
     "subject_id" bigint NOT NULL REFERENCES "public"."academic_subjects"("id") ON DELETE CASCADE,
     "test_date" timestamp DEFAULT now(),
     "score" int4 NOT NULL,
-    "mastery_level" numeric(3,2) NOT NULL -- Hasil penguasaan akhir
+    "mastery_level" numeric(3,2) NOT NULL
 );
 CREATE INDEX IF NOT EXISTS "idx_acad_adt_student_subj" ON "public"."academic_adaptive_tests" ("student_id", "subject_id");
+
+CREATE TABLE IF NOT EXISTS "public"."academic_adaptive_questions" (
+    "id" bigserial PRIMARY KEY,
+    "adaptive_test_id" bigint REFERENCES "public"."academic_adaptive_tests"("id") ON DELETE CASCADE,
+    "subject_id" bigint NOT NULL REFERENCES "public"."academic_subjects"("id") ON DELETE CASCADE,
+    "grade_band" varchar NOT NULL,
+    "difficulty" numeric(3,2) NOT NULL,
+    "question_text" text NOT NULL,
+    "options_json" jsonb NOT NULL,
+    "correct_answer" varchar NOT NULL,
+    "student_answer" varchar(255),
+    "explanation" text
+);
+CREATE INDEX IF NOT EXISTS "idx_acad_adq_subj_grade_diff" ON "public"."academic_adaptive_questions" ("subject_id", "grade_band", "difficulty");
+
+ALTER TABLE "public"."academic_adaptive_questions"
+  ADD COLUMN IF NOT EXISTS "adaptive_test_id" bigint REFERENCES "public"."academic_adaptive_tests"("id") ON DELETE CASCADE;
+
+ALTER TABLE "public"."academic_adaptive_questions"
+  ADD COLUMN IF NOT EXISTS "student_answer" varchar(255);
 
 
 -- ==============================================================================
@@ -188,13 +203,25 @@ INSERT INTO "public"."academic_subjects" ("id", "code", "name_en", "name_id", "c
 (5, 'HIST', 'History', 'Sejarah', 'bg-yellow-100 text-yellow-600')
 ON CONFLICT ("id") DO NOTHING;
 
--- Seed Teachers
-INSERT INTO "public"."academic_teachers" ("id", "full_name") VALUES 
-(1, 'Mr. Hendra'),
-(2, 'Mrs. Rina'),
-(3, 'Mr. John'),
-(4, 'Mrs. Susi')
+-- Seed guru: akun core_users + baris core_teachers (id 1–4 untuk konsistensi jadwal)
+INSERT INTO "public"."core_users" ("id", "school_id", "full_name", "email", "password_hash", "role") VALUES
+(10, 4, 'Mr. Hendra', 'hendra.teacher@kreativa.sch.id', 'hash', 'teacher'),
+(11, 4, 'Mrs. Rina', 'rina.teacher@kreativa.sch.id', 'hash', 'teacher'),
+(12, 4, 'Mr. John', 'john.teacher@kreativa.sch.id', 'hash', 'teacher'),
+(13, 4, 'Mrs. Susi', 'susi.teacher@kreativa.sch.id', 'hash', 'teacher')
 ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "public"."core_teachers" ("id", "user_id", "nip", "join_date", "latest_education") VALUES
+(1, 10, NULL, '2022-07-01', 'S1 Pendidikan Matematika'),
+(2, 11, NULL, '2021-08-15', 'S1 Pendidikan IPA'),
+(3, 12, NULL, '2023-01-10', 'S2 TESOL'),
+(4, 13, NULL, '2020-03-01', 'S1 Pendidikan Seni')
+ON CONFLICT ("id") DO NOTHING;
+
+SELECT setval(
+  pg_get_serial_sequence('public.core_teachers', 'id'),
+  COALESCE((SELECT MAX("id") FROM "public"."core_teachers"), 1)
+);
 
 -- Seed Semesters
 INSERT INTO "public"."academic_semesters" ("id", "academic_year", "semester_label", "is_active") VALUES
@@ -208,13 +235,13 @@ INSERT INTO "public"."academic_schedules" ("student_id", "subject_id", "teacher_
 SELECT v.student_id, v.subject_id, v.teacher_id, v.day_of_week, v.start_time, v.end_time, v.is_break
 FROM (
   VALUES
-    (1::int4, 1::bigint, 1::bigint, 'Monday'::varchar, '07:30'::varchar, '09:00'::varchar, false::boolean),
-    (1::int4, 2::bigint, 2::bigint, 'Monday'::varchar, '09:00'::varchar, '10:30'::varchar, false::boolean),
-    (1::int4, NULL::bigint, NULL::bigint, 'Monday'::varchar, '10:30'::varchar, '11:00'::varchar, true::boolean),
-    (1::int4, 3::bigint, 3::bigint, 'Monday'::varchar, '11:00'::varchar, '12:30'::varchar, false::boolean),
-    (2::int4, 4::bigint, 4::bigint, 'Monday'::varchar, '08:00'::varchar, '09:30'::varchar, false::boolean),
-    (2::int4, NULL::bigint, NULL::bigint, 'Monday'::varchar, '09:30'::varchar, '10:00'::varchar, true::boolean),
-    (2::int4, 1::bigint, 1::bigint, 'Monday'::varchar, '10:00'::varchar, '11:30'::varchar, false::boolean)
+    (1::int4, 1::bigint, 1::int4, 'Monday'::varchar, '07:30'::varchar, '09:00'::varchar, false::boolean),
+    (1::int4, 2::bigint, 2::int4, 'Monday'::varchar, '09:00'::varchar, '10:30'::varchar, false::boolean),
+    (1::int4, NULL::bigint, NULL::int4, 'Monday'::varchar, '10:30'::varchar, '11:00'::varchar, true::boolean),
+    (1::int4, 3::bigint, 3::int4, 'Monday'::varchar, '11:00'::varchar, '12:30'::varchar, false::boolean),
+    (2::int4, 4::bigint, 4::int4, 'Monday'::varchar, '08:00'::varchar, '09:30'::varchar, false::boolean),
+    (2::int4, NULL::bigint, NULL::int4, 'Monday'::varchar, '09:30'::varchar, '10:00'::varchar, true::boolean),
+    (2::int4, 1::bigint, 1::int4, 'Monday'::varchar, '10:00'::varchar, '11:30'::varchar, false::boolean)
 ) AS v(student_id, subject_id, teacher_id, day_of_week, start_time, end_time, is_break)
 WHERE NOT EXISTS (
   SELECT 1
@@ -334,35 +361,40 @@ INSERT INTO "public"."academic_habits" ("student_id", "habit_date", "fajr", "dhu
 (1, '2023-11-17', true, true, true, true, true, false, false, true, true, true)
 ON CONFLICT ("student_id", "habit_date") DO NOTHING;
 
--- Seed Adaptive Learning Questions (Bank Soal Sesuai Screenshot)
-INSERT INTO "public"."academic_adaptive_questions" ("subject_id", "grade_band", "difficulty", "question_text", "options_json", "correct_answer", "explanation")
-SELECT v.subject_id, v.grade_band, v.difficulty, v.question_text, v.options_json, v.correct_answer, v.explanation
+-- Seed Adaptive Tests (harus sebelum soal)
+INSERT INTO "public"."academic_adaptive_tests" ("id", "student_id", "subject_id", "test_date", "score", "mastery_level") VALUES
+(1, 1, 1, '2023-11-18 14:00:00', 85, 0.85),
+(2, 1, 2, '2023-11-15 09:30:00', 70, 0.70)
+ON CONFLICT ("id") DO NOTHING;
+
+SELECT setval(
+  pg_get_serial_sequence('public.academic_adaptive_tests', 'id'),
+  COALESCE((SELECT MAX("id") FROM "public"."academic_adaptive_tests"), 1)
+);
+
+-- Seed Adaptive Questions (detail per tes)
+INSERT INTO "public"."academic_adaptive_questions" ("adaptive_test_id", "subject_id", "grade_band", "difficulty", "question_text", "options_json", "correct_answer", "student_answer", "explanation")
+SELECT v.adaptive_test_id, v.subject_id, v.grade_band, v.difficulty, v.question_text, v.options_json, v.correct_answer, v.student_answer, v.explanation
 FROM (
   VALUES
-    (1::bigint, 'g4-6'::varchar, 0.75::numeric, 'What is 12 x 15?'::text, '["180", "165", "170", "175"]'::jsonb, '180'::varchar, '12 x 15 = 12 x 10 + 12 x 5 = 120 + 60 = 180'::text),
-    (1::bigint, 'g4-6'::varchar, 0.50::numeric, 'What is 15 + 25?'::text, '["30", "40", "50", "45"]'::jsonb, '40'::varchar, '15 + 25 = 40. Basic addition.'::text)
-) AS v(subject_id, grade_band, difficulty, question_text, options_json, correct_answer, explanation)
+    (1::bigint, 1::bigint, 'g4-6'::varchar, 0.75::numeric, 'What is 12 x 15?'::text, '["180", "165", "170", "175"]'::jsonb, '180'::varchar, '180'::varchar, '12 x 15 = 12 x 10 + 12 x 5 = 120 + 60 = 180'::text),
+    (1::bigint, 1::bigint, 'g4-6'::varchar, 0.50::numeric, 'What is 15 + 25?'::text, '["30", "40", "50", "45"]'::jsonb, '40'::varchar, '45'::varchar, '15 + 25 = 40. Basic addition.'::text),
+    (2::bigint, 2::bigint, 'g4-6'::varchar, 0.60::numeric, 'What is H2O?'::text, '["Water", "Salt", "Oxygen", "Iron"]'::jsonb, 'Water'::varchar, 'Water'::varchar, 'H2O is water.'::text)
+) AS v(adaptive_test_id, subject_id, grade_band, difficulty, question_text, options_json, correct_answer, student_answer, explanation)
 WHERE NOT EXISTS (
   SELECT 1
   FROM "public"."academic_adaptive_questions" q
-  WHERE q."subject_id" = v.subject_id
-    AND q."grade_band" = v.grade_band
-    AND q."difficulty" = v.difficulty
+  WHERE q."adaptive_test_id" = v.adaptive_test_id
     AND q."question_text" = v.question_text
 );
 
--- Seed Adaptive Learning Tests History
-INSERT INTO "public"."academic_adaptive_tests" ("student_id", "subject_id", "test_date", "score", "mastery_level")
-SELECT v.student_id, v.subject_id, v.test_date, v.score, v.mastery_level
+UPDATE "public"."academic_adaptive_questions" AS q
+SET "student_answer" = v.sa
 FROM (
   VALUES
-    (1::int4, 1::bigint, '2023-11-18 14:00:00'::timestamp, 85::int4, 0.85::numeric),
-    (1::int4, 2::bigint, '2023-11-15 09:30:00'::timestamp, 70::int4, 0.70::numeric)
-) AS v(student_id, subject_id, test_date, score, mastery_level)
-WHERE NOT EXISTS (
-  SELECT 1
-  FROM "public"."academic_adaptive_tests" t
-  WHERE t."student_id" = v.student_id
-    AND t."subject_id" = v.subject_id
-    AND t."test_date" = v.test_date
-);
+    ('What is 12 x 15?'::text, '180'::varchar(255)),
+    ('What is 15 + 25?'::text, '45'::varchar(255)),
+    ('What is H2O?'::text, 'Water'::varchar(255))
+) AS v(qt, sa)
+WHERE q."question_text" = v.qt
+  AND (q."student_answer" IS NULL OR q."student_answer" = '');

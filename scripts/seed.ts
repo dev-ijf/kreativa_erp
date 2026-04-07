@@ -83,6 +83,10 @@ async function seed() {
       { id: 1, schoolId: null, fullName: 'Superadmin Yayasan', email: 'superadmin@yayasan.com', passwordHash: 'hash', role: 'superadmin' },
       { id: 2, schoolId: null, fullName: 'Budi Santoso', email: 'budi.ayah@email.com', passwordHash: 'hash', role: 'parent' },
       { id: 3, schoolId: 4, fullName: 'Zevanya', email: 'zevanya@student.com', passwordHash: 'hash', role: 'student' },
+      { id: 10, schoolId: 4, fullName: 'Mr. Hendra', email: 'hendra.teacher@kreativa.sch.id', passwordHash: 'hash', role: 'teacher' },
+      { id: 11, schoolId: 4, fullName: 'Mrs. Rina', email: 'rina.teacher@kreativa.sch.id', passwordHash: 'hash', role: 'teacher' },
+      { id: 12, schoolId: 4, fullName: 'Mr. John', email: 'john.teacher@kreativa.sch.id', passwordHash: 'hash', role: 'teacher' },
+      { id: 13, schoolId: 4, fullName: 'Mrs. Susi', email: 'susi.teacher@kreativa.sch.id', passwordHash: 'hash', role: 'teacher' },
     ])
     .onConflictDoNothing();
 
@@ -313,12 +317,12 @@ async function seed() {
     .onConflictDoNothing();
 
   await db
-    .insert(schema.academicTeachers)
+    .insert(schema.coreTeachers)
     .values([
-      { id: 1, fullName: 'Mr. Hendra' },
-      { id: 2, fullName: 'Mrs. Rina' },
-      { id: 3, fullName: 'Mr. John' },
-      { id: 4, fullName: 'Mrs. Susi' },
+      { id: 1, userId: 10, nip: null, joinDate: '2022-07-01', latestEducation: 'S1 Pendidikan Matematika' },
+      { id: 2, userId: 11, nip: null, joinDate: '2021-08-15', latestEducation: 'S1 Pendidikan IPA' },
+      { id: 3, userId: 12, nip: null, joinDate: '2023-01-10', latestEducation: 'S2 TESOL' },
+      { id: 4, userId: 13, nip: null, joinDate: '2020-03-01', latestEducation: 'S1 Pendidikan Seni' },
     ])
     .onConflictDoNothing();
 
@@ -411,18 +415,49 @@ async function seed() {
     .onConflictDoNothing();
 
   await db
-    .insert(schema.academicAdaptiveQuestions)
+    .insert(schema.academicAdaptiveTests)
     .values([
-      { subjectId: 1, gradeBand: 'g4-6', difficulty: '0.75', questionText: 'What is 12 x 15?', optionsJson: ["180", "165", "170", "175"], correctAnswer: '180', explanation: '12 x 15 = 12 x 10 + 12 x 5 = 120 + 60 = 180' },
-      { subjectId: 1, gradeBand: 'g4-6', difficulty: '0.50', questionText: 'What is 15 + 25?', optionsJson: ["30", "40", "50", "45"], correctAnswer: '40', explanation: '15 + 25 = 40. Basic addition.' },
+      { id: 1, studentId: 1, subjectId: 1, testDate: new Date('2023-11-18 14:00:00'), score: 85, masteryLevel: '0.85' },
+      { id: 2, studentId: 1, subjectId: 2, testDate: new Date('2023-11-15 09:30:00'), score: 70, masteryLevel: '0.70' },
     ])
     .onConflictDoNothing();
 
   await db
-    .insert(schema.academicAdaptiveTests)
+    .insert(schema.academicAdaptiveQuestions)
     .values([
-      { studentId: 1, subjectId: 1, testDate: new Date('2023-11-18 14:00:00'), score: 85, masteryLevel: '0.85' },
-      { studentId: 1, subjectId: 2, testDate: new Date('2023-11-15 09:30:00'), score: 70, masteryLevel: '0.70' },
+      {
+        adaptiveTestId: 1,
+        subjectId: 1,
+        gradeBand: 'g4-6',
+        difficulty: '0.75',
+        questionText: 'What is 12 x 15?',
+        optionsJson: ['180', '165', '170', '175'],
+        correctAnswer: '180',
+        studentAnswer: '180',
+        explanation: '12 x 15 = 12 x 10 + 12 x 5 = 120 + 60 = 180',
+      },
+      {
+        adaptiveTestId: 1,
+        subjectId: 1,
+        gradeBand: 'g4-6',
+        difficulty: '0.50',
+        questionText: 'What is 15 + 25?',
+        optionsJson: ['30', '40', '50', '45'],
+        correctAnswer: '40',
+        studentAnswer: '45',
+        explanation: '15 + 25 = 40. Basic addition.',
+      },
+      {
+        adaptiveTestId: 2,
+        subjectId: 2,
+        gradeBand: 'g4-6',
+        difficulty: '0.60',
+        questionText: 'What is H2O?',
+        optionsJson: ['Water', 'Salt', 'Oxygen', 'Iron'],
+        correctAnswer: 'Water',
+        studentAnswer: 'Water',
+        explanation: 'H2O is water.',
+      },
     ])
     .onConflictDoNothing();
 
@@ -486,7 +521,7 @@ async function seed() {
 
   // Academic sequence resets
   await pool.query(`SELECT setval('academic_subjects_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_subjects))`);
-  await pool.query(`SELECT setval('academic_teachers_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_teachers))`);
+  await pool.query(`SELECT setval('core_teachers_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_teachers))`);
   await pool.query(`SELECT setval('academic_semesters_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_semesters))`);
   await pool.query(`SELECT setval('academic_schedules_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_schedules))`);
   await pool.query(`SELECT setval('academic_attendances_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_attendances))`);
@@ -495,8 +530,8 @@ async function seed() {
   await pool.query(`SELECT setval('academic_announcements_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_announcements))`);
   await pool.query(`SELECT setval('academic_clinic_visits_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_clinic_visits))`);
   await pool.query(`SELECT setval('academic_habits_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_habits))`);
-  await pool.query(`SELECT setval('academic_adaptive_questions_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_adaptive_questions))`);
   await pool.query(`SELECT setval('academic_adaptive_tests_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_adaptive_tests))`);
+  await pool.query(`SELECT setval('academic_adaptive_questions_id_seq', (SELECT COALESCE(MAX(id), 1) FROM academic_adaptive_questions))`);
 
   console.log('✅ Seeding complete!');
 }

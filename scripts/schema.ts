@@ -84,6 +84,20 @@ export const coreUsers = pgTable('core_users', {
 });
 
 // ==============================================================================
+// CORE: TEACHERS (profil mengajar ↔ akun core_users)
+// ==============================================================================
+export const coreTeachers = pgTable('core_teachers', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id')
+    .notNull()
+    .unique()
+    .references(() => coreUsers.id, { onDelete: 'cascade' }),
+  nip: varchar('nip', { length: 50 }),
+  joinDate: date('join_date'),
+  latestEducation: varchar('latest_education', { length: 100 }),
+});
+
+// ==============================================================================
 // CORE: REGIONAL DATA
 // ==============================================================================
 export const coreProvinces = pgTable('core_provinces', {
@@ -380,9 +394,9 @@ export const tuitionPaymentMethods = pgTable('tuition_payment_methods', {
 });
 
 // ==============================================================================
-// PAYMENT: INSTRUCTIONS (single table)
+// TUITION: PAYMENT INSTRUCTIONS (single table)
 // ==============================================================================
-export const paymentInstructions = pgTable('payment_instructions', {
+export const tuitionPaymentInstructions = pgTable('tuition_payment_instructions', {
   id: bigint('id', { mode: 'number' }).primaryKey(),
   title: text('title').notNull(),
   description: text('description').notNull(),
@@ -525,12 +539,6 @@ export const academicSubjects = pgTable('academic_subjects', {
   colorTheme: varchar('color_theme', { length: 100 }),
 });
 
-export const academicTeachers = pgTable('academic_teachers', {
-  id: serial('id').primaryKey(),
-  fullName: varchar('full_name', { length: 100 }).notNull(),
-  nip: varchar('nip', { length: 50 }),
-});
-
 export const academicSemesters = pgTable('academic_semesters', {
   id: serial('id').primaryKey(),
   academicYear: varchar('academic_year', { length: 20 }).notNull(),
@@ -551,7 +559,7 @@ export const academicSchedules = pgTable(
     subjectId: bigint('subject_id', { mode: 'number' }).references(() => academicSubjects.id, {
       onDelete: 'set null',
     }),
-    teacherId: bigint('teacher_id', { mode: 'number' }).references(() => academicTeachers.id, {
+    teacherId: integer('teacher_id').references(() => coreTeachers.id, {
       onDelete: 'set null',
     }),
     dayOfWeek: varchar('day_of_week', { length: 20 }).notNull(),
@@ -696,25 +704,8 @@ export const academicHabits = pgTable(
 );
 
 // ==============================================================================
-// ACADEMIC: ADAPTIVE LEARNING
+// ACADEMIC: ADAPTIVE LEARNING (tests dulu — questions punya FK ke test)
 // ==============================================================================
-export const academicAdaptiveQuestions = pgTable(
-  'academic_adaptive_questions',
-  {
-    id: serial('id').primaryKey(),
-    subjectId: bigint('subject_id', { mode: 'number' })
-      .notNull()
-      .references(() => academicSubjects.id, { onDelete: 'cascade' }),
-    gradeBand: varchar('grade_band', { length: 50 }).notNull(),
-    difficulty: decimal('difficulty', { precision: 3, scale: 2 }).notNull(),
-    questionText: text('question_text').notNull(),
-    optionsJson: jsonb('options_json').notNull(),
-    correctAnswer: varchar('correct_answer', { length: 255 }).notNull(),
-    explanation: text('explanation'),
-  },
-  (t) => [index('idx_acad_adq_subj_grade_diff').on(t.subjectId, t.gradeBand, t.difficulty)]
-);
-
 export const academicAdaptiveTests = pgTable(
   'academic_adaptive_tests',
   {
@@ -730,4 +721,26 @@ export const academicAdaptiveTests = pgTable(
     masteryLevel: decimal('mastery_level', { precision: 3, scale: 2 }).notNull(),
   },
   (t) => [index('idx_acad_adt_student_subj').on(t.studentId, t.subjectId)]
+);
+
+export const academicAdaptiveQuestions = pgTable(
+  'academic_adaptive_questions',
+  {
+    id: serial('id').primaryKey(),
+    adaptiveTestId: integer('adaptive_test_id').references(() => academicAdaptiveTests.id, {
+      onDelete: 'cascade',
+    }),
+    subjectId: bigint('subject_id', { mode: 'number' })
+      .notNull()
+      .references(() => academicSubjects.id, { onDelete: 'cascade' }),
+    gradeBand: varchar('grade_band', { length: 50 }).notNull(),
+    difficulty: decimal('difficulty', { precision: 3, scale: 2 }).notNull(),
+    questionText: text('question_text').notNull(),
+    optionsJson: jsonb('options_json').notNull(),
+    correctAnswer: varchar('correct_answer', { length: 255 }).notNull(),
+    /** Jawaban yang dipilih siswa untuk percobaan tes ini (nilai opsi, selaras dengan correct_answer). */
+    studentAnswer: varchar('student_answer', { length: 255 }),
+    explanation: text('explanation'),
+  },
+  (t) => [index('idx_acad_adq_subj_grade_diff').on(t.subjectId, t.gradeBand, t.difficulty)]
 );
