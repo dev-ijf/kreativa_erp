@@ -89,9 +89,9 @@ const MODULES = [
       { name: 'Nilai / Rapor', href: '/academic/grades', icon: <ClipboardList size={16} /> },
       { name: 'Agenda', href: '/academic/agendas', icon: <Calendar size={16} /> },
       { name: 'Pengumuman', href: '/academic/announcements', icon: <Megaphone size={16} /> },
-      { name: 'Klinik UKS', href: '/academic/clinic-visits', icon: <Stethoscope size={16} /> },
-      { name: 'Pembiasaan (lihat)', href: '/academic/habits', icon: <UserCheck size={16} /> },
-      { name: 'Tes adaptif (lihat)', href: '/academic/adaptive-tests', icon: <Brain size={16} /> },
+      { name: 'Kesehatan', href: '/academic/clinic-visits', icon: <Stethoscope size={16} /> },
+      { name: 'Pembiasaan', href: '/academic/habits', icon: <UserCheck size={16} /> },
+      { name: 'Tes adaptif', href: '/academic/adaptive-tests', icon: <Brain size={16} /> },
     ],
   },
 ];

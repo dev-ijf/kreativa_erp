@@ -23,6 +23,8 @@ interface DataTableProps<T> {
   pageSize?: number;
   pageSizeOptions?: number[];
   rowKey?: (row: T) => string | number;
+  /** Kolom nomor urut (per halaman) di paling kiri — pencarian tabel dinonaktifkan di halaman yang sudah punya filter */
+  showRowNumber?: boolean;
 }
 
 export default function DataTable<T>({
@@ -36,6 +38,7 @@ export default function DataTable<T>({
   pageSize = 10,
   pageSizeOptions = [10, 20, 50, 100],
   rowKey,
+  showRowNumber = false,
 }: DataTableProps<T>) {
   const safeData = Array.isArray(data) ? data : [];
   const [search, setSearch] = useState('');
@@ -88,6 +91,8 @@ export default function DataTable<T>({
     return pages;
   };
 
+  const colCount = columns.length + (showRowNumber ? 1 : 0);
+
   return (
     <div className="bg-white rounded-2xl border border-[#E2E8F1] shadow-sm overflow-hidden">
       {/* Toolbar */}
@@ -113,6 +118,11 @@ export default function DataTable<T>({
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50 border-b border-[#E2E8F1]">
+              {showRowNumber && (
+                <th className="px-3 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-11 text-center">
+                  No.
+                </th>
+              )}
               {columns.map((col) => (
                 <th
                   key={String(col.key)}
@@ -137,6 +147,11 @@ export default function DataTable<T>({
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-[#E2E8F1]">
+                  {showRowNumber && (
+                    <td className="px-3 py-3.5">
+                      <div className="h-4 w-6 mx-auto bg-slate-100 rounded animate-pulse" />
+                    </td>
+                  )}
                   {columns.map((col) => (
                     <td key={String(col.key)} className="px-5 py-3.5">
                       <div className="h-4 bg-slate-100 rounded animate-pulse" />
@@ -146,23 +161,31 @@ export default function DataTable<T>({
               ))
             ) : paginated.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="text-center py-16 text-slate-400 text-[13px]">
+                <td colSpan={colCount} className="text-center py-16 text-slate-400 text-[13px]">
                   {emptyText}
                 </td>
               </tr>
             ) : (
-              paginated.map((row, i) => (
+              paginated.map((row, i) => {
+                const rowNum = (currentPage - 1) * limit + i + 1;
+                return (
                 <tr
                   key={rowKey ? rowKey(row) : i}
                   className="border-b border-[#E2E8F1] last:border-0 hover:bg-slate-50/50 transition-colors"
                 >
+                  {showRowNumber && (
+                    <td className="px-3 py-3.5 text-[13px] text-slate-500 tabular-nums text-center w-11">
+                      {rowNum}
+                    </td>
+                  )}
                   {columns.map((col) => (
                     <td key={String(col.key)} className={`px-5 py-3.5 text-[13px] text-slate-700 ${col.className ?? ''}`}>
                       {col.render ? col.render(row) : String(getValue(row, String(col.key)) ?? '–')}
                     </td>
                   ))}
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

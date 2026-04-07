@@ -57,6 +57,24 @@ const BREADCRUMB_MAP: Record<string, string> = {
 
 function resolvePageTitle(pathname: string): string {
   if (BREADCRUMB_MAP[pathname]) return BREADCRUMB_MAP[pathname];
+  if (/^\/academic\/schedules\/student\/\d+$/.test(pathname)) {
+    return 'Jadwal — per siswa';
+  }
+  if (/^\/academic\/attendances\/student\/\d+$/.test(pathname)) {
+    return 'Kehadiran — per siswa';
+  }
+  if (/^\/academic\/grades\/student\/\d+$/.test(pathname)) {
+    return 'Nilai / rapor — per siswa';
+  }
+  if (/^\/academic\/clinic-visits\/student\/\d+$/.test(pathname)) {
+    return 'Klinik UKS — per siswa';
+  }
+  if (/^\/academic\/habits\/student\/\d+$/.test(pathname)) {
+    return 'Pembiasaan — per siswa';
+  }
+  if (/^\/academic\/adaptive-tests\/student\/\d+$/.test(pathname)) {
+    return 'Tes adaptif — per siswa';
+  }
   if (pathname.startsWith('/master/provinces/') && pathname !== '/master/provinces/add') {
     return 'Edit Provinsi';
   }
