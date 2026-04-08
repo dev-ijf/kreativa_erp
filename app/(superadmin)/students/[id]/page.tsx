@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Field, Select, Button, Input, Textarea } from '@/components/ui/FormFields';
-import { ArrowLeft, Save, Printer, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, Printer, ChevronLeft, ChevronRight, MapPin, FileText, Eye, ExternalLink, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { use } from 'react';
 import { format, subMonths } from 'date-fns';
@@ -136,16 +136,86 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
   const [payTo, setPayTo] = useState(defaultPayTo);
   const [payLoading, setPayLoading] = useState(false);
   const [headerLightboxOpen, setHeaderLightboxOpen] = useState(false);
-  const [payRows, setPayRows] = useState<
-    {
-      id: number;
-      created_at: string;
-      reference_no: string;
-      total_amount: string;
-      status: string | null;
-      payer_name: string | null;
-    }[]
-  >([]);
+  const [payRows, setPayRows] = useState<any[]>([]);
+
+  const [billRows, setBillRows] = useState<any[]>([]);
+  const [billTotal, setBillTotal] = useState(0);
+  const [billLoading, setBillLoading] = useState(false);
+  const [billPage, setBillPage] = useState(1);
+  const [billLimit, setBillLimit] = useState(10);
+
+  const [payTotal, setPayTotal] = useState(0);
+  const [payPage, setPayPage] = useState(1);
+  const [payLimit, setPayLimit] = useState(10);
+
+  const [classTotal, setClassTotal] = useState(0);
+  const [classPage, setClassPage] = useState(1);
+  const [classLimit, setClassLimit] = useState(10);
+  const [classLoading, setClassLoading] = useState(false);
+
+  const PaginationControl = ({
+    total,
+    page,
+    limit,
+    setPage,
+    setLimit,
+    label,
+  }: {
+    total: number;
+    page: number;
+    limit: number;
+    setPage: (p: number | ((p: number) => number)) => void;
+    setLimit: (l: number) => void;
+    label: string;
+  }) => {
+    const totalPages = Math.ceil(total / limit) || 1;
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/30 gap-4">
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-slate-500 whitespace-nowrap">
+            Total {total.toLocaleString('id-ID')} {label} — Hal {page} / {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Baris:</span>
+            <select
+              className="h-7 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 px-1"
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              {[10, 25, 50, 100].map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="h-8 px-3 text-xs font-semibold"
+          >
+            <ChevronLeft size={14} className="mr-1" /> Sebelum
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="h-8 px-3 text-xs font-semibold"
+          >
+            Lanjut <ChevronRight size={14} className="ml-1" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -281,28 +351,61 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
     }
   }, [searchParams]);
 
+  const loadBills = useCallback(() => {
+    setBillLoading(true);
+    const q = new URLSearchParams({
+      student_id: String(id),
+      page: String(billPage),
+      limit: String(billLimit),
+    });
+    fetch(`/api/billing/bills?${q}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setBillRows(data.data || []);
+        setBillTotal(data.total || 0);
+      })
+      .catch(() => setBillRows([]))
+      .finally(() => setBillLoading(false));
+  }, [id, billPage, billLimit]);
+
+
+  useEffect(() => {
+    if (tab === 'billing') loadBills();
+  }, [tab, loadBills]);
+
   const loadPayments = useCallback(() => {
     setPayLoading(true);
     const q = new URLSearchParams({
       student_id: String(id),
-      from: payFrom,
-      to: payTo,
-      limit: '50',
-      page: '1',
+      from: '2010-01-01', // Rentang luas agar semua data muncul
+      to: format(new Date(), 'yyyy-MM-dd'),
+      limit: String(payLimit),
+      page: String(payPage),
     });
     fetch(`/api/billing/transactions?${q}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.items) setPayRows(data.items);
-        else setPayRows([]);
+        if (data.items) {
+          setPayRows(data.items);
+          setPayTotal(data.total || 0);
+        } else {
+          setPayRows([]);
+          setPayTotal(0);
+        }
       })
       .catch(() => setPayRows([]))
       .finally(() => setPayLoading(false));
-  }, [id, payFrom, payTo]);
+  }, [id, payPage, payLimit]);
+
+
+
+  const fmtMoney = (s: string | number) =>
+    'Rp ' + parseFloat(String(s || '0')).toLocaleString('id-ID', { minimumFractionDigits: 0 });
 
   useEffect(() => {
     if (tab === 'payments') loadPayments();
   }, [tab, loadPayments]);
+
 
   useEffect(() => {
     const pid = form.province_id;
@@ -467,7 +570,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
     (photoUrl.startsWith('http') || photoUrl.startsWith('blob:') || photoUrl.startsWith('/'));
 
   return (
-    <div className="p-6 max-w-[1100px] mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
       <ImageLightbox
         open={headerLightboxOpen}
         onClose={() => setHeaderLightboxOpen(false)}
@@ -498,19 +601,19 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
           ) : null}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-800">{String(form.full_name || 'Siswa')}</h2>
+              <h2 className="text-2xl font-bold text-slate-800">{String(form.full_name || 'Siswa')}</h2>
               {viewOnly && (
-                <span className="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                <span className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
                   Mode lihat
                 </span>
               )}
             </div>
-            <p className="text-slate-700 text-[13px] font-medium mt-0.5">
+            <p className="text-slate-700 text-sm font-medium mt-0.5">
               {schools.find((s) => String(s.id) === String(form.school_id || ''))?.name ||
                 String(form.school_name || '') ||
                 '—'}
             </p>
-            <p className="text-slate-400 text-[13px] mt-0.5">
+            <p className="text-slate-400 text-sm mt-0.5">
               NISN {String(form.nisn || '—')} · {String(form.student_type || '—')} · Kurikulum{' '}
               {String(form.curriculum || '—')}
             </p>
@@ -543,7 +646,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`px-4 py-2 rounded-t-lg text-[13px] font-medium transition-colors ${
+            className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
               tab === t.id
                 ? 'bg-blue-600 text-white'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -557,7 +660,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
       <form onSubmit={handleSave} className="space-y-6">
         {tab === 'personal' && (
           <section className="bg-white rounded-2xl border border-[#E2E8F1] p-6 space-y-6">
-            <h3 className="text-sm font-bold text-blue-700 uppercase tracking-wide border-b border-slate-100 pb-2">
+            <h3 className="text-base font-bold text-blue-700 uppercase tracking-wide border-b border-slate-100 pb-2">
               Data Pribadi
             </h3>
             <StudentPhotoUpload
@@ -726,7 +829,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
             </div>
             {canGraduate && (
               <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                <p className="text-[13px] text-amber-900 flex-1">
+                <p className="text-sm text-amber-900 flex-1">
                   Siswa di tingkat akhir: catat kelulusan (tutup rombel aktif, tandai alumni).
                 </p>
             <Button
@@ -757,7 +860,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                 </Button>
               </div>
             )}
-            <h3 className="text-sm font-bold text-blue-700 uppercase tracking-wide border-b border-slate-100 pb-2 pt-4">
+            <h3 className="text-base font-bold text-blue-700 uppercase tracking-wide border-b border-slate-100 pb-2 pt-4">
               Alamat & lainnya
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -834,12 +937,12 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                         <span className="text-[10px] font-bold uppercase tracking-wider text-white/95 leading-none">
                           Klik di sini
                         </span>
-                        <span className="inline-flex items-center gap-1.5 justify-center w-full text-[12px] leading-snug">
+                        <span className="inline-flex items-center gap-1.5 justify-center w-full text-sm leading-snug">
                           <MapPin size={15} className="shrink-0 opacity-95" />
                           <span>Cari koordinat dari alamat</span>
                         </span>
                       </Button>
-                      <p className="text-[11px] text-slate-500 leading-snug text-center sm:text-left">
+                      <p className="text-xs text-slate-500 leading-snug text-center sm:text-left">
                         Mengisi lintang &amp; bujur dari teks alamat di samping.
                       </p>
                     </div>
@@ -867,7 +970,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                 {form.address_latitude && form.address_longitude ? (
                   <div className="col-span-2 flex justify-end -mt-1">
                     <a
-                      className="inline-flex items-center text-[13px] text-blue-600 underline"
+                      className="inline-flex items-center text-sm text-blue-600 underline"
                       target="_blank"
                       rel="noreferrer"
                       href={`https://www.openstreetmap.org/?mlat=${encodeURIComponent(String(form.address_latitude))}&mlon=${encodeURIComponent(String(form.address_longitude))}#map=16/${form.address_latitude}/${form.address_longitude}`}
@@ -895,13 +998,13 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                       />
                     </div>
                     {!hasPin && !viewOnly ? (
-                      <p className="text-[11px] text-slate-500 px-0.5">
+                      <p className="text-xs text-slate-500 px-0.5">
                         Pratinjau peta default: <span className="font-semibold text-slate-600">Kota Bandung</span>.
                         Isi alamat lalu tekan <span className="font-semibold">Klik di sini</span> agar penanda mengikuti lokasi.
                       </p>
                     ) : null}
                     {!hasPin && viewOnly ? (
-                      <p className="text-[11px] text-slate-500 px-0.5">
+                      <p className="text-xs text-slate-500 px-0.5">
                         Koordinat belum tercatat — peta menampilkan <span className="font-semibold text-slate-600">Kota Bandung</span> sebagai acuan.
                       </p>
                     ) : null}
@@ -963,8 +1066,8 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                 Wilayah administratif
               </h4>
               {viewOnly && wilayahSummary ? (
-                <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-800 leading-relaxed">
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 block mb-1.5">
+                <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 leading-relaxed">
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-400 block mb-1.5">
                     Wilayah terdaftar
                   </span>
                   {wilayahSummary}
@@ -1128,9 +1231,9 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
         {tab === 'parents' && (
           <section className="space-y-8">
             <div className="bg-white rounded-2xl border border-[#E2E8F1] p-6 space-y-4">
-              <h3 className="text-sm font-bold text-blue-700">Akses portal orang tua</h3>
+              <h3 className="text-base font-bold text-blue-700">Akses portal orang tua</h3>
               {parentPortalLinks.length > 0 ? (
-                <ul className="text-[13px] text-slate-700 space-y-1">
+                <ul className="text-sm text-slate-700 space-y-1">
                   {parentPortalLinks.map((l) => (
                     <li key={`${l.portal_user_id}-${l.relation_type}`}>
                       <span className="font-medium">{l.relation_type}</span>: {l.portal_full_name} —{' '}
@@ -1139,7 +1242,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                   ))}
                 </ul>
               ) : (
-                <p className="text-[13px] text-slate-500">Belum ada akun portal terhubung ke siswa ini.</p>
+                <p className="text-sm text-slate-500">Belum ada akun portal terhubung ke siswa ini.</p>
               )}
               {!viewOnly && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
@@ -1229,7 +1332,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                 key={label}
                 className="bg-white rounded-2xl border border-[#E2E8F1] p-6 space-y-4"
               >
-                <h3 className="text-sm font-bold text-blue-700">{label} kandung / wali</h3>
+                <h3 className="text-base font-bold text-blue-700">{label} kandung / wali</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Field label="Nama">
                     <Input
@@ -1297,7 +1400,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
 
         {tab === 'education' && (
           <section className="bg-white rounded-2xl border border-[#E2E8F1] p-6 space-y-4">
-            <h3 className="text-sm font-bold text-blue-700">Riwayat pendidikan</h3>
+            <h3 className="text-base font-bold text-blue-700">Riwayat pendidikan</h3>
             {educationRows.map((row, idx) => (
               <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-3 border-b border-slate-50 pb-4">
                 <Field label="Nama sekolah">
@@ -1368,10 +1471,10 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
 
         {tab === 'class_history' && (
           <section className="bg-white rounded-2xl border border-[#E2E8F1] p-6 overflow-x-auto">
-            <h3 className="text-sm font-bold text-blue-700 mb-4">Histori rombel</h3>
-            <table className="w-full text-[13px]">
+            <h3 className="text-base font-bold text-blue-700 mb-4">Histori rombel</h3>
+            <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-[11px] uppercase text-slate-500">
+                <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-500">
                   <th className="py-2 pr-3">Tahun ajaran</th>
                   <th className="py-2 pr-3">Tingkat</th>
                   <th className="py-2 pr-3">Kelas</th>
@@ -1386,96 +1489,107 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                     </td>
                   </tr>
                 ) : (
-                  classHistories.map((h) => (
-                    <tr key={h.id} className="border-b border-slate-50">
-                      <td className="py-2 pr-3">{h.academic_year_name}</td>
-                      <td className="py-2 pr-3">{h.level_name}</td>
-                      <td className="py-2 pr-3">{h.class_name}</td>
-                      <td className="py-2">{h.status ?? '—'}</td>
-                    </tr>
-                  ))
+                  classHistories
+                    .slice((classPage - 1) * classLimit, classPage * classLimit)
+                    .map((h) => (
+                      <tr key={h.id} className="border-b border-slate-50">
+                        <td className="py-2 pr-3">{h.academic_year_name}</td>
+                        <td className="py-2 pr-3">{h.level_name}</td>
+                        <td className="py-2 pr-3">{h.class_name}</td>
+                        <td className="py-2">{h.status ?? '—'}</td>
+                      </tr>
+                    ))
                 )}
               </tbody>
             </table>
+            <PaginationControl
+              total={classHistories.length}
+              page={classPage}
+              limit={classLimit}
+              setPage={setClassPage}
+              setLimit={setClassLimit}
+              label="Histori"
+            />
           </section>
         )}
 
         {(tab === 'billing' || tab === 'payments' || tab === 'log') && (
           <section
-            className={`bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-8 text-[13px] ${
-              tab === 'payments' ? 'text-slate-600' : 'text-center text-slate-500'
+            className={`bg-white rounded-2xl border border-slate-200 p-0 overflow-hidden shadow-sm ${
+              tab === 'log' ? 'bg-slate-50 border-dashed p-8 text-center text-slate-500' : ''
             }`}
           >
             {tab === 'billing' && (
-              <p>
-                Tagihan terhubung ke modul Keuangan. Gunakan menu{' '}
-                <Link href="/billing/generate" className="text-blue-600 underline">
-                  Generate Tagihan
-                </Link>{' '}
-                / Kasir.
-              </p>
-            )}
-            {tab === 'payments' && (
-              <div className="text-left max-w-3xl mx-auto space-y-4">
-                <p className="text-slate-600">
-                  Riwayat transaksi yang melibatkan siswa ini (filter tanggal memakai{' '}
-                  <code className="text-[12px]">created_at</code> header transaksi untuk partisi).
-                </p>
-                <div className="flex flex-wrap gap-3 items-end">
-                  <Field label="Dari">
-                    <Input type="date" value={payFrom} onChange={(e) => setPayFrom(e.target.value)} />
-                  </Field>
-                  <Field label="Sampai">
-                    <Input type="date" value={payTo} onChange={(e) => setPayTo(e.target.value)} />
-                  </Field>
-                  <Button type="button" size="sm" onClick={loadPayments} loading={payLoading}>
-                    Muat ulang
-                  </Button>
+              <div className="space-y-0 text-sm">
+                <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <FileText size={16} className="text-emerald-600" /> Daftar Tagihan
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Daftar tagihan yang diterbitkan untuk siswa ini
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      Total: {billTotal} Tagihan
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
-                  <table className="w-full text-[12px]">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-600">
-                        <th className="text-left px-3 py-2 font-semibold">Referensi</th>
-                        <th className="text-left px-3 py-2 font-semibold">Waktu</th>
-                        <th className="text-left px-3 py-2 font-semibold">Pembayar</th>
-                        <th className="text-right px-3 py-2 font-semibold">Total</th>
-                        <th className="text-right px-3 py-2 font-semibold" />
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-left">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold w-12 text-center text-sm">ID</th>
+                        <th className="px-4 py-3 font-semibold">Judul Tagihan</th>
+                        <th className="px-4 py-3 font-semibold">Produk</th>
+                        <th className="px-4 py-3 font-semibold text-right">Total</th>
+                        <th className="px-4 py-3 font-semibold">Status</th>
+                        <th className="px-4 py-3 font-semibold w-24 text-center">Aksi</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {payLoading ? (
+                      {billLoading ? (
                         <tr>
-                          <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
-                            Memuat…
+                          <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                            Memuat data tagihan…
                           </td>
                         </tr>
-                      ) : payRows.length === 0 ? (
+                      ) : billRows.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
-                            Tidak ada transaksi pada periode ini.
+                          <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                            Belum ada data tagihan.
                           </td>
                         </tr>
                       ) : (
-                        payRows.map((r) => (
-                          <tr key={`${r.id}-${r.created_at}`} className="border-t border-slate-100">
-                            <td className="px-3 py-2 font-mono text-[11px]">{r.reference_no}</td>
-                            <td className="px-3 py-2 text-slate-600">
-                              {format(new Date(r.created_at), 'd MMM yyyy HH:mm', { locale: idLocale })}
+                        billRows.map((r) => (
+                          <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">{r.id}</td>
+                            <td className="px-4 py-3 font-medium text-slate-800">{r.title}</td>
+                            <td className="px-4 py-3 text-slate-600">{r.product_name}</td>
+                            <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
+                              {fmtMoney(r.total_amount)}
                             </td>
-                            <td className="px-3 py-2">{r.payer_name || '—'}</td>
-                            <td className="px-3 py-2 text-right font-semibold">
-                              Rp{' '}
-                              {parseFloat(r.total_amount).toLocaleString('id-ID', {
-                                minimumFractionDigits: 0,
-                              })}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <Link
-                                href={`/billing/transactions/${r.id}?created_at=${encodeURIComponent(r.created_at)}`}
-                                className="text-blue-600 hover:underline"
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex px-2 py-0.5 rounded border text-xs font-semibold uppercase tracking-tight ${
+                                  r.status === 'paid'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-semibold'
+                                    : r.status === 'partial'
+                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200'
+                                }`}
                               >
-                                Detail
+                                {r.status || 'unpaid'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <Link
+                                href={`/billing/bills/${r.id}/detail`}
+                                className="inline-flex items-center justify-center p-1.5 rounded-lg text-blue-600 hover:bg-blue-100 border border-transparent hover:border-blue-200 transition-all shadow-sm bg-white"
+                                title="Lihat detail pembayaran"
+                              >
+                                <Eye size={16} />
                               </Link>
                             </td>
                           </tr>
@@ -1484,11 +1598,104 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                     </tbody>
                   </table>
                 </div>
+                <PaginationControl
+                  total={billTotal}
+                  page={billPage}
+                  limit={billLimit}
+                  setPage={setBillPage}
+                  setLimit={setBillLimit}
+                  label="Tagihan"
+                />
               </div>
             )}
-            {tab === 'log' && <p>Log aktivitas dapat dihubungkan ke audit trail di fase berikutnya.</p>}
+            {tab === 'payments' && (
+              <div className="space-y-0 text-sm">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <Receipt size={16} className="text-orange-600" /> Riwayat Pembayaran
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Daftar transaksi pembayaran yang dilakukan oleh siswa ini
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-left">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Referensi</th>
+                        <th className="px-4 py-3 font-semibold">Waktu</th>
+                        <th className="px-4 py-3 font-semibold">Metode</th>
+                        <th className="px-4 py-3 font-semibold text-right">Total</th>
+                        <th className="px-4 py-3 font-semibold">Status</th>
+                        <th className="px-4 py-3 font-semibold w-24 text-center">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payLoading ? (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                            Memuat riwayat pembayaran…
+                          </td>
+                        </tr>
+                      ) : payRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                            Tidak ada data dalam periode ini.
+                          </td>
+                        </tr>
+                      ) : (
+                        payRows.map((r) => (
+                          <tr key={`${r.id}-${r.created_at}`} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3 font-mono text-xs text-slate-700 font-medium">{r.reference_no}</td>
+                            <td className="px-4 py-3 text-slate-600 whitespace-nowrap text-sm">
+                              {format(new Date(r.created_at), 'd MMM yyyy HH:mm', { locale: idLocale })}
+                            </td>
+                            <td className="px-4 py-3 text-slate-600 text-sm font-medium">{r.payment_method_name || '—'}</td>
+                            <td className="px-4 py-3 text-right font-bold tabular-nums text-slate-900">
+                              {fmtMoney(r.total_amount)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[10px] font-bold uppercase tracking-wider border border-emerald-100">
+                                {r.status || 'success'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <Link
+                                href={`/billing/transactions/${r.id}?created_at=${encodeURIComponent(r.created_at)}`}
+                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold text-xs hover:underline"
+                              >
+                                Detail <ExternalLink size={12} />
+                              </Link>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <PaginationControl
+                  total={payTotal}
+                  page={payPage}
+                  limit={payLimit}
+                  setPage={setPayPage}
+                  setLimit={setPayLimit}
+                  label="Pembayaran"
+                />
+              </div>
+            )}
+            {tab === 'log' && (
+              <div className="p-12 text-center text-slate-400">
+                <p>Log aktivitas dapat dihubungkan ke audit trail di fase berikutnya.</p>
+              </div>
+            )}
           </section>
         )}
+
 
         {!viewOnly && (
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
