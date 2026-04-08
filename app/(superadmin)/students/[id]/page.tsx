@@ -650,6 +650,14 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                   ))}
                 </Select>
               </Field>
+              <Field label="Sekolah Asal (Sebelumnya)">
+                <Input
+                  value={String(form.previous_school || '')}
+                  onChange={(e) => setForm((f) => ({ ...f, previous_school: e.target.value }))}
+                  disabled={viewOnly}
+                  placeholder="Nama sekolah asal"
+                />
+              </Field>
               <Field label="Angkatan Masuk" required>
                 <Select
                   value={String(form.cohort_id || '')}

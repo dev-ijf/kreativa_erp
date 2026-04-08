@@ -140,6 +140,14 @@ async function seed() {
       },
     ])
     .onConflictDoNothing();
+  await db
+    .insert(schema.coreStudentEducationHistories)
+    .values([
+      { studentId: 1, schoolName: 'TK Permata Hati', levelLabel: 'TK', yearFrom: 2021, yearTo: 2023, notes: 'Lulus dengan baik' },
+      { studentId: 2, schoolName: 'SD Negeri 1 Bandung', levelLabel: 'SD', yearFrom: 2018, yearTo: 2024, notes: 'Siswa berprestasi' },
+    ])
+    .onConflictDoNothing();
+
 
   await db
     .insert(schema.coreStudentParentProfiles)
@@ -517,6 +525,9 @@ async function seed() {
   await pool.query(`SELECT setval('tuition_bills_id_seq', (SELECT COALESCE(MAX(id), 1) FROM tuition_bills))`);
   await pool.query(
     `SELECT setval('tuition_payment_methods_id_seq', (SELECT COALESCE(MAX(id), 1) FROM tuition_payment_methods))`
+  );
+  await pool.query(
+    `SELECT setval('core_student_education_histories_id_seq', (SELECT COALESCE(MAX(id), 1) FROM core_student_education_histories))`
   );
 
   // Academic sequence resets

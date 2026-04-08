@@ -240,7 +240,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           ${p.relation_type},
           ${p.full_name},
           ${p.nik ?? null},
-          ${p.birth_year ?? null},
+          ${numOrSqlNull(p.birth_year)},
           ${p.education ?? null},
           ${p.occupation ?? null},
           ${p.income_bracket ?? null},
@@ -272,8 +272,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           ${sid},
           ${e.school_name},
           ${e.level_label ?? null},
-          ${e.year_from ?? null},
-          ${e.year_to ?? null},
+          ${numOrSqlNull(e.year_from)},
+          ${numOrSqlNull(e.year_to)},
           ${e.notes ?? null}
         )
       `;
