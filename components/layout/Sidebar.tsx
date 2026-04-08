@@ -10,7 +10,7 @@ import {
   LayoutDashboard, GraduationCap, Users, Wallet, BookOpen,
   CreditCard, Settings, ChevronDown, Banknote, LogOut,
   Building2, MapPin, UserPlus, ListTree, Layers,
-  Receipt, ScanLine, Bell, ChevronRight, School, CalendarDays,
+  Receipt, ScanLine, Bell, ChevronRight, School, CalendarDays, FileText,
   UserCog, BarChart3, Landmark, House, Palette, ClipboardList,
   Megaphone, UserCheck, Stethoscope, Calendar, BookMarked, Brain,
 } from "lucide-react";
@@ -65,13 +65,14 @@ const MODULES = [
     menus: [
       { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
       { name: 'Produk / Biaya', href: '/finance/products', icon: <Wallet size={16} /> },
+      { name: 'Bill (Tagihan)', href: '/billing/bills', icon: <FileText size={16} /> },
       { name: 'Matriks Tarif', href: '/finance/product-tariffs', icon: <ScanLine size={16} /> },
       { name: 'Metode Pembayaran', href: '/finance/payment-methods', icon: <CreditCard size={16} /> },
       { name: 'Template Notifikasi', href: '/finance/notifications', icon: <Bell size={16} /> },
       { name: 'Generate Tagihan', href: '/billing/generate', icon: <BarChart3 size={16} /> },
       { name: 'Matriks SPP', href: '/billing/matrix', icon: <ScanLine size={16} /> },
       { name: 'Kasir', href: '/billing/cashier', icon: <CreditCard size={16} /> },
-      { name: 'Riwayat Transaksi', href: '/billing/transactions', icon: <Receipt size={16} /> },
+      { name: 'Riwayat pembayaran', href: '/billing/transactions', icon: <Receipt size={16} /> },
     ],
   },
   {

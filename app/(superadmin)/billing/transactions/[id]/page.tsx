@@ -80,7 +80,7 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
         href="/billing/transactions"
         className="inline-flex items-center gap-1 text-[13px] text-slate-500 hover:text-slate-800 mb-4"
       >
-        <ArrowLeft size={14} /> Kembali ke riwayat
+        <ArrowLeft size={14} /> Kembali ke riwayat pembayaran
       </Link>
 
       <div className="flex items-start gap-3 mb-6">

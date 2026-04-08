@@ -1,6 +1,7 @@
 import { addDays, parseISO, startOfDay, subMonths, differenceInCalendarMonths } from 'date-fns';
 
-export const MAX_TRANSACTION_RANGE_MONTHS = 24;
+/** Batas rentang filter riwayat transaksi (admin). Lebih lebar dari 24 bln agar arsip multi-tahun tetap bisa di-query; tetap ada cap agar query tidak tanpa batas. */
+export const MAX_TRANSACTION_RANGE_MONTHS = 240;
 
 export type BillingPeriodBounds = {
   /** Inklusif awal hari (UTC date dari string) */
