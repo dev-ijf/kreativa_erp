@@ -12,6 +12,7 @@ export type BillListFilters = {
   billMonth: number | null;
   billYear: number | null;
   paymentType: string | null;
+  isInstallment: boolean | null;
   q: string | null;
   billCreatedFrom: Date | null;
   billCreatedToExclusive: Date | null;
@@ -47,6 +48,7 @@ export async function countTuitionBills(filters: BillListFilters): Promise<numbe
       AND (${filters.billMonth}::int IS NULL OR b.bill_month = ${filters.billMonth})
       AND (${filters.billYear}::int IS NULL OR b.bill_year = ${filters.billYear})
       AND (${filters.paymentType}::text IS NULL OR p.payment_type = ${filters.paymentType})
+      AND (${filters.isInstallment}::boolean IS NULL OR p.is_installment = ${filters.isInstallment})
       AND (${filters.billCreatedFrom}::timestamp IS NULL OR b.created_at >= ${filters.billCreatedFrom})
       AND (${filters.billCreatedToExclusive}::timestamp IS NULL OR b.created_at < ${filters.billCreatedToExclusive})
       AND (${filters.dueDateFrom}::date IS NULL OR b.due_date >= ${filters.dueDateFrom}::date)
@@ -88,7 +90,8 @@ export async function selectTuitionBills(
       s.nis,
       sch.name AS school_name,
       p.name AS product_name,
-      p.payment_type,
+      p.payment_type as product_payment_type,
+      p.is_installment as product_is_installment,
       ay.name AS academic_year_name,
       (SELECT c.name FROM core_student_class_histories ch
        JOIN core_classes c ON c.id = ch.class_id
@@ -115,6 +118,7 @@ export async function selectTuitionBills(
       AND (${filters.billMonth}::int IS NULL OR b.bill_month = ${filters.billMonth})
       AND (${filters.billYear}::int IS NULL OR b.bill_year = ${filters.billYear})
       AND (${filters.paymentType}::text IS NULL OR p.payment_type = ${filters.paymentType})
+      AND (${filters.isInstallment}::boolean IS NULL OR p.is_installment = ${filters.isInstallment})
       AND (${filters.billCreatedFrom}::timestamp IS NULL OR b.created_at >= ${filters.billCreatedFrom})
       AND (${filters.billCreatedToExclusive}::timestamp IS NULL OR b.created_at < ${filters.billCreatedToExclusive})
       AND (${filters.dueDateFrom}::date IS NULL OR b.due_date >= ${filters.dueDateFrom}::date)
@@ -154,7 +158,8 @@ export async function selectTuitionBillsForExport(
       s.nis,
       sch.name AS school_name,
       p.name AS product_name,
-      p.payment_type,
+      p.payment_type as product_payment_type,
+      p.is_installment as product_is_installment,
       ay.name AS academic_year_name,
       (SELECT c.name FROM core_student_class_histories ch
        JOIN core_classes c ON c.id = ch.class_id
@@ -181,6 +186,7 @@ export async function selectTuitionBillsForExport(
       AND (${filters.billMonth}::int IS NULL OR b.bill_month = ${filters.billMonth})
       AND (${filters.billYear}::int IS NULL OR b.bill_year = ${filters.billYear})
       AND (${filters.paymentType}::text IS NULL OR p.payment_type = ${filters.paymentType})
+      AND (${filters.isInstallment}::boolean IS NULL OR p.is_installment = ${filters.isInstallment})
       AND (${filters.billCreatedFrom}::timestamp IS NULL OR b.created_at >= ${filters.billCreatedFrom})
       AND (${filters.billCreatedToExclusive}::timestamp IS NULL OR b.created_at < ${filters.billCreatedToExclusive})
       AND (${filters.dueDateFrom}::date IS NULL OR b.due_date >= ${filters.dueDateFrom}::date)
@@ -235,6 +241,7 @@ export function parseBillListSearchParams(sp: URLSearchParams): BillListFilters 
     billMonth: num('bill_month'),
     billYear: num('bill_year'),
     paymentType: str('payment_type'),
+    isInstallment: sp.get('is_installment') === 'true' ? true : sp.get('is_installment') === 'false' ? false : null,
     q: str('q'),
     billCreatedFrom: optDayStart(sp, 'created_from'),
     billCreatedToExclusive: optDayEndExclusive(sp, 'created_to'),

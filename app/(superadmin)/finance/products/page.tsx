@@ -12,6 +12,7 @@ interface Product {
   id: number;
   name: string;
   payment_type: string;
+  is_installment: boolean;
   coa?: string | null;
   description?: string | null;
 }
@@ -54,15 +55,13 @@ export default function ProductsPage() {
 
   const paymentTypeColors: Record<string, string> = {
     monthly: 'bg-blue-50 text-blue-600 border-blue-200',
-    one_time: 'bg-amber-50 text-amber-600 border-amber-200',
-    installment: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+    one_time: 'bg-gray-50 text-gray-600 border-gray-200',
     annualy: 'bg-violet-50 text-violet-600 border-violet-200',
   };
 
   const paymentTypeLabels: Record<string, string> = {
     monthly: 'Bulanan',
     one_time: 'Sekali Bayar',
-    installment: 'Cicilan',
     annualy: 'Tahunan',
   };
 
@@ -76,13 +75,24 @@ export default function ProductsPage() {
     { key: 'name', label: 'Nama Biaya', sortable: true, className: 'font-semibold' },
     {
       key: 'payment_type',
-      label: 'Jenis Pembayaran',
+      label: 'Frekuensi Tagihan',
       render: (r: Product) => (
         <span
           className={`px-2 py-1 rounded-md text-[11px] font-medium border ${paymentTypeColors[r.payment_type] || 'bg-slate-100'}`}
         >
           {paymentTypeLabels[r.payment_type] || r.payment_type}
         </span>
+      ),
+    },
+    {
+      key: 'is_installment',
+      label: 'Cicilan?',
+      render: (r: Product) => (
+        r.is_installment ? (
+          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold border border-emerald-200 uppercase tracking-tighter">Ya (Cicilan)</span>
+        ) : (
+          <span className="text-slate-300 text-[11px] italic">—</span>
+        )
       ),
     },
     { key: 'coa', label: 'COA', className: 'font-mono text-xs text-slate-500' },

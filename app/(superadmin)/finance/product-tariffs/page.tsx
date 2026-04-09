@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import DataTable from '@/components/ui/DataTable';
-import { Button, Field, Input, Select } from '@/components/ui/FormFields';
+import { Button, Field, Input, Select, MoneyInput } from '@/components/ui/FormFields';
 import { Plus, Trash2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -124,9 +124,10 @@ export default function ProductTariffsPage() {
     {
       key: 'amount',
       label: 'Nominal',
+      className: 'text-right font-medium',
       render: (r: TariffRow) => (
-        <span className="font-mono">
-          {Number(r.amount).toLocaleString('id-ID')}
+        <span>
+          {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(r.amount))}
         </span>
       ),
     },
@@ -223,12 +224,12 @@ export default function ProductTariffsPage() {
             ))}
           </Select>
         </Field>
-        <Field label="Nominal (Rp)">
-          <Input
-            type="number"
+        <Field label="Nominal Tarif">
+          <MoneyInput
             value={form.amount}
-            onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+            onChange={(val) => setForm((f) => ({ ...f, amount: val }))}
             required
+            placeholder="0"
           />
         </Field>
         <Button type="submit" loading={saving} disabled={!form.school_id || !form.amount}>
@@ -242,6 +243,7 @@ export default function ProductTariffsPage() {
         loading={loading}
         rowKey={(r) => r.id}
         emptyText="Belum ada tarif — tambahkan di atas"
+        showRowNumber
       />
     </div>
   );

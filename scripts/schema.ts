@@ -355,6 +355,7 @@ export const tuitionProducts = pgTable('tuition_products', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
   paymentType: varchar('payment_type', { length: 50 }).notNull(),
+  isInstallment: boolean('is_installment').notNull().default(false),
   coa: varchar('coa', { length: 50 }),
   coaAnother: varchar('coa_another', { length: 50 }),
   description: text('description'),

@@ -49,12 +49,22 @@ export async function PATCH(
   }
 
   const body = (await req.json()) as {
+    student_id?: number | string;
+    product_id?: number | string;
+    academic_year_id?: number | string;
+    school_id?: number | string;
+    cohort_id?: number | string;
     title?: string;
     total_amount?: string | number;
     due_date?: string | null;
     min_payment?: string | number;
     bill_month?: number | null;
     bill_year?: number | null;
+    discount_amount?: string | number;
+    paid_amount?: string | number;
+    status?: string | null;
+    notes?: string | null;
+    related_month?: string | null;
   };
 
   const [existing] = await sql`
@@ -64,7 +74,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Tagihan tidak ditemukan' }, { status: 404 });
   }
 
-  const paid = parseFloat(String(existing.paid_amount ?? '0'));
+  const paid = parseFloat(String(body.paid_amount !== undefined ? body.paid_amount : (existing.paid_amount ?? '0')));
   if (paid > 0 && body.total_amount !== undefined) {
     const nextTotal = parseFloat(String(body.total_amount));
     if (nextTotal < paid) {
@@ -74,6 +84,12 @@ export async function PATCH(
       );
     }
   }
+
+  const nextStudentId = body.student_id !== undefined ? Number(body.student_id) : existing.student_id;
+  const nextProductId = body.product_id !== undefined ? Number(body.product_id) : existing.product_id;
+  const nextAYId = body.academic_year_id !== undefined ? Number(body.academic_year_id) : existing.academic_year_id;
+  const nextSchoolId = body.school_id !== undefined ? Number(body.school_id) : existing.school_id;
+  const nextCohortId = body.cohort_id !== undefined ? Number(body.cohort_id) : existing.cohort_id;
 
   const nextTitle = body.title !== undefined ? body.title : existing.title;
   const nextTotal =
@@ -85,15 +101,35 @@ export async function PATCH(
     body.bill_month !== undefined ? body.bill_month : existing.bill_month;
   const nextBillYear =
     body.bill_year !== undefined ? body.bill_year : existing.bill_year;
+  const nextDiscount =
+    body.discount_amount !== undefined ? String(body.discount_amount) : existing.discount_amount;
+  const nextPaid =
+    body.paid_amount !== undefined ? String(body.paid_amount) : existing.paid_amount;
+  const nextStatus =
+    body.status !== undefined ? body.status : existing.status;
+  const nextNotes =
+    body.notes !== undefined ? body.notes : existing.notes;
+  const nextRelated =
+    body.related_month !== undefined ? body.related_month : existing.related_month;
 
   const [updated] = await sql`
     UPDATE tuition_bills SET
+      student_id = ${nextStudentId},
+      product_id = ${nextProductId},
+      academic_year_id = ${nextAYId},
+      school_id = ${nextSchoolId},
+      cohort_id = ${nextCohortId},
       title = ${nextTitle},
       total_amount = ${nextTotal},
       due_date = ${nextDue},
       min_payment = ${nextMin},
       bill_month = ${nextBillMonth},
       bill_year = ${nextBillYear},
+      discount_amount = ${nextDiscount},
+      paid_amount = ${nextPaid},
+      status = ${nextStatus},
+      notes = ${nextNotes},
+      related_month = ${nextRelated},
       updated_at = NOW()
     WHERE id = ${numId}
     RETURNING *

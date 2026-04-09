@@ -39,8 +39,8 @@ const inputCls = (error?: string) =>
   `w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-[13.5px] outline-none transition-all placeholder:text-slate-400
    focus:ring-2 ${error ? 'border-rose-400 focus:ring-rose-500/20' : 'focus:border-slate-400 focus:ring-slate-400/20'}`;
 
-export function Input({ error, ...props }: InputHTMLAttributes<HTMLInputElement> & { error?: string }) {
-  return <input className={inputCls(error)} {...props} />;
+export function Input({ error, className, ...props }: InputHTMLAttributes<HTMLInputElement> & { error?: string }) {
+  return <input className={`${inputCls(error)} ${className ?? ''}`} {...props} />;
 }
 
 type RsOption = { value: string; label: string; disabled?: boolean };
@@ -212,6 +212,53 @@ export function Textarea({
       rows={props.rows ?? 3}
       {...props}
     />
+  );
+}
+
+export function MoneyInput({
+  value,
+  onChange,
+  error,
+  className,
+  placeholder,
+  disabled,
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> & {
+  value: string | number;
+  onChange: (val: string) => void;
+  error?: string;
+}) {
+  const format = (val: string | number) => {
+    const n = typeof val === 'number' ? val : parseFloat(val.replace(/[^0-9]/g, ''));
+    if (isNaN(n)) return '';
+    return new Intl.NumberFormat('id-ID').format(n);
+  };
+
+  const [display, setDisplay] = useState(format(value));
+
+  useEffect(() => {
+    setDisplay(format(value));
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^0-9]/g, '');
+    setDisplay(format(raw));
+    onChange(raw);
+  };
+
+  return (
+    <div className="relative">
+      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px] font-semibold pointer-events-none">Rp</div>
+      <input
+        {...props}
+        type="text"
+        value={display}
+        onChange={handleChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        className={`${inputCls(error)} pl-9 text-right font-medium ${className ?? ''}`}
+      />
+    </div>
   );
 }
 

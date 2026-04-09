@@ -398,3 +398,17 @@ FROM (
 ) AS v(qt, sa)
 WHERE q."question_text" = v.qt
   AND (q."student_answer" IS NULL OR q."student_answer" = '');
+-- ==============================================================================
+-- PRODUCT REFACTOR: Standardized frequencies and is_installment flag
+-- ==============================================================================
+ALTER TABLE "public"."tuition_products" ADD COLUMN IF NOT EXISTS "is_installment" BOOLEAN DEFAULT FALSE;
+
+-- Migrate existing 'installment' types to 'one_time' + is_installment=true
+UPDATE "public"."tuition_products" 
+SET "payment_type" = 'one_time', "is_installment" = TRUE 
+WHERE "payment_type" = 'installment';
+
+-- Ensure 'monthly' products are never installments
+UPDATE "public"."tuition_products" 
+SET "is_installment" = FALSE 
+WHERE "payment_type" = 'monthly';

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Field, Select, Button, Input } from '@/components/ui/FormFields';
-import { FileText, Plus, Download, Upload, Edit2, Trash2, Loader2, Eye, FileSpreadsheet } from 'lucide-react';
+import { FileText, Plus, Download, Upload, Edit2, Trash2, Loader2, Eye, FileSpreadsheet, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { confirmToast } from '@/components/ui/confirmToast';
 import { billMonthSelectOptions, billYearSelectOptions } from '@/lib/billing-period-ui';
@@ -50,14 +50,10 @@ export default function BillsPage() {
   const [productId, setProductId] = useState('');
   const [status, setStatus] = useState('');
   const [paymentType, setPaymentType] = useState('');
+  const [isInstallment, setIsInstallment] = useState('');
   const [billMonth, setBillMonth] = useState('');
   const [billYear, setBillYear] = useState('');
   const [q, setQ] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [createdFrom, setCreatedFrom] = useState('');
-  const [createdTo, setCreatedTo] = useState('');
-  const [dueFrom, setDueFrom] = useState('');
-  const [dueTo, setDueTo] = useState('');
 
   const [applied, setApplied] = useState({
     schoolId: '',
@@ -67,18 +63,14 @@ export default function BillsPage() {
     productId: '',
     status: '',
     paymentType: '',
+    isInstallment: '',
     billMonth: '',
     billYear: '',
     q: '',
-    studentId: '',
-    createdFrom: '',
-    createdTo: '',
-    dueFrom: '',
-    dueTo: '',
   });
 
   const [page, setPage] = useState(1);
-  const [limit] = useState(20);
+  const [limit, setLimit] = useState(20);
   const [total, setTotal] = useState(0);
   const [items, setItems] = useState<BillRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +84,21 @@ export default function BillsPage() {
     invalid: number;
   } | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const pageNumbers = () => {
+    const pages: (number | '...')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (page > 3) pages.push('...');
+      for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+      if (page < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   useEffect(() => {
     Promise.all([
@@ -128,14 +135,10 @@ export default function BillsPage() {
     if (f.productId) p.set('product_id', f.productId);
     if (f.status) p.set('status', f.status);
     if (f.paymentType) p.set('payment_type', f.paymentType);
+    if (f.isInstallment) p.set('is_installment', f.isInstallment);
     if (f.billMonth) p.set('bill_month', f.billMonth);
     if (f.billYear) p.set('bill_year', f.billYear);
     if (f.q.trim()) p.set('q', f.q.trim());
-    if (f.studentId) p.set('student_id', f.studentId);
-    if (f.createdFrom) p.set('created_from', f.createdFrom);
-    if (f.createdTo) p.set('created_to', f.createdTo);
-    if (f.dueFrom) p.set('due_from', f.dueFrom);
-    if (f.dueTo) p.set('due_to', f.dueTo);
     return p;
   }, [page, limit, applied]);
 
@@ -169,14 +172,10 @@ export default function BillsPage() {
       productId,
       status,
       paymentType,
+      isInstallment,
       billMonth,
       billYear,
       q,
-      studentId,
-      createdFrom,
-      createdTo,
-      dueFrom,
-      dueTo,
     });
     setPage(1);
   };
@@ -281,7 +280,6 @@ export default function BillsPage() {
 
   const availableClasses = classes.filter((c) => !schoolId || String(c.school_id) === schoolId);
   const availableCohorts = cohorts.filter((c) => !schoolId || String(c.school_id) === schoolId);
-  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-5">
@@ -390,13 +388,19 @@ export default function BillsPage() {
                 <option value="paid">Lunas</option>
               </Select>
             </Field>
-            <Field label="Jenis pembayaran">
+            <Field label="Frekuensi">
               <Select value={paymentType} onChange={(e) => setPaymentType(e.target.value)}>
                 <option value="">Semua</option>
                 <option value="monthly">Bulanan</option>
                 <option value="annualy">Tahunan</option>
                 <option value="one_time">Sekali bayar</option>
-                <option value="installment">Cicilan</option>
+              </Select>
+            </Field>
+            <Field label="Mode">
+              <Select value={isInstallment} onChange={(e) => setIsInstallment(e.target.value)}>
+                <option value="">Semua</option>
+                <option value="true">Hanya Cicilan</option>
+                <option value="false">Bukan Cicilan</option>
               </Select>
             </Field>
             <Field label="Bulan tagihan">
@@ -424,26 +428,6 @@ export default function BillsPage() {
                 <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nama atau NIS" />
               </Field>
             </div>
-            <Field label="ID siswa">
-              <Input
-                inputMode="numeric"
-                placeholder="opsional"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value.replace(/\D/g, ''))}
-              />
-            </Field>
-            <Field label="Dibuat dari">
-              <Input type="date" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} />
-            </Field>
-            <Field label="Dibuat sampai">
-              <Input type="date" value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} />
-            </Field>
-            <Field label="Jatuh tempo dari">
-              <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} />
-            </Field>
-            <Field label="Jatuh tempo sampai">
-              <Input type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} />
-            </Field>
           </div>
           <Button type="button" onClick={applyFilter}>
             Terapkan filter
@@ -534,28 +518,78 @@ export default function BillsPage() {
             </tbody>
           </table>
         </div>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50">
-            <p className="text-xs text-slate-500">
-              Total {total} tagihan — hal {page} / {totalPages}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={page <= 1}
+        {totalPages > 0 && (
+          <div className="px-5 py-3.5 border-t border-[#E2E8F1] flex flex-col sm:flex-row gap-3 items-center justify-between bg-slate-50/30">
+            <div className="flex items-center gap-3">
+              <p className="text-[12px] text-slate-400">
+                {total} data · Halaman {page} dari {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-slate-400">Baris per halaman:</span>
+                <div className="min-w-[4.5rem] text-slate-500">
+                  <Select
+                    variant="compact"
+                    value={String(limit)}
+                    onChange={(e) => {
+                      setLimit(Number(e.target.value));
+                      setPage(1);
+                    }}
+                  >
+                    {[10, 20, 50, 100].map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all font-semibold"
+              >
+                <ChevronsLeft size={15} />
+              </button>
+              <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all font-semibold"
               >
-                Sebelumnya
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
+                <ChevronLeft size={15} />
+              </button>
+              {pageNumbers().map((p, i) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${i}`} className="px-2 text-slate-400 text-[13px]">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`min-w-[32px] h-8 rounded-lg text-[12px] font-bold transition-all ${
+                      page === p
+                        ? 'bg-violet-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all font-semibold"
               >
-                Berikutnya
-              </Button>
+                <ChevronRight size={15} />
+              </button>
+              <button
+                onClick={() => setPage(totalPages)}
+                disabled={page === totalPages}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 disabled:opacity-30 transition-all font-semibold"
+              >
+                <ChevronsRight size={15} />
+              </button>
             </div>
           </div>
         )}
@@ -690,8 +724,8 @@ export default function BillsPage() {
                        <div className="text-[10px] text-slate-400">{row.nis}</div>
                     </td>
                     <td className="p-2 truncate max-w-[150px]" title={row.title}>{row.title}</td>
-                    <td className="p-2 text-right">{fmtMoney(row.amount)}</td>
-                    <td className="p-2 text-right text-red-500">-{fmtMoney(row.discountAmount)}</td>
+                    <td className="p-2 text-right font-medium">{fmtMoney(row.amount)}</td>
+                    <td className="p-2 text-right text-slate-500">{fmtMoney(row.discountAmount)}</td>
                     <td className="p-2">
                       <span className={`px-2 py-0.5 rounded text-[10px] border ${
                         row.statusLabel === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-600 border-slate-200'

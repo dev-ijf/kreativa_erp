@@ -8,6 +8,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     UPDATE tuition_products SET
       name=${data.name},
       payment_type=${data.payment_type},
+      is_installment=${!!data.is_installment},
       coa=${data.coa || null},
       coa_another=${data.coa_another || null},
       description=${data.description || null}

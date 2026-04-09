@@ -258,8 +258,9 @@ async function seed() {
   await db
     .insert(schema.tuitionProducts)
     .values([
-      { id: 1, name: 'SPP Bulanan', paymentType: 'monthly' },
-      { id: 2, name: 'Uang Gedung', paymentType: 'installment' },
+      { id: 1, name: 'SPP Bulanan', paymentType: 'monthly', isInstallment: false },
+      { id: 2, name: 'DSP (Uang Gedung)', paymentType: 'one_time', isInstallment: true },
+      { id: 3, name: 'DKT (Uang Tahunan)', paymentType: 'annualy', isInstallment: false },
     ])
     .onConflictDoNothing();
 

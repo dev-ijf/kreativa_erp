@@ -10,10 +10,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, payment_type, coa, coa_another, description } = await req.json();
+  const { name, payment_type, is_installment, coa, coa_another, description } = await req.json();
   const [row] = await sql`
-    INSERT INTO tuition_products (name, payment_type, coa, coa_another, description)
-    VALUES (${name}, ${payment_type}, ${coa || null}, ${coa_another || null}, ${description || null})
+    INSERT INTO tuition_products (name, payment_type, is_installment, coa, coa_another, description)
+    VALUES (${name}, ${payment_type}, ${!!is_installment}, ${coa || null}, ${coa_another || null}, ${description || null})
     RETURNING *
   `;
   return NextResponse.json(row, { status: 201 });
