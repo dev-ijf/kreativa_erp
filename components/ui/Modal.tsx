@@ -10,6 +10,7 @@ interface ModalProps {
   subtitle?: string;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  className?: string;
 }
 
 const sizeMap = {
@@ -19,7 +20,7 @@ const sizeMap = {
   xl: 'max-w-4xl',
 };
 
-export default function Modal({ open, onClose, title, subtitle, children, size = 'md' }: ModalProps) {
+export default function Modal({ open, onClose, title, subtitle, children, size = 'md', className }: ModalProps) {
   if (!open) return null;
 
   return (
@@ -31,7 +32,7 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
       />
       {/* Panel */}
       <div
-        className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeMap[size]} flex flex-col max-h-[90vh] animate-fadeIn`}
+        className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeMap[size]} ${className ?? ''} flex flex-col max-h-[90vh] animate-fadeIn`}
       >
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-slate-100">
