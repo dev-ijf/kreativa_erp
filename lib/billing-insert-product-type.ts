@@ -13,12 +13,25 @@ export async function insertOneBillForProductType(args: {
   paymentType: string;
   ayName: string;
   amount: string;
+  discountAmount?: string | number;
+  paidAmount?: string | number;
+  status?: string;
   bill_month?: number;
   bill_year?: number;
   title?: string;
 }): Promise<{ created: boolean }> {
   const pt = args.paymentType;
   const startYear = parseAcademicYearStartYear(args.ayName);
+
+  const common = {
+    studentId: args.studentId,
+    productId: args.productId,
+    academicYearId: args.academicYearId,
+    amount: args.amount,
+    discountAmount: args.discountAmount,
+    paidAmount: args.paidAmount,
+    status: args.status,
+  };
 
   if (pt === 'monthly') {
     const bm = args.bill_month;
@@ -33,11 +46,8 @@ export async function insertOneBillForProductType(args: {
         ? `SPP ${monthName}`
         : `${args.productName} ${monthName}`);
     return insertTuitionBillIfNotExists({
-      studentId: args.studentId,
-      productId: args.productId,
-      academicYearId: args.academicYearId,
+      ...common,
       title,
-      amount: args.amount,
       billMonth: bm!,
       billYear: by!,
       relatedMonth: relatedMonthDate(by!, bm!),
@@ -48,11 +58,8 @@ export async function insertOneBillForProductType(args: {
     const title = args.title?.trim() || `${args.productName} ${args.ayName}`;
     const by = Number.isFinite(args.bill_year!) ? args.bill_year! : startYear;
     return insertTuitionBillIfNotExists({
-      studentId: args.studentId,
-      productId: args.productId,
-      academicYearId: args.academicYearId,
+      ...common,
       title,
-      amount: args.amount,
       billMonth: null,
       billYear: Number.isFinite(by) ? by : null,
       relatedMonth: null,
@@ -62,11 +69,8 @@ export async function insertOneBillForProductType(args: {
   if (pt === 'one_time' || pt === 'installment') {
     const title = args.title?.trim() || `${args.productName}`;
     return insertTuitionBillIfNotExists({
-      studentId: args.studentId,
-      productId: args.productId,
-      academicYearId: args.academicYearId,
+      ...common,
       title,
-      amount: args.amount,
       billMonth: null,
       billYear: null,
       relatedMonth: null,

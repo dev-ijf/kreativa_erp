@@ -33,6 +33,8 @@ export default function BillsPage() {
   const [classes, setClasses] = useState<{ id: number; name: string; school_id: number }[]>([]);
   const [products, setProducts] = useState<{ id: number; name: string; payment_type: string }[]>([]);
 
+  const [showFilters, setShowFilters] = useState(false);
+
   // Template Modal State
   const [templateOpen, setTemplateOpen] = useState(false);
   const [tSchoolId, setTSchoolId] = useState('');
@@ -42,6 +44,7 @@ export default function BillsPage() {
   const [tAyId, setTAyId] = useState('');
 
   const [schoolId, setSchoolId] = useState('');
+  const [cohortId, setCohortId] = useState('');
   const [academicYearId, setAcademicYearId] = useState('');
   const [classId, setClassId] = useState('');
   const [productId, setProductId] = useState('');
@@ -58,6 +61,7 @@ export default function BillsPage() {
 
   const [applied, setApplied] = useState({
     schoolId: '',
+    cohortId: '',
     academicYearId: '',
     classId: '',
     productId: '',
@@ -80,6 +84,14 @@ export default function BillsPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<{
+    rows: any[];
+    total: number;
+    valid: number;
+    invalid: number;
+  } | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -110,6 +122,7 @@ export default function BillsPage() {
     p.set('limit', String(limit));
     const f = applied;
     if (f.schoolId) p.set('school_id', f.schoolId);
+    if (f.cohortId) p.set('cohort_id', f.cohortId);
     if (f.academicYearId) p.set('academic_year_id', f.academicYearId);
     if (f.classId) p.set('class_id', f.classId);
     if (f.productId) p.set('product_id', f.productId);
@@ -150,6 +163,7 @@ export default function BillsPage() {
   const applyFilter = () => {
     setApplied({
       schoolId,
+      cohortId,
       academicYearId,
       classId,
       productId,
@@ -167,8 +181,8 @@ export default function BillsPage() {
     setPage(1);
   };
 
-  const fmtMoney = (s: string) =>
-    'Rp ' + parseFloat(s || '0').toLocaleString('id-ID', { minimumFractionDigits: 0 });
+  const fmtMoney = (s: string | number) =>
+    'Rp ' + parseFloat(String(s) || '0').toLocaleString('id-ID', { minimumFractionDigits: 0 });
 
   const exportXlsx = () => {
     const p = buildParams();
@@ -196,10 +210,33 @@ export default function BillsPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+
     setImporting(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
+      const res = await fetch('/api/billing/bills/import?preview=true', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Preview impor gagal');
+        return;
+      }
+      setPreviewData(data);
+      setPendingFile(file);
+      setPreviewOpen(true);
+    } catch {
+      toast.error('Gagal memproses file impor');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!pendingFile) return;
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', pendingFile);
       const res = await fetch('/api/billing/bills/import', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
@@ -213,6 +250,9 @@ export default function BillsPage() {
           toast.message(`… dan ${data.errors.length - 5} error lain`, { duration: 4000 });
         }
       }
+      setPreviewOpen(false);
+      setPreviewData(null);
+      setPendingFile(null);
       load();
     } catch {
       toast.error('Impor gagal');
@@ -240,6 +280,7 @@ export default function BillsPage() {
   };
 
   const availableClasses = classes.filter((c) => !schoolId || String(c.school_id) === schoolId);
+  const availableCohorts = cohorts.filter((c) => !schoolId || String(c.school_id) === schoolId);
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
@@ -253,6 +294,16 @@ export default function BillsPage() {
           <p className="text-slate-400 text-[13px]">Daftar tagihan siswa — filter, ekspor, dan kelola</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className={showFilters ? 'bg-slate-100' : ''}
+          >
+            <FileSpreadsheet size={14} className="mr-1" />
+            {showFilters ? 'Sembunyikan Filter' : 'Tampilkan Filter'}
+          </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => setTemplateOpen(true)}>
             <Download size={14} className="mr-1" /> Template
           </Button>
@@ -265,7 +316,7 @@ export default function BillsPage() {
               disabled={importing}
             />
             {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            Impor
+            {importing ? 'Memproses...' : 'Impor'}
           </label>
           <Button type="button" variant="outline" size="sm" onClick={exportXlsx}>
             <Download size={14} className="mr-1" /> Export XLSX
@@ -278,115 +329,127 @@ export default function BillsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Field label="Sekolah">
-            <Select value={schoolId} onChange={(e) => setSchoolId(e.target.value)}>
-              <option value="">Semua</option>
-              {schools.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Tahun ajaran">
-            <Select value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)}>
-              <option value="">Semua</option>
-              {academicYears.map((y) => (
-                <option key={y.id} value={y.id}>
-                  {y.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Kelas (rombel)">
-            <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
-              <option value="">Semua</option>
-              {availableClasses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Produk biaya">
-            <Select value={productId} onChange={(e) => setProductId(e.target.value)}>
-              <option value="">Semua</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Status">
-            <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">Semua</option>
-              <option value="unpaid">Belum bayar</option>
-              <option value="partial">Sebagian</option>
-              <option value="paid">Lunas</option>
-            </Select>
-          </Field>
-          <Field label="Jenis pembayaran">
-            <Select value={paymentType} onChange={(e) => setPaymentType(e.target.value)}>
-              <option value="">Semua</option>
-              <option value="monthly">Bulanan</option>
-              <option value="annualy">Tahunan</option>
-              <option value="one_time">Sekali bayar</option>
-              <option value="installment">Cicilan</option>
-            </Select>
-          </Field>
-          <Field label="Bulan tagihan">
-            <Select value={billMonth} onChange={(e) => setBillMonth(e.target.value)}>
-              <option value="">Semua</option>
-              {billMonthSelectOptions.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Tahun tagihan">
-            <Select value={billYear} onChange={(e) => setBillYear(e.target.value)}>
-              <option value="">Semua</option>
-              {billYearSelectOptions().map((y) => (
-                <option key={y.value} value={y.value}>
-                  {y.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <div className="lg:col-span-2">
-            <Field label="Cari nama / NIS">
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nama atau NIS" />
+      {showFilters && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Field label="Sekolah">
+              <Select value={schoolId} onChange={(e) => setSchoolId(e.target.value)}>
+                <option value="">Semua</option>
+                {schools.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Angkatan">
+              <Select value={cohortId} onChange={(e) => setCohortId(e.target.value)}>
+                <option value="">Semua</option>
+                {availableCohorts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Tahun ajaran">
+              <Select value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)}>
+                <option value="">Semua</option>
+                {academicYears.map((y) => (
+                  <option key={y.id} value={y.id}>
+                    {y.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Kelas (rombel)">
+              <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
+                <option value="">Semua</option>
+                {availableClasses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Produk biaya">
+              <Select value={productId} onChange={(e) => setProductId(e.target.value)}>
+                <option value="">Semua</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Status">
+              <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="">Semua</option>
+                <option value="unpaid">Belum bayar</option>
+                <option value="partial">Sebagian</option>
+                <option value="paid">Lunas</option>
+              </Select>
+            </Field>
+            <Field label="Jenis pembayaran">
+              <Select value={paymentType} onChange={(e) => setPaymentType(e.target.value)}>
+                <option value="">Semua</option>
+                <option value="monthly">Bulanan</option>
+                <option value="annualy">Tahunan</option>
+                <option value="one_time">Sekali bayar</option>
+                <option value="installment">Cicilan</option>
+              </Select>
+            </Field>
+            <Field label="Bulan tagihan">
+              <Select value={billMonth} onChange={(e) => setBillMonth(e.target.value)}>
+                <option value="">Semua</option>
+                {billMonthSelectOptions.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Tahun tagihan">
+              <Select value={billYear} onChange={(e) => setBillYear(e.target.value)}>
+                <option value="">Semua</option>
+                {billYearSelectOptions().map((y) => (
+                  <option key={y.value} value={y.value}>
+                    {y.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <div className="lg:col-span-2">
+              <Field label="Cari nama / NIS">
+                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nama atau NIS" />
+              </Field>
+            </div>
+            <Field label="ID siswa">
+              <Input
+                inputMode="numeric"
+                placeholder="opsional"
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value.replace(/\D/g, ''))}
+              />
+            </Field>
+            <Field label="Dibuat dari">
+              <Input type="date" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} />
+            </Field>
+            <Field label="Dibuat sampai">
+              <Input type="date" value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} />
+            </Field>
+            <Field label="Jatuh tempo dari">
+              <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} />
+            </Field>
+            <Field label="Jatuh tempo sampai">
+              <Input type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} />
             </Field>
           </div>
-          <Field label="ID siswa">
-            <Input
-              inputMode="numeric"
-              placeholder="opsional"
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value.replace(/\D/g, ''))}
-            />
-          </Field>
-          <Field label="Dibuat dari">
-            <Input type="date" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} />
-          </Field>
-          <Field label="Dibuat sampai">
-            <Input type="date" value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} />
-          </Field>
-          <Field label="Jatuh tempo dari">
-            <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} />
-          </Field>
-          <Field label="Jatuh tempo sampai">
-            <Input type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} />
-          </Field>
+          <Button type="button" onClick={applyFilter}>
+            Terapkan filter
+          </Button>
         </div>
-        <Button type="button" onClick={applyFilter}>
-          Terapkan filter
-        </Button>
-      </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -593,6 +656,78 @@ export default function BillsPage() {
               <Download size={16} className="mr-2" />
               Download Excel
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        title="Preview Import"
+        subtitle={`Ditemukan ${previewData?.total} baris. ${previewData?.valid} valid, ${previewData?.invalid} error.`}
+        className="max-w-5xl"
+      >
+        <div className="space-y-4">
+          <div className="max-h-[400px] overflow-auto border border-slate-200 rounded-lg">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
+                <tr>
+                  <th className="p-2 text-left">Baris</th>
+                  <th className="p-2 text-left">Siswa</th>
+                  <th className="p-2 text-left">Keterangan</th>
+                  <th className="p-2 text-right">Nominal</th>
+                  <th className="p-2 text-right">Diskon</th>
+                  <th className="p-2 text-left">Status (Excel)</th>
+                  <th className="p-2 text-left">Validitas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {previewData?.rows.map((row, idx) => (
+                  <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="p-2 text-slate-400">{row.line}</td>
+                    <td className="p-2">
+                       <div className="font-medium">{row.studentName || '—'}</div>
+                       <div className="text-[10px] text-slate-400">{row.nis}</div>
+                    </td>
+                    <td className="p-2 truncate max-w-[150px]" title={row.title}>{row.title}</td>
+                    <td className="p-2 text-right">{fmtMoney(row.amount)}</td>
+                    <td className="p-2 text-right text-red-500">-{fmtMoney(row.discountAmount)}</td>
+                    <td className="p-2">
+                      <span className={`px-2 py-0.5 rounded text-[10px] border ${
+                        row.statusLabel === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-600 border-slate-200'
+                      }`}>
+                        {row.statusLabel}
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      {row.status === 'valid' ? (
+                        <span className="text-emerald-600 font-medium">OK</span>
+                      ) : (
+                        <span className="text-red-500 font-medium" title={row.error}>Error: {row.error}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-between items-center pt-2">
+            <p className="text-xs text-slate-500">
+              * Baris dengan status <span className="text-red-500 font-bold">Error</span> akan dilewati saat impor.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setPreviewOpen(false)}>
+                Batal
+              </Button>
+              <Button 
+                onClick={confirmImport} 
+                disabled={importing || previewData?.valid === 0}
+                loading={importing}
+              >
+                Lanjutkan Impor ({previewData?.valid} baris)
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>

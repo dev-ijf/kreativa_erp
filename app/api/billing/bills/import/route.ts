@@ -22,6 +22,9 @@ function cellNum(r: RowIn, keys: string[]): number | null {
 }
 
 export async function POST(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const preview = searchParams.get('preview') === 'true';
+
   const ct = req.headers.get('content-type') || '';
   let workbook: XLSX.WorkBook;
 
@@ -66,6 +69,7 @@ export async function POST(req: NextRequest) {
   let inserted = 0;
   let skipped = 0;
   const errors: string[] = [];
+  const previewRows: any[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -74,82 +78,122 @@ export async function POST(req: NextRequest) {
     const academicYearId = cellNum(r, ['academic_year_id', 'academic_year', 'tahun_ajaran_id']);
     const productId = cellNum(r, ['product_id', 'product', 'produk_id']);
     const schoolId = cellNum(r, ['school_id', 'sekolah_id']);
+    const cohortId = cellNum(r, ['cohort_id', 'angkatan_id']);
     const billMonth = cellNum(r, ['bill_month', 'bulan']);
     const billYear = cellNum(r, ['bill_year', 'tahun']);
     const title = cellStr(r, ['title', 'judul']) || undefined;
     const amountOverride = cellStr(r, ['amount', 'nominal', 'jumlah']);
+    const discountAmount = cellStr(r, ['discount_amount', 'potongan', 'diskon']) || '0';
+    const statusImport = cellStr(r, ['status', 'Status', 'keterangan_bayar']) || 'unpaid';
+    const studentNameHelper = cellStr(r, ['student_name', 'nama_siswa']);
+
+    let rowError = '';
+    let rowStatus: 'valid' | 'invalid' = 'valid';
 
     if (!nis || !academicYearId || !productId) {
-      errors.push(`Baris ${line}: nis, academic_year_id, dan product_id wajib`);
-      continue;
+      rowError = `nis, academic_year_id, dan product_id wajib`;
+      rowStatus = 'invalid';
     }
 
-    let studentRows = await sql`
-      SELECT id, full_name FROM core_students WHERE nis = ${nis}
-    `;
-    if (schoolId != null) {
-      studentRows = await sql`
-        SELECT id, full_name FROM core_students WHERE nis = ${nis} AND school_id = ${schoolId}
+    let studentId: number | null = null;
+    let studentFullName = studentNameHelper;
+    let productData: any = null;
+    let ayData: any = null;
+
+    if (rowStatus === 'valid') {
+      let studentRows = await sql`
+        SELECT id, full_name FROM core_students WHERE nis = ${nis}
       `;
-    }
-    if (studentRows.length === 0) {
-      errors.push(`Baris ${line}: siswa dengan NIS ${nis} tidak ditemukan`);
-      continue;
-    }
-    if (studentRows.length > 1) {
-      errors.push(
-        `Baris ${line}: lebih dari satu siswa dengan NIS ${nis} — isi school_id`
-      );
-      continue;
-    }
+      if (schoolId != null) {
+        studentRows = await sql`
+          SELECT id, full_name FROM core_students WHERE nis = ${nis} AND school_id = ${schoolId}
+        `;
+      }
 
-    const studentId = studentRows[0].id as number;
-
-    const [product] = await sql`
-      SELECT id, name, payment_type FROM tuition_products WHERE id = ${productId}
-    `;
-    if (!product) {
-      errors.push(`Baris ${line}: produk tidak ditemukan`);
-      continue;
-    }
-
-    const [ay] = await sql`
-      SELECT id, name FROM core_academic_years WHERE id = ${academicYearId}
-    `;
-    if (!ay) {
-      errors.push(`Baris ${line}: tahun ajaran tidak ditemukan`);
-      continue;
-    }
-
-    const pt = String(product.payment_type);
-    if (pt === 'monthly') {
-      if (!Number.isFinite(billMonth!) || !Number.isFinite(billYear!)) {
-        errors.push(`Baris ${line}: produk bulanan memerlukan bill_month dan bill_year`);
-        continue;
+      if (studentRows.length === 0) {
+        rowError = `Siswa dengan NIS ${nis} tidak ditemukan`;
+        rowStatus = 'invalid';
+      } else if (studentRows.length > 1) {
+        rowError = `Lebih dari satu siswa dengan NIS ${nis} — isi school_id`;
+        rowStatus = 'invalid';
+      } else {
+        studentId = studentRows[0].id as number;
+        studentFullName = studentRows[0].full_name as string;
       }
     }
 
-    let resolvedAmount: string;
-    if (amountOverride !== '') {
-      resolvedAmount = amountOverride;
-    } else {
-      const t = await resolveTariffAmount(studentId, productId, academicYearId);
+    if (rowStatus === 'valid') {
+      [productData] = await sql`
+        SELECT id, name, payment_type FROM tuition_products WHERE id = ${productId}
+      `;
+      if (!productData) {
+        rowError = `Produk ID ${productId} tidak ditemukan`;
+        rowStatus = 'invalid';
+      }
+    }
+
+    if (rowStatus === 'valid') {
+      [ayData] = await sql`
+        SELECT id, name FROM core_academic_years WHERE id = ${academicYearId}
+      `;
+      if (!ayData) {
+        rowError = `Tahun Ajaran ID ${academicYearId} tidak ditemukan`;
+        rowStatus = 'invalid';
+      }
+    }
+
+    if (rowStatus === 'valid') {
+      const pt = String(productData.payment_type);
+      if (pt === 'monthly') {
+        if (!Number.isFinite(billMonth!) || !Number.isFinite(billYear!)) {
+          rowError = `Produk bulanan memerlukan bill_month dan bill_year`;
+          rowStatus = 'invalid';
+        }
+      }
+    }
+
+    let resolvedAmount = amountOverride;
+    if (rowStatus === 'valid' && amountOverride === '') {
+      const t = await resolveTariffAmount(studentId!, productId!, academicYearId!);
       if (!t.ok) {
-        errors.push(`Baris ${line}: ${t.error}`);
-        continue;
+        rowError = t.error || 'Tarif tidak ditemukan';
+        rowStatus = 'invalid';
+      } else {
+        resolvedAmount = t.amount;
       }
-      resolvedAmount = t.amount;
+    }
+
+    if (preview) {
+      previewRows.push({
+        line,
+        nis,
+        studentName: studentFullName,
+        title: title || (productData ? (productData.payment_type === 'monthly' ? `${productData.name} ${billMonth}` : productData.name) : '—'),
+        amount: resolvedAmount,
+        discountAmount,
+        statusLabel: statusImport,
+        status: rowStatus,
+        error: rowError,
+      });
+      continue;
+    }
+
+    if (rowStatus === 'invalid') {
+      errors.push(`Baris ${line}: ${rowError}`);
+      continue;
     }
 
     try {
       const res = await insertOneBillForProductType({
-        studentId,
-        productId,
-        academicYearId,
-        productName: String(product.name),
-        paymentType: pt,
-        ayName: String(ay.name),
+        studentId: studentId!,
+        productId: productId!,
+        academicYearId: academicYearId!,
+        productName: String(productData.name),
+        paymentType: String(productData.payment_type),
+        ayName: String(ayData.name),
         amount: resolvedAmount,
+        discountAmount,
+        status: statusImport,
         bill_month: billMonth ?? undefined,
         bill_year: billYear ?? undefined,
         title,
@@ -161,6 +205,16 @@ export async function POST(req: NextRequest) {
         `Baris ${line}: ${e instanceof Error ? e.message : 'gagal'}`
       );
     }
+  }
+
+  if (preview) {
+    return NextResponse.json({
+      preview: true,
+      rows: previewRows,
+      total: previewRows.length,
+      valid: previewRows.filter((r) => r.status === 'valid').length,
+      invalid: previewRows.filter((r) => r.status === 'invalid').length,
+    });
   }
 
   return NextResponse.json({

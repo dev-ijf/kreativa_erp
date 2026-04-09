@@ -75,6 +75,9 @@ export type InsertBillParams = {
   academicYearId: number;
   title: string;
   amount: string | number;
+  discountAmount?: string | number | null;
+  paidAmount?: string | number | null;
+  status?: string | null;
   billMonth: number | null;
   billYear: number | null;
   relatedMonth: string | null;
@@ -105,10 +108,19 @@ export async function insertTuitionBillIfNotExists(
     cohortId = s.cohort_id as number;
   }
 
+  const discount = p.discountAmount ?? 0;
+  let status = p.status || 'unpaid';
+  let paidAmount = p.paidAmount ?? 0;
+
+  // Auto-calculate paid_amount if status is 'paid' and no paidAmount provided
+  if (status === 'paid' && !p.paidAmount) {
+    paidAmount = Number(p.amount) - Number(discount);
+  }
+
   await sql`
     INSERT INTO tuition_bills (
       school_id, cohort_id, student_id, product_id, academic_year_id, title,
-      total_amount, paid_amount, status,
+      total_amount, discount_amount, paid_amount, status,
       bill_month, bill_year, related_month
     )
     VALUES (
@@ -119,8 +131,9 @@ export async function insertTuitionBillIfNotExists(
       ${p.academicYearId},
       ${p.title},
       ${p.amount},
-      0,
-      'unpaid',
+      ${discount},
+      ${paidAmount},
+      ${status},
       ${p.billMonth},
       ${p.billYear},
       ${p.relatedMonth}

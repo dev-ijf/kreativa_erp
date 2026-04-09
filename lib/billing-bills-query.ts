@@ -3,6 +3,7 @@ import sql from '@/lib/db';
 
 export type BillListFilters = {
   schoolId: number | null;
+  cohortId: number | null;
   academicYearId: number | null;
   classId: number | null;
   studentId: number | null;
@@ -31,6 +32,7 @@ export async function countTuitionBills(filters: BillListFilters): Promise<numbe
     JOIN core_students s ON b.student_id = s.id
     JOIN tuition_products p ON b.product_id = p.id
     WHERE (${filters.schoolId}::int IS NULL OR b.school_id = ${filters.schoolId})
+      AND (${filters.cohortId}::int IS NULL OR b.cohort_id = ${filters.cohortId})
       AND (${filters.academicYearId}::int IS NULL OR b.academic_year_id = ${filters.academicYearId})
       AND (${filters.classId}::int IS NULL OR EXISTS (
         SELECT 1 FROM core_student_class_histories ch
@@ -98,6 +100,7 @@ export async function selectTuitionBills(
     JOIN tuition_products p ON b.product_id = p.id
     JOIN core_academic_years ay ON b.academic_year_id = ay.id
     WHERE (${filters.schoolId}::int IS NULL OR b.school_id = ${filters.schoolId})
+      AND (${filters.cohortId}::int IS NULL OR b.cohort_id = ${filters.cohortId})
       AND (${filters.academicYearId}::int IS NULL OR b.academic_year_id = ${filters.academicYearId})
       AND (${filters.classId}::int IS NULL OR EXISTS (
         SELECT 1 FROM core_student_class_histories ch
@@ -163,6 +166,7 @@ export async function selectTuitionBillsForExport(
     JOIN tuition_products p ON b.product_id = p.id
     JOIN core_academic_years ay ON b.academic_year_id = ay.id
     WHERE (${filters.schoolId}::int IS NULL OR s.school_id = ${filters.schoolId})
+      AND (${filters.cohortId}::int IS NULL OR b.cohort_id = ${filters.cohortId})
       AND (${filters.academicYearId}::int IS NULL OR b.academic_year_id = ${filters.academicYearId})
       AND (${filters.classId}::int IS NULL OR EXISTS (
         SELECT 1 FROM core_student_class_histories ch
@@ -222,6 +226,7 @@ export function parseBillListSearchParams(sp: URLSearchParams): BillListFilters 
   };
   return {
     schoolId: num('school_id'),
+    cohortId: num('cohort_id'),
     academicYearId: num('academic_year_id'),
     classId: num('class_id'),
     studentId: num('student_id'),

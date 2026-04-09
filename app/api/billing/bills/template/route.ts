@@ -12,14 +12,23 @@ import { resolveTariffAmount } from '@/lib/billing-tariff';
 
 const HEADERS = [
   'nis',
+  'student_name', // helper
+  'class_name', // helper
+  'title',
+  'amount',
+  'discount_amount',
+  'status',
+  'notes',
+  'bill_month',
+  'bill_year',
   'school_id',
   'academic_year_id',
   'product_id',
-  'bill_month',
-  'bill_year',
-  'title',
-  'amount',
-  'notes',
+  'cohort_id',
+  'school_label', // helper
+  'academic_year_label', // helper
+  'product_label', // helper
+  'cohort_label', // helper
 ];
 
 export async function GET(req: NextRequest) {
@@ -30,7 +39,7 @@ export async function GET(req: NextRequest) {
   const productIdStr = searchParams.get('product_id');
   const ayIdStr = searchParams.get('academic_year_id');
 
-  // Jika tidak ada parameter, kembalikan template kosong dengan headers saja (seperti sebelumnya)
+  // Jika tidak ada parameter, kembalikan template kosong dengan headers saja
   if (!schoolIdStr || !cohortIdStr || !classIdStr || !productIdStr || !ayIdStr) {
     const wb = XLSX.utils.book_new();
     const aoa = [HEADERS];
@@ -52,19 +61,18 @@ export async function GET(req: NextRequest) {
   const productId = Number(productIdStr);
   const ayId = Number(ayIdStr);
 
-  const [product] = await sql`
-    SELECT id, name, payment_type FROM tuition_products WHERE id = ${productId}
-  `;
-  const [ay] = await sql`
-    SELECT id, name FROM core_academic_years WHERE id = ${ayId}
-  `;
+  const [school] = await sql`SELECT id, name FROM core_schools WHERE id = ${schoolId}`;
+  const [cohort] = await sql`SELECT id, name FROM core_cohorts WHERE id = ${cohortId}`;
+  const [product] = await sql`SELECT id, name, payment_type FROM tuition_products WHERE id = ${productId}`;
+  const [ay] = await sql`SELECT id, name FROM core_academic_years WHERE id = ${ayId}`;
+  const [cls] = await sql`SELECT id, name FROM core_classes WHERE id = ${classId}`;
 
-  if (!product || !ay) {
-    return NextResponse.json({ error: 'Produk atau Tahun Ajaran tidak ditemukan' }, { status: 404 });
+  if (!product || !ay || !school || !cohort) {
+    return NextResponse.json({ error: 'Master data (sekolah/angkatan/produk/TA) tidak ditemukan' }, { status: 404 });
   }
 
   const students = await sql`
-    SELECT s.id, s.nis, s.full_name
+    SELECT DISTINCT s.id, s.nis, s.full_name
     FROM core_students s
     JOIN core_student_class_histories ch ON ch.student_id = s.id
     WHERE s.school_id = ${schoolId}
@@ -78,13 +86,32 @@ export async function GET(req: NextRequest) {
   const ayStartYear = parseAcademicYearStartYear(String(ay.name));
   const aoa: (string | number | null)[][] = [HEADERS];
 
+  const commonLabels = [
+    school.name as string,
+    ay.name as string,
+    product.name as string,
+    cohort.name as string,
+  ];
+
   for (const s of students) {
     const studentId = s.id as number;
     const tariff = await resolveTariffAmount(studentId, productId, ayId);
     const amount = tariff.ok ? (tariff.amount as string) : '';
 
+    const baseRow = [
+      s.nis as string,
+      s.full_name as string,
+      cls?.name as string,
+    ];
+
+    const techIds = [
+      schoolId,
+      ayId,
+      productId,
+      cohortId,
+    ];
+
     if (product.payment_type === 'monthly') {
-      // 12 months (July to June)
       for (const monthName of SPP_MONTHS) {
         const by = billYearForMonth(monthName, ayStartYear);
         const bm = billMonthNumber(monthName);
@@ -93,30 +120,31 @@ export async function GET(req: NextRequest) {
           : `${product.name} ${monthName}`;
 
         aoa.push([
-          s.nis as string,
-          schoolId,
-          ayId,
-          productId,
-          bm,
-          by,
+          ...baseRow,
           title,
           amount,
+          '0', // discount_amount
+          'unpaid', // status
           '', // notes
+          bm,
+          by,
+          ...techIds,
+          ...commonLabels,
         ]);
       }
     } else {
-      // 1 row
       const title = product.payment_type === 'annualy' ? `${product.name} ${ay.name}` : `${product.name}`;
       aoa.push([
-        s.nis as string,
-        schoolId,
-        ayId,
-        productId,
-        null, // bill_month
-        product.payment_type === 'annualy' ? ayStartYear : null, // bill_year
+        ...baseRow,
         title,
         amount,
+        '0', // discount_amount
+        'unpaid', // status
         '', // notes
+        null, // bill_month
+        product.payment_type === 'annualy' ? ayStartYear : null, // bill_year
+        ...techIds,
+        ...commonLabels,
       ]);
     }
   }
