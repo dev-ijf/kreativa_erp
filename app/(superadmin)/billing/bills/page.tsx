@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Field, Select, Button, Input } from '@/components/ui/FormFields';
-import { FileText, Plus, Download, Upload, Edit2, Trash2, Loader2, Eye } from 'lucide-react';
+import { FileText, Plus, Download, Upload, Edit2, Trash2, Loader2, Eye, FileSpreadsheet } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { confirmToast } from '@/components/ui/confirmToast';
 import { billMonthSelectOptions, billYearSelectOptions } from '@/lib/billing-period-ui';
+import Modal from '@/components/ui/Modal';
 
 type BillRow = {
   id: number;
@@ -27,9 +28,18 @@ type BillRow = {
 
 export default function BillsPage() {
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
-  const [academicYears, setAcademicYears] = useState<{ id: number; name: string }[]>([]);
+  const [cohorts, setCohorts] = useState<{ id: number; name: string; school_id: number }[]>([]);
+  const [academicYears, setAcademicYears] = useState<{ id: number; name: string; is_active?: boolean }[]>([]);
   const [classes, setClasses] = useState<{ id: number; name: string; school_id: number }[]>([]);
   const [products, setProducts] = useState<{ id: number; name: string; payment_type: string }[]>([]);
+
+  // Template Modal State
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [tSchoolId, setTSchoolId] = useState('');
+  const [tCohortId, setTCohortId] = useState('');
+  const [tClassId, setTClassId] = useState('');
+  const [tProductId, setTProductId] = useState('');
+  const [tAyId, setTAyId] = useState('');
 
   const [schoolId, setSchoolId] = useState('');
   const [academicYearId, setAcademicYearId] = useState('');
@@ -74,11 +84,13 @@ export default function BillsPage() {
   useEffect(() => {
     Promise.all([
       fetch('/api/master/schools').then((r) => r.json()),
+      fetch('/api/master/cohorts').then((r) => r.json()),
       fetch('/api/master/academic-years').then((r) => r.json()),
       fetch('/api/master/classes').then((r) => r.json()),
       fetch('/api/finance/products').then((r) => r.json()),
-    ]).then(([sch, ay, cls, prod]) => {
+    ]).then(([sch, coh, ay, cls, prod]) => {
       setSchools(sch);
+      setCohorts(coh);
       setAcademicYears(ay);
       setClasses(cls);
       setProducts(prod);
@@ -87,6 +99,7 @@ export default function BillsPage() {
         const id = String(active.id);
         setAcademicYearId(id);
         setApplied((a) => ({ ...a, academicYearId: id }));
+        setTAyId(id);
       }
     });
   }, []);
@@ -165,7 +178,18 @@ export default function BillsPage() {
   };
 
   const downloadTemplate = () => {
-    window.open('/api/billing/bills/template', '_blank');
+    if (!tSchoolId || !tCohortId || !tClassId || !tProductId || !tAyId) {
+      toast.error('Gagal mendownload template: Pastikan semua pilihan filter diisi.');
+      return;
+    }
+    const p = new URLSearchParams({
+      school_id: tSchoolId,
+      cohort_id: tCohortId,
+      class_id: tClassId,
+      product_id: tProductId,
+      academic_year_id: tAyId,
+    });
+    window.open(`/api/billing/bills/template?${p.toString()}`, '_blank');
   };
 
   const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,7 +253,7 @@ export default function BillsPage() {
           <p className="text-slate-400 text-[13px]">Daftar tagihan siswa — filter, ekspor, dan kelola</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={downloadTemplate}>
+          <Button type="button" variant="outline" size="sm" onClick={() => setTemplateOpen(true)}>
             <Download size={14} className="mr-1" /> Template
           </Button>
           <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
@@ -473,6 +497,105 @@ export default function BillsPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        title="Download Template Import"
+        subtitle="Pilih filter untuk menyesuaikan template tagihan"
+      >
+        <div className="space-y-4">
+          <Field label="Pilih Sekolah">
+            <Select
+              value={tSchoolId}
+              onChange={(e) => {
+                setTSchoolId(e.target.value);
+                setTCohortId('');
+                setTClassId('');
+              }}
+            >
+              <option value="">— Pilih Sekolah —</option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Angkatan (Cohort)">
+            <Select
+              value={tCohortId}
+              onChange={(e) => setTCohortId(e.target.value)}
+              disabled={!tSchoolId}
+            >
+              <option value="">— Pilih Angkatan —</option>
+              {cohorts
+                .filter((c) => String(c.school_id) === tSchoolId)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+
+          <Field label="Kelas (Rombel)">
+            <Select
+              value={tClassId}
+              onChange={(e) => setTClassId(e.target.value)}
+              disabled={!tSchoolId}
+            >
+              <option value="">— Pilih Kelas —</option>
+              {classes
+                .filter((c) => String(c.school_id) === tSchoolId)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+
+          <Field label="Produk Biaya">
+            <Select value={tProductId} onChange={(e) => setTProductId(e.target.value)}>
+              <option value="">— Pilih Produk —</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.payment_type})
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Tahun Ajaran">
+            <Select value={tAyId} onChange={(e) => setTAyId(e.target.value)}>
+              <option value="">— Pilih TA —</option>
+              {academicYears.map((ay) => (
+                <option key={ay.id} value={ay.id}>
+                  {ay.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <div className="pt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setTemplateOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={() => {
+                downloadTemplate();
+                setTemplateOpen(false);
+              }}
+              disabled={!tSchoolId || !tCohortId || !tClassId || !tProductId || !tAyId}
+            >
+              <Download size={16} className="mr-2" />
+              Download Excel
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

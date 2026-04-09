@@ -57,6 +57,13 @@
       "when": 1775400000000,
       "tag": "0007_adaptive_questions_student_answer",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775500000000,
+      "tag": "0008_tuition_bills_denormalization_parent_relations",
+      "breakpoints": true
     }
   ]
 }

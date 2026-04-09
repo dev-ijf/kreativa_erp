@@ -69,6 +69,8 @@ export function englishMonthNameFromNumber(billMonth: number): string {
 
 export type InsertBillParams = {
   studentId: number;
+  schoolId?: number | null;
+  cohortId?: number | null;
   productId: number;
   academicYearId: number;
   title: string;
@@ -94,13 +96,24 @@ export async function insertTuitionBillIfNotExists(
   `;
   if (existing.length > 0) return { created: false };
 
+  // Fetch denormalized fields if not provided
+  let { schoolId, cohortId } = p;
+  if (schoolId == null || cohortId == null) {
+    const [s] = await sql`SELECT school_id, cohort_id FROM core_students WHERE id = ${p.studentId}`;
+    if (!s) throw new Error(`Siswa ID ${p.studentId} tidak ditemukan`);
+    schoolId = s.school_id as number;
+    cohortId = s.cohort_id as number;
+  }
+
   await sql`
     INSERT INTO tuition_bills (
-      student_id, product_id, academic_year_id, title,
+      school_id, cohort_id, student_id, product_id, academic_year_id, title,
       total_amount, paid_amount, status,
       bill_month, bill_year, related_month
     )
     VALUES (
+      ${schoolId},
+      ${cohortId},
       ${p.studentId},
       ${p.productId},
       ${p.academicYearId},

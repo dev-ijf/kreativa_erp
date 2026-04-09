@@ -176,8 +176,26 @@ async function seed() {
   await db
     .insert(schema.coreParentStudentRelations)
     .values([
-      { userId: 2, studentId: 1, relationType: 'father' },
-      { userId: 2, studentId: 2, relationType: 'father' },
+      {
+        userId: 2,
+        studentId: 1,
+        relationType: 'father',
+        nik: '3201010101010001',
+        birthYear: '1980',
+        education: 'S1',
+        occupation: 'Wiraswasta',
+        incomeRange: '3-5jt',
+      },
+      {
+        userId: 2,
+        studentId: 2,
+        relationType: 'father',
+        nik: '3201010101010001',
+        birthYear: '1980',
+        education: 'S1',
+        occupation: 'Wiraswasta',
+        incomeRange: '3-5jt',
+      },
     ])
     .onConflictDoNothing();
 
@@ -267,12 +285,14 @@ async function seed() {
     .insert(schema.tuitionBills)
     .values([
       {
-        id: 1,
+        schoolId: 1,
+        cohortId: 1,
         studentId: 1,
         productId: 1,
         academicYearId: 2,
         title: 'SPP Juli 2025',
         totalAmount: '800000',
+        discountAmount: '0',
         paidAmount: '0',
         billMonth: 7,
         billYear: 2025,
@@ -280,12 +300,14 @@ async function seed() {
         status: 'unpaid',
       },
       {
-        id: 2,
+        schoolId: 4,
+        cohortId: 2,
         studentId: 2,
         productId: 1,
         academicYearId: 2,
         title: 'SPP Juli 2025',
         totalAmount: '1200000',
+        discountAmount: '0',
         paidAmount: '0',
         billMonth: 7,
         billYear: 2025,

@@ -253,9 +253,18 @@ export const coreStudentDocuments = pgTable('core_student_documents', {
 export const coreParentStudentRelations = pgTable(
   'core_parent_student_relations',
   {
-    userId: integer('user_id').notNull(),
-    studentId: integer('student_id').notNull(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => coreUsers.id),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => coreStudents.id),
     relationType: varchar('relation_type', { length: 50 }).notNull(),
+    nik: varchar('nik', { length: 20 }),
+    birthYear: varchar('birth_year', { length: 4 }),
+    education: varchar('education', { length: 50 }),
+    occupation: varchar('occupation', { length: 100 }),
+    incomeRange: varchar('income_range', { length: 100 }),
   },
   (t) => [primaryKey({ columns: [t.userId, t.studentId] })]
 );
@@ -412,23 +421,41 @@ export const tuitionPaymentInstructions = pgTable('tuition_payment_instructions'
 export const tuitionBills = pgTable(
   'tuition_bills',
   {
-    id: serial('id').primaryKey(),
-    studentId: integer('student_id').notNull(),
-    productId: integer('product_id').notNull(),
-    academicYearId: integer('academic_year_id').notNull(),
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    schoolId: bigint('school_id', { mode: 'number' })
+      .notNull()
+      .references(() => coreSchools.id),
+    cohortId: bigint('cohort_id', { mode: 'number' })
+      .notNull()
+      .references(() => coreCohorts.id),
+    studentId: bigint('student_id', { mode: 'number' })
+      .notNull()
+      .references(() => coreStudents.id),
+    productId: bigint('product_id', { mode: 'number' })
+      .notNull()
+      .references(() => tuitionProducts.id),
+    academicYearId: bigint('academic_year_id', { mode: 'number' })
+      .notNull()
+      .references(() => coreAcademicYears.id),
     title: varchar('title', { length: 100 }).notNull(),
     totalAmount: decimal('total_amount', { precision: 15, scale: 2 }).notNull(),
-    paidAmount: decimal('paid_amount', { precision: 15, scale: 2 }).default('0'),
-    minPayment: decimal('min_payment', { precision: 15, scale: 2 }).default('0'),
+    discountAmount: decimal('discount_amount', { precision: 15, scale: 2 }).default('0.00'),
+    paidAmount: decimal('paid_amount', { precision: 15, scale: 2 }).default('0.00'),
+    minPayment: decimal('min_payment', { precision: 15, scale: 2 }).default('0.00'),
     dueDate: date('due_date'),
     status: varchar('status', { length: 50 }).default('unpaid'),
     billMonth: integer('bill_month'),
     billYear: integer('bill_year'),
     relatedMonth: date('related_month'),
+    notes: text('notes'),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
   },
-  (t) => [index('idx_tuition_bills_period').on(t.billYear, t.billMonth)]
+  (t) => [
+    index('idx_tuition_bills_school').on(t.schoolId),
+    index('idx_tuition_bills_cohort').on(t.cohortId),
+    index('idx_tuition_bills_period').on(t.billYear, t.billMonth),
+  ]
 );
 
 // ==============================================================================

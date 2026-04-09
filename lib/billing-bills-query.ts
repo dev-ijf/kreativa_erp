@@ -30,7 +30,7 @@ export async function countTuitionBills(filters: BillListFilters): Promise<numbe
     FROM tuition_bills b
     JOIN core_students s ON b.student_id = s.id
     JOIN tuition_products p ON b.product_id = p.id
-    WHERE (${filters.schoolId}::int IS NULL OR s.school_id = ${filters.schoolId})
+    WHERE (${filters.schoolId}::int IS NULL OR b.school_id = ${filters.schoolId})
       AND (${filters.academicYearId}::int IS NULL OR b.academic_year_id = ${filters.academicYearId})
       AND (${filters.classId}::int IS NULL OR EXISTS (
         SELECT 1 FROM core_student_class_histories ch
@@ -68,9 +68,12 @@ export async function selectTuitionBills(
       b.student_id,
       b.product_id,
       b.academic_year_id,
+      b.school_id,
+      b.cohort_id,
       b.title,
       b.total_amount,
       b.paid_amount,
+      b.discount_amount,
       b.min_payment,
       b.due_date,
       b.status,
@@ -81,7 +84,6 @@ export async function selectTuitionBills(
       b.updated_at,
       s.full_name AS student_name,
       s.nis,
-      sch.id AS school_id,
       sch.name AS school_name,
       p.name AS product_name,
       p.payment_type,
@@ -92,10 +94,10 @@ export async function selectTuitionBills(
        LIMIT 1) AS class_name
     FROM tuition_bills b
     JOIN core_students s ON b.student_id = s.id
-    JOIN core_schools sch ON s.school_id = sch.id
+    JOIN core_schools sch ON b.school_id = sch.id
     JOIN tuition_products p ON b.product_id = p.id
     JOIN core_academic_years ay ON b.academic_year_id = ay.id
-    WHERE (${filters.schoolId}::int IS NULL OR s.school_id = ${filters.schoolId})
+    WHERE (${filters.schoolId}::int IS NULL OR b.school_id = ${filters.schoolId})
       AND (${filters.academicYearId}::int IS NULL OR b.academic_year_id = ${filters.academicYearId})
       AND (${filters.classId}::int IS NULL OR EXISTS (
         SELECT 1 FROM core_student_class_histories ch
