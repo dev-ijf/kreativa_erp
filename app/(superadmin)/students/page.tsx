@@ -67,6 +67,7 @@ export default function StudentsPage() {
     { id: number; school_id: number; name: string; level_name: string }[]
   >([]);
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [cohorts, setCohorts] = useState<{ id: number; name: string; school_id: number }[]>([]);
 
   const [filterSchool, setFilterSchool] = useState('');
   const [filterAy, setFilterAy] = useState('');
@@ -78,6 +79,7 @@ export default function StudentsPage() {
   const importInputRef = useRef<HTMLInputElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateSchoolId, setTemplateSchoolId] = useState('');
+  const [templateCohortId, setTemplateCohortId] = useState('');
   const [templateClassId, setTemplateClassId] = useState('');
 
   const loadRefs = useCallback(() => {
@@ -85,10 +87,12 @@ export default function StudentsPage() {
       fetch('/api/master/academic-years').then((r) => r.json()),
       fetch('/api/master/classes').then((r) => r.json()),
       fetch('/api/master/schools').then((r) => r.json()),
-    ]).then(([ay, cls, sch]) => {
+      fetch('/api/master/cohorts').then((r) => r.json()),
+    ]).then(([ay, cls, sch, coh]) => {
       setAcademicYears(ay);
       setClasses(cls);
       setSchools(sch);
+      setCohorts(Array.isArray(coh) ? coh : []);
       const active = ay.find((y: { is_active: boolean }) => y.is_active);
       if (active) setFilterAy(String(active.id));
     });
@@ -182,12 +186,25 @@ export default function StudentsPage() {
     ? classes.filter((c) => String(c.school_id) === templateSchoolId)
     : [];
 
+  const templateCohorts = templateSchoolId
+    ? cohorts.filter((c) => String(c.school_id) === templateSchoolId)
+    : [];
+
   const downloadImportTemplate = () => {
     if (!templateSchoolId) {
       toast.error('Pilih sekolah terlebih dahulu agar kolom school_id di file sesuai.');
       return;
     }
+    if (!templateCohortId.trim()) {
+      toast.error('Pilih angkatan terlebih dahulu agar kolom cohort_id di file sesuai.');
+      return;
+    }
     const sid = Number(templateSchoolId);
+    const cohortNum = Number(templateCohortId.trim());
+    if (!Number.isFinite(cohortNum)) {
+      toast.error('Angkatan tidak valid.');
+      return;
+    }
     const school = schools.find((s) => s.id === sid);
     const activeAyRow = academicYears.find((y) => y.is_active);
     const ayId =
@@ -195,8 +212,23 @@ export default function StudentsPage() {
     const ayNum = Number.isFinite(ayId) ? ayId : '';
     const classNum = templateClassId.trim() ? Number(templateClassId.trim()) : '';
     const sampleNis = `${sid}-NIS-001`;
+    const cohortRow = cohorts.find((c) => c.id === cohortNum);
+    const ayRowForSample =
+      Number.isFinite(Number(ayNum)) && ayNum !== ''
+        ? academicYears.find((y) => y.id === Number(ayNum))
+        : undefined;
+    const ayNameSample = ayRowForSample?.name ?? '';
+    const clsRow =
+      classNum !== '' && Number.isFinite(Number(classNum))
+        ? classes.find((c) => c.id === Number(classNum))
+        : undefined;
+    const classNameSample = clsRow ? `${clsRow.level_name} ${clsRow.name}` : '';
+
     const header = [
       'school_id',
+      'school_name',
+      'cohort_id',
+      'cohort_name',
       'full_name',
       'nis',
       'nisn',
@@ -204,9 +236,10 @@ export default function StudentsPage() {
       'student_type',
       'program',
       'username',
-      'entry_academic_year_id',
-      'active_academic_year_id',
+      'academic_year_id',
+      'academic_year_name',
       'class_id',
+      'class_name',
       'nickname',
       'nik',
       'nationality',
@@ -259,6 +292,9 @@ export default function StudentsPage() {
     ];
     const sampleRow: (string | number)[] = [
       sid,
+      school?.name ?? '',
+      cohortNum,
+      cohortRow?.name ?? '',
       'Contoh Nama Lengkap',
       sampleNis,
       '',
@@ -267,8 +303,9 @@ export default function StudentsPage() {
       'Reguler',
       'opsional_username',
       ayNum === '' ? '' : ayNum,
-      ayNum === '' ? '' : ayNum,
+      ayNameSample,
       classNum === '' ? '' : classNum,
+      classNameSample,
       'Contoh Nama Panggilan',
       '3204xxxxxxxxxxxx',
       'WNI',
@@ -350,8 +387,9 @@ export default function StudentsPage() {
                   Unduh template import Excel (.xlsx)
                 </h3>
                 <p className="text-[13px] text-slate-500 mt-1">
-                  Pilih sekolah dulu supaya kolom <span className="font-mono text-[12px]">school_id</span>{' '}
-                  dan contoh baris sudah benar. Impor hanya menerima file <strong>.xlsx</strong>.
+                  Pilih sekolah dan angkatan supaya kolom <span className="font-mono text-[12px]">school_id</span>,{' '}
+                  <span className="font-mono text-[12px]">cohort_id</span>, dan contoh baris sudah benar. Impor hanya
+                  menerima file <strong>.xlsx</strong>.
                 </p>
               </div>
               <button
@@ -370,6 +408,7 @@ export default function StudentsPage() {
                   onChange={(e) => {
                     const sid = e.target.value;
                     setTemplateSchoolId(sid);
+                    setTemplateCohortId('');
                     const first = classes.find((c) => String(c.school_id) === sid);
                     setTemplateClassId(first ? String(first.id) : '');
                   }}
@@ -381,6 +420,29 @@ export default function StudentsPage() {
                     </option>
                   ))}
                 </Select>
+              </Field>
+              <Field label="Angkatan (wajib)">
+                <Select
+                  value={templateCohortId}
+                  onChange={(e) => setTemplateCohortId(e.target.value)}
+                  disabled={!templateSchoolId}
+                >
+                  <option value="">— Pilih angkatan —</option>
+                  {templateCohorts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+                {templateSchoolId && templateCohorts.length === 0 ? (
+                  <p className="text-[12px] text-amber-700 mt-1.5">
+                    Belum ada angkatan untuk sekolah ini. Tambahkan di{' '}
+                    <Link href="/master/cohorts" className="underline font-medium">
+                      Master Angkatan
+                    </Link>
+                    .
+                  </p>
+                ) : null}
               </Field>
               <Field label="Contoh rombel (opsional)">
                 <Select
@@ -397,9 +459,12 @@ export default function StudentsPage() {
                 </Select>
               </Field>
               <p className="text-[12px] text-slate-500 leading-relaxed">
-                Kolom <span className="font-mono">school_id</span>, <span className="font-mono">full_name</span>,{' '}
-                <span className="font-mono">nis</span>, dan <span className="font-mono">gender</span> bersifat wajib.
-                Kolom lain opsional dan akan diisikan ke data detail siswa jika didukung oleh API backend.
+                Kolom <span className="font-mono">school_id</span>, <span className="font-mono">cohort_id</span>,{' '}
+                <span className="font-mono">full_name</span>, <span className="font-mono">nis</span>, dan{' '}
+                <span className="font-mono">gender</span> bersifat wajib. Kolom berakhiran{' '}
+                <span className="font-mono">_name</span> (<span className="font-mono">school_name</span>,{' '}
+                <span className="font-mono">cohort_name</span>, dst.) hanya untuk baca manusia; saat unggah yang dipakai
+                tetap kolom <span className="font-mono">*_id</span>. Kolom lain opsional.
               </p>
               <div className="flex flex-wrap gap-2 justify-end pt-2">
                 <Button variant="outline" type="button" onClick={() => setTemplateModalOpen(false)}>

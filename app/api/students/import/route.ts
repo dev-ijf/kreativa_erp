@@ -4,6 +4,7 @@ import { withTransaction } from '@/lib/pg-pool';
 
 type RowIn = Record<string, unknown>;
 
+/** Kolom *_name (school_name, cohort_name, academic_year_name, …) diabaikan — hanya *_id yang dipakai. */
 function cellStr(r: RowIn, keys: string[]): string {
   for (const k of keys) {
     const v = r[k];
@@ -82,11 +83,14 @@ export async function POST(req: NextRequest) {
         const r = rows[i]!;
         const rowNum = i + 2;
         const schoolId = cellNum(r, ['school_id', 'school id', 'School ID', 'id_sekolah']);
+        const cohortId = cellNum(r, ['cohort_id', 'angkatan_id', 'Cohort ID']);
         const fullName = cellStr(r, ['full_name', 'nama', 'nama_lengkap', 'Nama Lengkap']);
         const nis = cellStr(r, ['nis', 'NIS']);
-        if (!schoolId || !fullName || !nis) {
+        if (!schoolId || !cohortId || !fullName || !nis) {
           skipped++;
-          errors.push(`Baris ${rowNum}: school_id, nama, dan nis wajib`);
+          errors.push(
+            `Baris ${rowNum}: school_id, cohort_id (angkatan), nama, dan nis wajib`
+          );
           continue;
         }
 
@@ -104,23 +108,47 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
+        const coh = await c.query(
+          `SELECT id FROM core_cohorts WHERE id = $1 AND school_id = $2`,
+          [cohortId, schoolId]
+        );
+        if (coh.rows.length === 0) {
+          skipped++;
+          errors.push(
+            `Baris ${rowNum}: cohort_id ${cohortId} tidak ditemukan atau tidak sesuai sekolah`
+          );
+          continue;
+        }
+
         const gender = cellStr(r, ['gender', 'jenis_kelamin', 'jk']) || 'L';
         const nisn = cellStr(r, ['nisn', 'NISN']) || null;
         const username = cellStr(r, ['username']) || null;
         const studentType = cellStr(r, ['student_type', 'tipe']) || 'Reguler';
         const program = cellStr(r, ['program']) || null;
-        const entryAy = cellNum(r, ['entry_academic_year_id', 'tahun_masuk_id']);
-        const activeAy = cellNum(r, ['active_academic_year_id', 'tahun_aktif_id']);
+        /** Satu kolom template: isi entry + active sama. Template lama masih didukung. */
+        const unifiedAy = cellNum(r, ['academic_year_id', 'tahun_ajaran_id']);
+        const entryAyOld = cellNum(r, ['entry_academic_year_id', 'tahun_masuk_id']);
+        const activeAyOld = cellNum(r, ['active_academic_year_id', 'tahun_aktif_id']);
+        let entryAy: number | null;
+        let activeAy: number | null;
+        if (unifiedAy != null) {
+          entryAy = unifiedAy;
+          activeAy = unifiedAy;
+        } else {
+          entryAy = entryAyOld;
+          activeAy = activeAyOld ?? entryAyOld;
+        }
         const classId = cellNum(r, ['class_id', 'kelas_id', 'rombel_id']);
 
         const ins = await c.query(
           `INSERT INTO core_students (
-            school_id, full_name, username, nis, nisn, gender, student_type, program,
+            school_id, cohort_id, full_name, username, nis, nisn, gender, student_type, program,
             entry_academic_year_id, active_academic_year_id
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
           RETURNING id`,
           [
             schoolId,
+            cohortId,
             fullName,
             username,
             nis,
