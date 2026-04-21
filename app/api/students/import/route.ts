@@ -4,7 +4,10 @@ import { withTransaction } from '@/lib/pg-pool';
 
 type RowIn = Record<string, unknown>;
 
-/** Kolom *_name (school_name, cohort_name, academic_year_name, …) diabaikan — hanya *_id yang dipakai. */
+/**
+ * Kolom label / *_name (school_name, cohort_name, "Entry Year (Tahun Masuk)", …) diabaikan.
+ * Tahun ajaran penempatan rombel: gunakan entry_academic_year_id (bukan kolom generik academic_year_id).
+ */
 function cellStr(r: RowIn, keys: string[]): string {
   for (const k of keys) {
     const v = r[k];
@@ -94,6 +97,28 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
+        const entryAy = cellNum(r, [
+          'entry_academic_year_id',
+          'tahun_masuk_id',
+          // file lama yang masih memakai nama kolom ini — diperlakukan sebagai tahun masuk
+          'academic_year_id',
+          'tahun_ajaran_id',
+        ]);
+        if (!entryAy) {
+          skipped++;
+          errors.push(
+            `Baris ${rowNum}: entry_academic_year_id (Tahun Masuk) wajib`
+          );
+          continue;
+        }
+
+        const ayOk = await c.query(`SELECT id FROM core_academic_years WHERE id = $1`, [entryAy]);
+        if (ayOk.rows.length === 0) {
+          skipped++;
+          errors.push(`Baris ${rowNum}: entry_academic_year_id ${entryAy} tidak ditemukan`);
+          continue;
+        }
+
         const dup = await c.query(`SELECT id FROM core_students WHERE nis = $1`, [nis]);
         if (dup.rows.length > 0) {
           skipped++;
@@ -125,19 +150,8 @@ export async function POST(req: NextRequest) {
         const username = cellStr(r, ['username']) || null;
         const studentType = cellStr(r, ['student_type', 'tipe']) || 'Reguler';
         const program = cellStr(r, ['program']) || null;
-        /** Satu kolom template: isi entry + active sama. Template lama masih didukung. */
-        const unifiedAy = cellNum(r, ['academic_year_id', 'tahun_ajaran_id']);
-        const entryAyOld = cellNum(r, ['entry_academic_year_id', 'tahun_masuk_id']);
-        const activeAyOld = cellNum(r, ['active_academic_year_id', 'tahun_aktif_id']);
-        let entryAy: number | null;
-        let activeAy: number | null;
-        if (unifiedAy != null) {
-          entryAy = unifiedAy;
-          activeAy = unifiedAy;
-        } else {
-          entryAy = entryAyOld;
-          activeAy = activeAyOld ?? entryAyOld;
-        }
+        const activeAyOpt = cellNum(r, ['active_academic_year_id', 'tahun_aktif_id']);
+        const activeAy = activeAyOpt ?? entryAy;
         const classId = cellNum(r, ['class_id', 'kelas_id', 'rombel_id']);
 
         const ins = await c.query(
@@ -157,14 +171,14 @@ export async function POST(req: NextRequest) {
             studentType,
             program,
             entryAy,
-            activeAy ?? entryAy,
+            activeAy,
           ]
         );
         const newId = ins.rows[0]?.id as number;
         if (!newId) continue;
 
-        if (classId && (activeAy ?? entryAy)) {
-          const ay = activeAy ?? entryAy;
+        if (classId && entryAy) {
+          const ay = entryAy;
           const cl = await c.query(
             `SELECT level_grade_id, school_id FROM core_classes WHERE id = $1`,
             [classId]

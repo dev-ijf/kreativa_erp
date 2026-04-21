@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(rows.map((r) => ({ ...r, filter_academic_year_id: ayId })));
     }
     const rows = await sql`
-      SELECT DISTINCT c.*, s.name AS school_name, lg.name AS level_name
+      SELECT DISTINCT c.*, s.name AS school_name, lg.name AS level_name, lg.level_order
       FROM core_classes c
       JOIN core_schools s ON c.school_id = s.id
       JOIN core_level_grades lg ON c.level_grade_id = lg.id

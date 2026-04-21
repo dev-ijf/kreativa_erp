@@ -236,8 +236,8 @@ export default function StudentsPage() {
       'student_type',
       'program',
       'username',
-      'academic_year_id',
-      'academic_year_name',
+      'entry_academic_year_id',
+      'Entry Year (Tahun Masuk)',
       'class_id',
       'class_name',
       'nickname',
@@ -388,8 +388,10 @@ export default function StudentsPage() {
                 </h3>
                 <p className="text-[13px] text-slate-500 mt-1">
                   Pilih sekolah dan angkatan supaya kolom <span className="font-mono text-[12px]">school_id</span>,{' '}
-                  <span className="font-mono text-[12px]">cohort_id</span>, dan contoh baris sudah benar. Impor hanya
-                  menerima file <strong>.xlsx</strong>.
+                  <span className="font-mono text-[12px]">cohort_id</span>,{' '}
+                  <span className="font-mono text-[12px]">entry_academic_year_id</span> (tahun masuk), dan contoh baris
+                  sudah benar. Tahun ajaran rombel di sistem tercatat di riwayat kelas. Impor hanya menerima file{' '}
+                  <strong>.xlsx</strong>.
                 </p>
               </div>
               <button
@@ -460,11 +462,11 @@ export default function StudentsPage() {
               </Field>
               <p className="text-[12px] text-slate-500 leading-relaxed">
                 Kolom <span className="font-mono">school_id</span>, <span className="font-mono">cohort_id</span>,{' '}
-                <span className="font-mono">full_name</span>, <span className="font-mono">nis</span>, dan{' '}
-                <span className="font-mono">gender</span> bersifat wajib. Kolom berakhiran{' '}
-                <span className="font-mono">_name</span> (<span className="font-mono">school_name</span>,{' '}
-                <span className="font-mono">cohort_name</span>, dst.) hanya untuk baca manusia; saat unggah yang dipakai
-                tetap kolom <span className="font-mono">*_id</span>. Kolom lain opsional.
+                <span className="font-mono">entry_academic_year_id</span>, <span className="font-mono">full_name</span>,{' '}
+                <span className="font-mono">nis</span>, dan <span className="font-mono">gender</span> bersifat wajib.
+                Label teks <strong>Entry Year (Tahun Masuk)</strong> (nama tahun ajaran masuk) hanya referensi; yang
+                dipakai saat unggah hanya <span className="font-mono">entry_academic_year_id</span>. Kolom{' '}
+                <span className="font-mono">*_name</span> lainnya juga hanya referensi. Kolom lain opsional.
               </p>
               <div className="flex flex-wrap gap-2 justify-end pt-2">
                 <Button variant="outline" type="button" onClick={() => setTemplateModalOpen(false)}>
