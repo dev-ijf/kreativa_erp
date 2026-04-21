@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
+import { useSearchParams } from 'next/navigation';
 import DataTable from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/FormFields';
 import { ArrowLeft, Edit2, Trash2 } from 'lucide-react';
@@ -10,7 +11,8 @@ import { confirmToast } from '@/components/ui/confirmToast';
 
 interface Row {
   id: number;
-  student_name: string;
+  class_name: string;
+  academic_year_name: string;
   subject_name: string | null;
   teacher_name: string | null;
   day_of_week: string;
@@ -19,32 +21,45 @@ interface Row {
   is_break: boolean | null;
 }
 
-export default function ScheduleStudentDetailPage({ params }: { params: Promise<{ studentId: string }> }) {
-  const { studentId } = use(params);
-  const [studentLabel, setStudentLabel] = useState('');
+export default function ScheduleClassDetailPage({ params }: { params: Promise<{ classId: string }> }) {
+  const { classId } = use(params);
+  const searchParams = useSearchParams();
+  const academicYearId = searchParams.get('academic_year_id') || '';
+
+  const [classLabel, setClassLabel] = useState('');
   const [data, setData] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
 
   const load = () => {
     setLoading(true);
-    fetch(`/api/academic/schedules?student_id=${studentId}`)
+    const params = new URLSearchParams();
+    params.set('class_id', classId);
+    if (academicYearId) params.set('academic_year_id', academicYearId);
+    fetch(`/api/academic/schedules?${params}`)
       .then((r) => r.json())
       .then((d) => {
-        setData(Array.isArray(d) ? d : []);
+        const rows = Array.isArray(d) ? d : [];
+        setData(rows);
+        if (rows.length > 0) {
+          setClassLabel(`${rows[0].class_name} — ${rows[0].academic_year_name}`);
+        }
         setLoading(false);
       });
   };
 
+  useEffect(() => { load(); }, [classId, academicYearId]);
+
   useEffect(() => {
-    void fetch(`/api/students/${studentId}`)
+    if (classLabel) return;
+    fetch(`/api/master/classes`)
       .then((r) => r.json())
-      .then((s) => {
-        if (s?.full_name) setStudentLabel(`${s.full_name} (NIS ${s.nis || '–'})`);
-        else setStudentLabel(`Siswa #${studentId}`);
+      .then((arr) => {
+        if (!Array.isArray(arr)) return;
+        const cls = arr.find((c: { id: number }) => String(c.id) === classId);
+        if (cls) setClassLabel(cls.name);
       });
-    load();
-  }, [studentId]);
+  }, [classId, classLabel]);
 
   const handleDelete = async (sid: number) => {
     confirmToast('Hapus jadwal ini?', {
@@ -110,8 +125,8 @@ export default function ScheduleStudentDetailPage({ params }: { params: Promise<
           </Button>
         </Link>
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Jadwal siswa</h2>
-          <p className="text-slate-500 text-[13px]">{studentLabel}</p>
+          <h2 className="text-xl font-bold text-slate-800">Jadwal kelas</h2>
+          <p className="text-slate-500 text-[13px]">{classLabel || `Kelas #${classId}`}</p>
         </div>
       </div>
       <DataTable
@@ -119,7 +134,7 @@ export default function ScheduleStudentDetailPage({ params }: { params: Promise<
         columns={columns}
         loading={loading}
         rowKey={(r) => r.id}
-        emptyText="Belum ada jadwal untuk siswa ini"
+        emptyText="Belum ada jadwal untuk kelas ini"
         searchable={false}
         showRowNumber
       />

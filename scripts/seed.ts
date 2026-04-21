@@ -362,16 +362,20 @@ async function seed() {
     .values([{ id: 1, academicYear: '2023/2024', semesterLabel: '1', isActive: true }])
     .onConflictDoNothing();
 
+  // Jadwal per kelas + tahun ajaran (selaras dengan core_student_class_histories: tahun 2 = aktif)
   await db
     .insert(schema.academicSchedules)
     .values([
-      { studentId: 1, subjectId: 1, teacherId: 1, dayOfWeek: 'Monday', startTime: '07:30', endTime: '09:00', isBreak: false },
-      { studentId: 1, subjectId: 2, teacherId: 2, dayOfWeek: 'Monday', startTime: '09:00', endTime: '10:30', isBreak: false },
-      { studentId: 1, subjectId: null, teacherId: null, dayOfWeek: 'Monday', startTime: '10:30', endTime: '11:00', isBreak: true },
-      { studentId: 1, subjectId: 3, teacherId: 3, dayOfWeek: 'Monday', startTime: '11:00', endTime: '12:30', isBreak: false },
-      { studentId: 2, subjectId: 4, teacherId: 4, dayOfWeek: 'Monday', startTime: '08:00', endTime: '09:30', isBreak: false },
-      { studentId: 2, subjectId: null, teacherId: null, dayOfWeek: 'Monday', startTime: '09:30', endTime: '10:00', isBreak: true },
-      { studentId: 2, subjectId: 1, teacherId: 1, dayOfWeek: 'Monday', startTime: '10:00', endTime: '11:30', isBreak: false },
+      // KELAS 1 A (SD) — 2025/2026
+      { classId: 1, academicYearId: 2, subjectId: 1, teacherId: 1, dayOfWeek: 'Senin', startTime: '07:30', endTime: '09:00', isBreak: false },
+      { classId: 1, academicYearId: 2, subjectId: 2, teacherId: 2, dayOfWeek: 'Senin', startTime: '09:00', endTime: '10:30', isBreak: false },
+      { classId: 1, academicYearId: 2, subjectId: null, teacherId: null, dayOfWeek: 'Senin', startTime: '10:30', endTime: '11:00', isBreak: true },
+      { classId: 1, academicYearId: 2, subjectId: 3, teacherId: 3, dayOfWeek: 'Senin', startTime: '11:00', endTime: '12:30', isBreak: false },
+      { classId: 1, academicYearId: 2, subjectId: 5, teacherId: 4, dayOfWeek: 'Selasa', startTime: '08:00', endTime: '09:30', isBreak: false },
+      // 7A (SMP) — 2025/2026
+      { classId: 2, academicYearId: 2, subjectId: 4, teacherId: 4, dayOfWeek: 'Senin', startTime: '08:00', endTime: '09:30', isBreak: false },
+      { classId: 2, academicYearId: 2, subjectId: null, teacherId: null, dayOfWeek: 'Senin', startTime: '09:30', endTime: '10:00', isBreak: true },
+      { classId: 2, academicYearId: 2, subjectId: 1, teacherId: 1, dayOfWeek: 'Senin', startTime: '10:00', endTime: '11:30', isBreak: false },
     ])
     .onConflictDoNothing();
 

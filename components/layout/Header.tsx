@@ -57,8 +57,8 @@ const BREADCRUMB_MAP: Record<string, string> = {
 
 function resolvePageTitle(pathname: string): string {
   if (BREADCRUMB_MAP[pathname]) return BREADCRUMB_MAP[pathname];
-  if (/^\/academic\/schedules\/student\/\d+$/.test(pathname)) {
-    return 'Jadwal — per siswa';
+  if (/^\/academic\/schedules\/class\/\d+$/.test(pathname)) {
+    return 'Jadwal — per kelas';
   }
   if (/^\/academic\/attendances\/student\/\d+$/.test(pathname)) {
     return 'Kehadiran — per siswa';

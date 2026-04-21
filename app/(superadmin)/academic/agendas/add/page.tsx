@@ -1,18 +1,38 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Field, Input, Button, Select } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Nama tingkat unik dari core_level_grades (urutan mengikuti respons API). */
+function distinctLevelNames(rows: { level_name?: string | null }[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of rows) {
+    const n = (r.level_name ?? '').trim();
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n.length > 50 ? `${n.slice(0, 47)}...` : n);
+  }
+  return out;
+}
+
 export default function AddAgendaPage() {
   const router = useRouter();
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [levelNames, setLevelNames] = useState<string[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(false);
   const [form, setForm] = useState({
     school_id: '',
     target_grade: '',
-    event_date: '',
+    event_date: todayISO(),
     title_en: '',
     title_id: '',
     time_range: '',
@@ -20,11 +40,27 @@ export default function AddAgendaPage() {
   });
   const [saving, setSaving] = useState(false);
 
+  const loadClasses = useCallback((schoolId: string) => {
+    if (!schoolId) {
+      setLevelNames([]);
+      return;
+    }
+    setLoadingClasses(true);
+    fetch(`/api/master/classes?school_id=${schoolId}&for_active_year=1&include_empty=1`)
+      .then((r) => r.json())
+      .then((d) => setLevelNames(distinctLevelNames(Array.isArray(d) ? d : [])))
+      .finally(() => setLoadingClasses(false));
+  }, []);
+
   useEffect(() => {
     fetch('/api/master/schools')
       .then((r) => r.json())
       .then((d) => setSchools(Array.isArray(d) ? d : []));
   }, []);
+
+  useEffect(() => {
+    loadClasses(form.school_id);
+  }, [form.school_id, loadClasses]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +105,10 @@ export default function AddAgendaPage() {
           <Field label="Sekolah" required>
             <Select
               value={form.school_id}
-              onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm((f) => ({ ...f, school_id: v, target_grade: '' }));
+              }}
               required
             >
               <option value="">Pilih sekolah</option>
@@ -81,11 +120,20 @@ export default function AddAgendaPage() {
             </Select>
           </Field>
           <Field label="Target kelas / tingkat">
-            <Input
+            <Select
               value={form.target_grade}
               onChange={(e) => setForm((f) => ({ ...f, target_grade: e.target.value }))}
-              placeholder="Opsional"
-            />
+              disabled={!form.school_id || loadingClasses}
+            >
+              <option value="">
+                {!form.school_id ? 'Pilih sekolah terlebih dahulu' : loadingClasses ? 'Memuat tingkat…' : 'Opsional (semua tingkat)'}
+              </option>
+              {levelNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Tanggal acara" required>
             <Input

@@ -1,33 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
-async function validateScheduleFks(
-  studentId: number,
-  subjectId: number | null,
-  teacherId: number | null
-): Promise<string | null> {
-  const [st] = await sql`SELECT id FROM core_students WHERE id = ${studentId}`;
-  if (!st) return 'Siswa tidak ditemukan';
-  if (subjectId != null) {
-    const [su] = await sql`SELECT id FROM academic_subjects WHERE id = ${subjectId}`;
-    if (!su) return 'Mata pelajaran tidak ditemukan';
-  }
-  if (teacherId != null) {
-    const [t] = await sql`SELECT id FROM core_teachers WHERE id = ${teacherId}`;
-    if (!t) return 'Guru tidak ditemukan';
-  }
-  return null;
-}
-
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [row] = await sql`
     SELECT sch.*,
-      st.full_name AS student_name,
+      c.name AS class_name,
+      c.school_id,
+      s.name AS school_name,
+      ay.name AS academic_year_name,
       sub.name_id AS subject_name,
       u.full_name AS teacher_name
     FROM academic_schedules sch
-    JOIN core_students st ON st.id = sch.student_id
+    JOIN core_classes c ON c.id = sch.class_id
+    JOIN core_schools s ON s.id = c.school_id
+    JOIN core_academic_years ay ON ay.id = sch.academic_year_id
     LEFT JOIN academic_subjects sub ON sub.id = sch.subject_id
     LEFT JOIN core_teachers ct ON ct.id = sch.teacher_id
     LEFT JOIN core_users u ON u.id = ct.user_id
@@ -40,32 +27,36 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
-  const studentId = Number(b?.student_id);
+  const classId = Number(b?.class_id);
+  const academicYearId = Number(b?.academic_year_id);
   const dayOfWeek = b?.day_of_week != null ? String(b.day_of_week).trim() : '';
   const startTime = b?.start_time != null ? String(b.start_time).trim() : '';
   const endTime = b?.end_time != null ? String(b.end_time).trim() : '';
-  if (!studentId || !dayOfWeek || !startTime || !endTime) {
+  if (!classId || !academicYearId || !dayOfWeek || !startTime || !endTime) {
     return NextResponse.json(
-      { error: 'student_id, day_of_week, start_time, end_time wajib' },
+      { error: 'class_id, academic_year_id, day_of_week, start_time, end_time wajib' },
       { status: 400 }
     );
   }
-  const subjectIdRaw = b?.subject_id;
   const subjectId =
-    subjectIdRaw != null && subjectIdRaw !== '' && !Number.isNaN(Number(subjectIdRaw))
-      ? Number(subjectIdRaw)
+    b?.subject_id != null && b.subject_id !== '' && !Number.isNaN(Number(b.subject_id))
+      ? Number(b.subject_id)
       : null;
-  const teacherIdRaw = b?.teacher_id;
   const teacherId =
-    teacherIdRaw != null && teacherIdRaw !== '' && !Number.isNaN(Number(teacherIdRaw))
-      ? Number(teacherIdRaw)
+    b?.teacher_id != null && b.teacher_id !== '' && !Number.isNaN(Number(b.teacher_id))
+      ? Number(b.teacher_id)
       : null;
   const isBreak = Boolean(b?.is_break);
-  const err = await validateScheduleFks(studentId, subjectId, teacherId);
-  if (err) return NextResponse.json({ error: err }, { status: 400 });
+
+  const [cls] = await sql`SELECT id FROM core_classes WHERE id = ${classId}`;
+  if (!cls) return NextResponse.json({ error: 'Kelas tidak ditemukan' }, { status: 400 });
+  const [ay] = await sql`SELECT id FROM core_academic_years WHERE id = ${academicYearId}`;
+  if (!ay) return NextResponse.json({ error: 'Tahun ajaran tidak ditemukan' }, { status: 400 });
+
   const [row] = await sql`
     UPDATE academic_schedules
-    SET student_id = ${studentId}, subject_id = ${subjectId}, teacher_id = ${teacherId},
+    SET class_id = ${classId}, academic_year_id = ${academicYearId},
+        subject_id = ${subjectId}, teacher_id = ${teacherId},
         day_of_week = ${dayOfWeek}, start_time = ${startTime}, end_time = ${endTime}, is_break = ${isBreak}
     WHERE id = ${Number(id)}
     RETURNING *

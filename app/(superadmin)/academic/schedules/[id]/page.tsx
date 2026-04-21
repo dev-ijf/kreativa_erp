@@ -11,11 +11,16 @@ const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 export default function EditSchedulePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
-  const [students, setStudents] = useState<{ id: number; full_name: string; nis: string }[]>([]);
+  const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [classes, setClasses] = useState<{ id: number; name: string }[]>([]);
+  const [academicYears, setAcademicYears] = useState<{ id: number; name: string; is_active: boolean }[]>([]);
   const [subjects, setSubjects] = useState<{ id: number; name_id: string }[]>([]);
   const [teachers, setTeachers] = useState<{ id: number; user_full_name: string }[]>([]);
+
   const [form, setForm] = useState({
-    student_id: '',
+    school_id: '',
+    class_id: '',
+    academic_year_id: '',
     subject_id: '',
     teacher_id: '',
     day_of_week: 'Senin',
@@ -25,20 +30,27 @@ export default function EditSchedulePage({ params }: { params: Promise<{ id: str
   });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [initialSchoolId, setInitialSchoolId] = useState('');
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/students?limit=100').then((r) => r.json()),
+      fetch('/api/master/schools').then((r) => r.json()),
+      fetch('/api/master/academic-years').then((r) => r.json()),
       fetch('/api/academic/subjects').then((r) => r.json()),
       fetch('/api/master/teachers').then((r) => r.json()),
       fetch(`/api/academic/schedules/${id}`).then((r) => r.json()),
-    ]).then(([stu, sub, tea, row]) => {
-      setStudents((stu?.data as typeof students) || []);
+    ]).then(([sch, ay, sub, tea, row]) => {
+      setSchools(Array.isArray(sch) ? sch : []);
+      setAcademicYears(Array.isArray(ay) ? ay : []);
       setSubjects(Array.isArray(sub) ? sub : []);
       setTeachers(Array.isArray(tea) ? tea : []);
       if (row && !row.error) {
+        const sid = String(row.school_id ?? '');
+        setInitialSchoolId(sid);
         setForm({
-          student_id: String(row.student_id ?? ''),
+          school_id: sid,
+          class_id: String(row.class_id ?? ''),
+          academic_year_id: String(row.academic_year_id ?? ''),
           subject_id: row.subject_id != null ? String(row.subject_id) : '',
           teacher_id: row.teacher_id != null ? String(row.teacher_id) : '',
           day_of_week: row.day_of_week || 'Senin',
@@ -51,11 +63,22 @@ export default function EditSchedulePage({ params }: { params: Promise<{ id: str
     });
   }, [id]);
 
+  useEffect(() => {
+    if (!form.school_id) { setClasses([]); return; }
+    fetch(`/api/master/classes?school_id=${form.school_id}&for_active_year=1&include_empty=1`)
+      .then((r) => r.json())
+      .then((d) => setClasses(Array.isArray(d) ? d : []));
+    if (form.school_id !== initialSchoolId) {
+      setForm((f) => ({ ...f, class_id: '' }));
+    }
+  }, [form.school_id, initialSchoolId]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     const body: Record<string, unknown> = {
-      student_id: Number(form.student_id),
+      class_id: Number(form.class_id),
+      academic_year_id: Number(form.academic_year_id),
       day_of_week: form.day_of_week,
       start_time: form.start_time,
       end_time: form.end_time,
@@ -94,17 +117,40 @@ export default function EditSchedulePage({ params }: { params: Promise<{ id: str
 
       <form onSubmit={handleSave} className="bg-white rounded-2xl border border-[#E2E8F1] shadow-sm overflow-hidden">
         <div className="p-6 space-y-5">
-          <Field label="Siswa" required>
+          <Field label="Sekolah" required>
             <Select
-              value={form.student_id}
-              onChange={(e) => setForm((f) => ({ ...f, student_id: e.target.value }))}
+              value={form.school_id}
+              onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}
               required
             >
-              <option value="">Pilih siswa</option>
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.full_name} ({s.nis})
-                </option>
+              <option value="">Pilih sekolah</option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Kelas" required>
+            <Select
+              value={form.class_id}
+              onChange={(e) => setForm((f) => ({ ...f, class_id: e.target.value }))}
+              required
+              disabled={!form.school_id}
+            >
+              <option value="">{form.school_id ? 'Pilih kelas' : 'Pilih sekolah dulu'}</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Tahun Ajaran" required>
+            <Select
+              value={form.academic_year_id}
+              onChange={(e) => setForm((f) => ({ ...f, academic_year_id: e.target.value }))}
+              required
+            >
+              <option value="">Pilih tahun ajaran</option>
+              {academicYears.map((y) => (
+                <option key={y.id} value={y.id}>{y.name}{y.is_active ? ' (aktif)' : ''}</option>
               ))}
             </Select>
           </Field>
@@ -114,9 +160,7 @@ export default function EditSchedulePage({ params }: { params: Promise<{ id: str
               onChange={(e) => setForm((f) => ({ ...f, day_of_week: e.target.value }))}
             >
               {DAYS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
+                <option key={d} value={d}>{d}</option>
               ))}
             </Select>
           </Field>
@@ -143,9 +187,7 @@ export default function EditSchedulePage({ params }: { params: Promise<{ id: str
             >
               <option value="">—</option>
               {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name_id}
-                </option>
+                <option key={s.id} value={s.id}>{s.name_id}</option>
               ))}
             </Select>
           </Field>
@@ -156,9 +198,7 @@ export default function EditSchedulePage({ params }: { params: Promise<{ id: str
             >
               <option value="">—</option>
               {teachers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.user_full_name}
-                </option>
+                <option key={t.id} value={t.id}>{t.user_full_name}</option>
               ))}
             </Select>
           </Field>
@@ -174,14 +214,12 @@ export default function EditSchedulePage({ params }: { params: Promise<{ id: str
         </div>
         <div className="bg-slate-50 border-t border-[#E2E8F1] p-5 flex justify-end gap-3">
           <Link href="/academic/schedules">
-            <Button variant="ghost" type="button">
-              Batal
-            </Button>
+            <Button variant="ghost" type="button">Batal</Button>
           </Link>
           <Button
             loading={saving}
             type="submit"
-            disabled={!form.student_id || !form.start_time || !form.end_time}
+            disabled={!form.class_id || !form.academic_year_id || !form.start_time || !form.end_time}
           >
             Update
           </Button>

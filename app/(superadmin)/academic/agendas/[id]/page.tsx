@@ -1,15 +1,29 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Field, Input, Button, Select } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+function distinctLevelNames(rows: { level_name?: string | null }[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of rows) {
+    const n = (r.level_name ?? '').trim();
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n.length > 50 ? `${n.slice(0, 47)}...` : n);
+  }
+  return out;
+}
+
 export default function EditAgendaPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [levelNames, setLevelNames] = useState<string[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(false);
   const [form, setForm] = useState({
     school_id: '',
     target_grade: '',
@@ -22,6 +36,18 @@ export default function EditAgendaPage({ params }: { params: Promise<{ id: strin
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const loadClasses = useCallback((schoolId: string) => {
+    if (!schoolId) {
+      setLevelNames([]);
+      return;
+    }
+    setLoadingClasses(true);
+    fetch(`/api/master/classes?school_id=${schoolId}&for_active_year=1&include_empty=1`)
+      .then((r) => r.json())
+      .then((d) => setLevelNames(distinctLevelNames(Array.isArray(d) ? d : [])))
+      .finally(() => setLoadingClasses(false));
+  }, []);
+
   useEffect(() => {
     Promise.all([
       fetch('/api/master/schools').then((r) => r.json()),
@@ -29,8 +55,9 @@ export default function EditAgendaPage({ params }: { params: Promise<{ id: strin
     ]).then(([sch, row]) => {
       setSchools(Array.isArray(sch) ? sch : []);
       if (row && !row.error) {
+        const sid = String(row.school_id ?? '');
         setForm({
-          school_id: String(row.school_id ?? ''),
+          school_id: sid,
           target_grade: row.target_grade ?? '',
           event_date: String(row.event_date || '').slice(0, 10),
           title_en: row.title_en ?? '',
@@ -42,6 +69,11 @@ export default function EditAgendaPage({ params }: { params: Promise<{ id: strin
       setLoading(false);
     });
   }, [id]);
+
+  useEffect(() => {
+    if (loading) return;
+    loadClasses(form.school_id);
+  }, [loading, form.school_id, loadClasses]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +120,10 @@ export default function EditAgendaPage({ params }: { params: Promise<{ id: strin
           <Field label="Sekolah" required>
             <Select
               value={form.school_id}
-              onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm((f) => ({ ...f, school_id: v, target_grade: '' }));
+              }}
               required
             >
               <option value="">Pilih sekolah</option>
@@ -100,10 +135,33 @@ export default function EditAgendaPage({ params }: { params: Promise<{ id: strin
             </Select>
           </Field>
           <Field label="Target kelas / tingkat">
-            <Input
+            <Select
               value={form.target_grade}
               onChange={(e) => setForm((f) => ({ ...f, target_grade: e.target.value }))}
-            />
+              disabled={!form.school_id || loadingClasses}
+            >
+              <option value="">
+                {!form.school_id ? 'Pilih sekolah terlebih dahulu' : loadingClasses ? 'Memuat tingkat…' : 'Opsional (semua tingkat)'}
+              </option>
+              {(() => {
+                const saved = (form.target_grade || '').trim();
+                const showSaved = saved && !levelNames.includes(saved);
+                return (
+                  <>
+                    {showSaved && (
+                      <option value={saved}>
+                        {saved.length > 60 ? `${saved.slice(0, 57)}…` : saved} (nilai tersimpan)
+                      </option>
+                    )}
+                    {levelNames.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </>
+                );
+              })()}
+            </Select>
           </Field>
           <Field label="Tanggal acara" required>
             <Input

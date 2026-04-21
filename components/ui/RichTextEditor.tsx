@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEffect, useRef, useState } from 'react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
+import Image from '@tiptap/extension-image';
 import { Button } from '@/components/ui/FormFields';
 import {
   Bold,
@@ -23,6 +24,8 @@ import {
   AlignRight,
   AlignJustify,
   Link as LinkIcon,
+  ImagePlus,
+  Loader2,
   Undo2,
   Redo2,
 } from 'lucide-react';
@@ -32,9 +35,38 @@ type Props = {
   onChange: (html: string) => void;
   placeholder?: string;
   className?: string;
+  /** Prefix folder untuk upload gambar inline (default: 'richtext') */
+  uploadPrefix?: string;
 };
 
-export default function RichTextEditor({ value, onChange, className }: Props) {
+export default function RichTextEditor({ value, onChange, className, uploadPrefix = 'richtext' }: Props) {
+  const [uploading, setUploading] = useState(false);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+  const uploadPrefixRef = useRef(uploadPrefix);
+  uploadPrefixRef.current = uploadPrefix;
+
+  const uploadFileAndInsert = async (file: File, editorInstance: Editor | null) => {
+    if (!editorInstance) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('prefix', uploadPrefixRef.current);
+      const res = await fetch('/api/upload/blob', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        alert((j as { error?: string }).error || 'Gagal mengunggah gambar');
+        return;
+      }
+      const data = (await res.json()) as { url: string };
+      editorInstance.chain().focus().setImage({ src: data.url, alt: file.name }).run();
+    } catch {
+      alert('Gagal mengunggah gambar');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -60,16 +92,53 @@ export default function RichTextEditor({ value, onChange, className }: Props) {
           class: 'text-violet-600 underline underline-offset-4 decoration-violet-300 hover:text-violet-700 transition-colors',
         },
       }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: {
+          class: 'rounded-lg max-w-full h-auto my-3',
+        },
+      }),
     ],
     content: value || '',
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
         class:
-          'prose prose-sm max-w-none focus:outline-none min-h-[220px] px-4 py-3 text-slate-700 [&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li]:mb-1',
+          'prose prose-sm max-w-none focus:outline-none min-h-[220px] px-4 py-3 text-slate-700 [&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li]:mb-1 [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto [&_img]:my-3',
+      },
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        for (const item of items) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              event.preventDefault();
+              uploadFileAndInsert(file, editorRef.current);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+      handleDrop: (_view, event) => {
+        const files = event.dataTransfer?.files;
+        if (!files?.length) return false;
+        for (const file of files) {
+          if (file.type.startsWith('image/')) {
+            event.preventDefault();
+            uploadFileAndInsert(file, editorRef.current);
+            return true;
+          }
+        }
+        return false;
       },
     },
   });
+
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
 
   useEffect(() => {
     if (!editor) return;
@@ -90,13 +159,30 @@ export default function RichTextEditor({ value, onChange, className }: Props) {
     editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editor) return;
+    if (imgInputRef.current) imgInputRef.current.value = '';
+    uploadFileAndInsert(file, editor);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isActive = (name: string | Record<string, any>, attributes?: any) => {
     if (typeof name === 'string') return editor.isActive(name, attributes);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (editor as any).isActive(name);
   };
 
   return (
     <div className={`rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm transition-all focus-within:ring-2 focus-within:ring-slate-400/20 focus-within:border-slate-400 ${className ?? ''}`}>
+      <input
+        ref={imgInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+        className="hidden"
+        title="Upload gambar"
+      />
       <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border-b border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-1.5 p-1 px-1.5 pr-2 border-r border-slate-200 mr-1">
           <Button
@@ -250,7 +336,7 @@ export default function RichTextEditor({ value, onChange, className }: Props) {
           </Button>
         </div>
 
-        <div className="flex items-center gap-1.5 p-1 px-1.5">
+        <div className="flex items-center gap-1.5 p-1 px-1.5 pr-2 border-r border-slate-200 mr-1">
           <Button
             type="button"
             size="sm"
@@ -260,6 +346,17 @@ export default function RichTextEditor({ value, onChange, className }: Props) {
             title="Link"
           >
             <LinkIcon size={16} />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-9 w-9 p-0 rounded-lg"
+            onClick={() => imgInputRef.current?.click()}
+            disabled={uploading}
+            title="Sisipkan gambar"
+          >
+            {uploading ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
           </Button>
         </div>
 
@@ -273,6 +370,7 @@ export default function RichTextEditor({ value, onChange, className }: Props) {
             className="h-9 w-9 p-0 rounded-lg"
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
+            title="Undo"
           >
             <Undo2 size={16} />
           </Button>
@@ -283,15 +381,22 @@ export default function RichTextEditor({ value, onChange, className }: Props) {
             className="h-9 w-9 p-0 rounded-lg"
             onClick={() => editor.chain().focus().redo().run()}
             disabled={!editor.can().redo()}
+            title="Redo"
           >
             <Redo2 size={16} />
           </Button>
         </div>
 
       </div>
+
+      {uploading && (
+        <div className="px-4 py-2 text-[12px] text-violet-600 bg-violet-50 border-b border-violet-100 flex items-center gap-2">
+          <Loader2 size={13} className="animate-spin" />
+          Mengunggah gambar…
+        </div>
+      )}
+
       <EditorContent editor={editor} />
     </div>
   );
 }
-
-

@@ -2,19 +2,19 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import DataTable from '@/components/ui/DataTable';
-import { Button } from '@/components/ui/FormFields';
+import { Button, Select } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { confirmToast } from '@/components/ui/confirmToast';
 import AcademicResourceTabs, { type AcademicTabId } from '@/components/academic/AcademicResourceTabs';
-import StudentSummaryFilters from '@/components/academic/StudentSummaryFilters';
 import { useActiveAcademicYear } from '@/hooks/useActiveAcademicYear';
-import { buildStudentSummaryParams } from '@/lib/academic-student-summary-params';
 
 interface Row {
   id: number;
-  student_name: string;
+  class_name: string;
+  school_name: string;
+  academic_year_name: string;
   subject_name: string | null;
   teacher_name: string | null;
   day_of_week: string;
@@ -24,11 +24,12 @@ interface Row {
 }
 
 interface SummaryRow {
-  student_id: number;
-  full_name: string;
-  nis: string;
-  class_name: string | null;
-  row_count: number;
+  class_id: number;
+  class_name: string;
+  school_name: string;
+  academic_year_id: number;
+  academic_year_name: string;
+  slot_count: number;
 }
 
 export default function AcademicSchedulesPage() {
@@ -40,73 +41,78 @@ export default function AcademicSchedulesPage() {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
+  const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [classes, setClasses] = useState<{ id: number; name: string }[]>([]);
+  const [academicYears, setAcademicYears] = useState<{ id: number; name: string; is_active: boolean }[]>([]);
+
   const [schoolId, setSchoolId] = useState('');
   const [classId, setClassId] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [q, setQ] = useState('');
+  const [yearId, setYearId] = useState('');
 
-  const listQueryParams = useCallback(
-    () =>
-      buildStudentSummaryParams({
-        schoolId: schoolId || undefined,
-        classId: classId || undefined,
-        studentId: studentId || undefined,
-        q: q.trim() || undefined,
-        academicYearId: activeYearId,
-      }),
-    [schoolId, classId, studentId, q, activeYearId]
-  );
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/master/schools').then((r) => r.json()),
+      fetch('/api/master/academic-years').then((r) => r.json()),
+    ]).then(([sch, ay]) => {
+      setSchools(Array.isArray(sch) ? sch : []);
+      const years = Array.isArray(ay) ? ay : [];
+      setAcademicYears(years);
+      const active = years.find((y: { is_active: boolean }) => y.is_active);
+      if (active) setYearId(String(active.id));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!schoolId) { setClasses([]); setClassId(''); return; }
+    fetch(`/api/master/classes?school_id=${schoolId}&for_active_year=1&include_empty=1`)
+      .then((r) => r.json())
+      .then((d) => setClasses(Array.isArray(d) ? d : []));
+    setClassId('');
+  }, [schoolId]);
+
+  const buildQs = useCallback(() => {
+    const params = new URLSearchParams();
+    if (schoolId) params.set('school_id', schoolId);
+    if (classId) params.set('class_id', classId);
+    if (yearId) params.set('academic_year_id', yearId);
+    const qs = params.toString();
+    return qs ? `?${qs}` : '';
+  }, [schoolId, classId, yearId]);
 
   const loadList = useCallback(() => {
     setLoading(true);
-    const qs = listQueryParams();
-    const url = qs ? `/api/academic/schedules?${qs}` : '/api/academic/schedules';
-    return fetch(url)
+    fetch(`/api/academic/schedules${buildQs()}`)
       .then((r) => r.json())
       .then((d) => {
         setData(Array.isArray(d) ? d : []);
         setLoading(false);
       });
-  }, [listQueryParams]);
+  }, [buildQs]);
 
   const loadSummary = useCallback(() => {
     setLoadingSummary(true);
-    const qs = listQueryParams();
-    const url = qs ? `/api/academic/schedules/student-summary?${qs}` : '/api/academic/schedules/student-summary';
-    fetch(url)
+    const params = new URLSearchParams();
+    if (schoolId) params.set('school_id', schoolId);
+    if (yearId) params.set('academic_year_id', yearId);
+    const qs = params.toString();
+    fetch(`/api/academic/schedules/class-summary${qs ? `?${qs}` : ''}`)
       .then((r) => r.json())
       .then((d) => {
         setSummary(Array.isArray(d) ? d : []);
         setLoadingSummary(false);
       });
-  }, [listQueryParams]);
+  }, [schoolId, yearId]);
 
-  const applyFilters = useCallback(() => {
-    void loadList();
+  const applyFilters = () => {
+    loadList();
     loadSummary();
-  }, [loadList, loadSummary]);
+  };
+
+  useEffect(() => { loadList(); }, [loadList]);
 
   useEffect(() => {
-    void loadList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- muat awal saja; filter lewat Terapkan
-  }, []);
-
-  useEffect(() => {
-    if (tab !== 'summary') return;
-    loadSummary();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, schoolId, classId, studentId, activeYearId]);
-
-  useEffect(() => {
-    if (schoolId === '') {
-      setClassId('');
-      setStudentId('');
-    }
-  }, [schoolId]);
-
-  useEffect(() => {
-    if (classId === '') setStudentId('');
-  }, [classId]);
+    if (tab === 'summary') loadSummary();
+  }, [tab, loadSummary]);
 
   const handleDelete = async (sid: number) => {
     confirmToast('Hapus jadwal ini?', {
@@ -120,7 +126,7 @@ export default function AcademicSchedulesPage() {
           return;
         }
         toast.success('Data dihapus');
-        void loadList();
+        loadList();
         loadSummary();
       },
     });
@@ -128,7 +134,8 @@ export default function AcademicSchedulesPage() {
 
   const columns = [
     { key: 'id', label: 'ID', sortable: true, className: 'w-14 text-slate-400 font-mono text-xs' },
-    { key: 'student_name', label: 'Siswa', sortable: true },
+    { key: 'class_name', label: 'Kelas', sortable: true },
+    { key: 'academic_year_name', label: 'Tahun Ajaran', sortable: true },
     { key: 'day_of_week', label: 'Hari', sortable: true },
     {
       key: 'time',
@@ -166,16 +173,16 @@ export default function AcademicSchedulesPage() {
   ];
 
   const summaryColumns = [
-    { key: 'full_name', label: 'Nama siswa', sortable: true },
-    { key: 'nis', label: 'NIS', sortable: true },
-    { key: 'class_name', label: 'Kelas', render: (r: SummaryRow) => r.class_name || '–' },
-    { key: 'row_count', label: 'Jumlah', sortable: true, className: 'w-24' },
+    { key: 'class_name', label: 'Kelas', sortable: true },
+    { key: 'school_name', label: 'Sekolah', sortable: true },
+    { key: 'academic_year_name', label: 'Tahun Ajaran', sortable: true },
+    { key: 'slot_count', label: 'Jumlah Slot', sortable: true, className: 'w-28' },
     {
       key: 'actions',
       label: 'Aksi',
       className: 'text-right w-28',
       render: (r: SummaryRow) => (
-        <Link href={`/academic/schedules/student/${r.student_id}`}>
+        <Link href={`/academic/schedules/class/${r.class_id}?academic_year_id=${r.academic_year_id}`}>
           <Button size="sm" variant="outline">
             <Eye size={13} /> Detail
           </Button>
@@ -189,7 +196,7 @@ export default function AcademicSchedulesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Jadwal</h2>
-          <p className="text-slate-400 text-[13px]">Per siswa, mapel & guru</p>
+          <p className="text-slate-400 text-[13px]">Per kelas, mapel & guru</p>
         </div>
         <Link href="/academic/schedules/add">
           <Button>
@@ -198,22 +205,45 @@ export default function AcademicSchedulesPage() {
         </Link>
       </div>
 
-      <StudentSummaryFilters
-        schoolId={schoolId}
-        onSchoolIdChange={setSchoolId}
-        classId={classId}
-        onClassIdChange={setClassId}
-        studentId={studentId}
-        onStudentIdChange={setStudentId}
-        q={q}
-        onQChange={setQ}
-        academicYearId={activeYearId}
-        onApply={applyFilters}
-      />
+      {/* Filter Bar */}
+      <div className="bg-white rounded-2xl border border-[#E2E8F1] shadow-sm p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[160px]">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Sekolah</label>
+            <Select value={schoolId} onChange={(e) => setSchoolId(e.target.value)}>
+              <option value="">Semua</option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="min-w-[140px]">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Kelas</label>
+            <Select value={classId} onChange={(e) => setClassId(e.target.value)} disabled={!schoolId}>
+              <option value="">{schoolId ? 'Semua kelas' : '—'}</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="min-w-[140px]">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tahun Ajaran</label>
+            <Select value={yearId} onChange={(e) => setYearId(e.target.value)}>
+              <option value="">Semua</option>
+              {academicYears.map((y) => (
+                <option key={y.id} value={y.id}>{y.name}{y.is_active ? ' (aktif)' : ''}</option>
+              ))}
+            </Select>
+          </div>
+          <Button onClick={applyFilters} className="h-[38px]">Terapkan</Button>
+        </div>
+      </div>
 
       <AcademicResourceTabs
         active={tab}
         onChange={setTab}
+        allLabel="Semua data"
+        summaryLabel="Rekap per kelas"
         allContent={
           <DataTable
             data={data}
@@ -230,8 +260,8 @@ export default function AcademicSchedulesPage() {
             data={summary}
             columns={summaryColumns}
             loading={loadingSummary}
-            rowKey={(r) => r.student_id}
-            emptyText="Tidak ada data — sesuaikan filter lalu Terapkan"
+            rowKey={(r) => `${r.class_id}-${r.academic_year_id}`}
+            emptyText="Tidak ada data"
             searchable={false}
             showRowNumber
           />

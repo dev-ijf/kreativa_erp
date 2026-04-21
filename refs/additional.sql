@@ -151,6 +151,16 @@ CREATE TABLE IF NOT EXISTS "public"."academic_habits" (
 );
 CREATE INDEX IF NOT EXISTS "idx_acad_hbt_student_date" ON "public"."academic_habits" ("student_id", "habit_date" DESC);
 
+-- Kolom tambahan sesuai Google Form Pembiasaan Kelas 1
+ALTER TABLE "public"."academic_habits"
+  ADD COLUMN IF NOT EXISTS "pray_with_parents" boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "give_greetings" boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "smile_greet_polite" boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "on_time_arrival" varchar(20) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS "parent_hug_pray" boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "child_tell_parents" boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "quran_juz_info" text DEFAULT NULL;
+
 
 -- ==============================================================================
 -- 9. ADAPTIVE LEARNING (tes dulu; soal many-to-one ke tes)
@@ -412,3 +422,36 @@ WHERE "payment_type" = 'installment';
 UPDATE "public"."tuition_products" 
 SET "is_installment" = FALSE 
 WHERE "payment_type" = 'monthly';
+
+-- ==============================================================================
+-- SCHEDULES: Migrasi dari per-student ke per-class per-academic_year
+-- ==============================================================================
+TRUNCATE "public"."academic_schedules" RESTART IDENTITY CASCADE;
+
+ALTER TABLE "public"."academic_schedules"
+  DROP COLUMN IF EXISTS "student_id";
+
+ALTER TABLE "public"."academic_schedules"
+  ADD COLUMN IF NOT EXISTS "class_id" int4,
+  ADD COLUMN IF NOT EXISTS "academic_year_id" int4;
+
+ALTER TABLE "public"."academic_schedules"
+  ALTER COLUMN "class_id" SET NOT NULL,
+  ALTER COLUMN "academic_year_id" SET NOT NULL;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academic_schedules_class_id_fk') THEN
+    ALTER TABLE "public"."academic_schedules"
+      ADD CONSTRAINT "academic_schedules_class_id_fk"
+      FOREIGN KEY ("class_id") REFERENCES "public"."core_classes"("id");
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academic_schedules_academic_year_id_fk') THEN
+    ALTER TABLE "public"."academic_schedules"
+      ADD CONSTRAINT "academic_schedules_academic_year_id_fk"
+      FOREIGN KEY ("academic_year_id") REFERENCES "public"."core_academic_years"("id");
+  END IF;
+END $$;
+
+DROP INDEX IF EXISTS "idx_acad_sch_student_day";
+CREATE INDEX IF NOT EXISTS "idx_acad_sch_class_year_day"
+  ON "public"."academic_schedules" ("class_id", "academic_year_id", "day_of_week");

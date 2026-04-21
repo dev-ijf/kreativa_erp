@@ -581,9 +581,12 @@ export const academicSchedules = pgTable(
   'academic_schedules',
   {
     id: serial('id').primaryKey(),
-    studentId: integer('student_id')
+    classId: integer('class_id')
       .notNull()
-      .references(() => coreStudents.id),
+      .references(() => coreClasses.id),
+    academicYearId: integer('academic_year_id')
+      .notNull()
+      .references(() => coreAcademicYears.id),
     subjectId: bigint('subject_id', { mode: 'number' }).references(() => academicSubjects.id, {
       onDelete: 'set null',
     }),
@@ -595,7 +598,7 @@ export const academicSchedules = pgTable(
     endTime: varchar('end_time', { length: 10 }).notNull(),
     isBreak: boolean('is_break').default(false),
   },
-  (t) => [index('idx_acad_sch_student_day').on(t.studentId, t.dayOfWeek)]
+  (t) => [index('idx_acad_sch_class_year_day').on(t.classId, t.academicYearId, t.dayOfWeek)]
 );
 
 // ==============================================================================
@@ -722,6 +725,13 @@ export const academicHabits = pgTable(
     sunnahFasting: boolean('sunnah_fasting').default(false),
     wakeUpEarly: boolean('wake_up_early').default(false),
     helpParents: boolean('help_parents').default(false),
+    prayWithParents: boolean('pray_with_parents').default(false),
+    giveGreetings: boolean('give_greetings').default(false),
+    smileGreetPolite: boolean('smile_greet_polite').default(false),
+    onTimeArrival: varchar('on_time_arrival', { length: 20 }),
+    parentHugPray: boolean('parent_hug_pray').default(false),
+    childTellParents: boolean('child_tell_parents').default(false),
+    quranJuzInfo: text('quran_juz_info'),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
   },

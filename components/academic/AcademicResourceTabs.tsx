@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 
-export type AcademicTabId = 'all' | 'summary' | 'daily' | 'stats';
+export type AcademicTabId = 'all' | 'summary' | 'daily' | 'stats' | 'scorecard';
 
 type TabDef = {
   id: AcademicTabId;
