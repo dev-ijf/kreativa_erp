@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const program = sp.get('program');
   const schoolId = sp.get('school_id');
   const search = sp.get('q')?.trim();
+  const enrollmentStatus = sp.get('enrollment_status') || null;
 
   const hasAy = academicYearId != null && academicYearId !== '';
   const hasClass = classId != null && classId !== '';
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
         AND (${entryIdNum}::int IS NULL OR s.entry_academic_year_id = ${entryIdNum})
         AND (${stType}::text IS NULL OR s.student_type = ${stType})
         AND (${prog}::text IS NULL OR s.program = ${prog})
+        AND (${enrollmentStatus}::text IS NULL OR s.enrollment_status = ${enrollmentStatus})
         AND (${searchPattern}::text IS NULL OR s.full_name ILIKE ${searchPattern}
           OR COALESCE(s.username, '') ILIKE ${searchPattern}
           OR s.nis ILIKE ${searchPattern}
@@ -71,6 +73,7 @@ export async function GET(req: NextRequest) {
         AND (${entryIdNum}::int IS NULL OR s.entry_academic_year_id = ${entryIdNum})
         AND (${stType}::text IS NULL OR s.student_type = ${stType})
         AND (${prog}::text IS NULL OR s.program = ${prog})
+        AND (${enrollmentStatus}::text IS NULL OR s.enrollment_status = ${enrollmentStatus})
         AND (${searchPattern}::text IS NULL OR s.full_name ILIKE ${searchPattern}
           OR COALESCE(s.username, '') ILIKE ${searchPattern}
           OR s.nis ILIKE ${searchPattern}
@@ -103,6 +106,7 @@ export async function GET(req: NextRequest) {
         AND (${entryIdNum}::int IS NULL OR s.entry_academic_year_id = ${entryIdNum})
         AND (${stType}::text IS NULL OR s.student_type = ${stType})
         AND (${prog}::text IS NULL OR s.program = ${prog})
+        AND (${enrollmentStatus}::text IS NULL OR s.enrollment_status = ${enrollmentStatus})
         AND (${searchPattern}::text IS NULL OR s.full_name ILIKE ${searchPattern}
           OR COALESCE(s.username, '') ILIKE ${searchPattern}
           OR s.nis ILIKE ${searchPattern}
@@ -120,6 +124,7 @@ export async function GET(req: NextRequest) {
         AND (${entryIdNum}::int IS NULL OR s.entry_academic_year_id = ${entryIdNum})
         AND (${stType}::text IS NULL OR s.student_type = ${stType})
         AND (${prog}::text IS NULL OR s.program = ${prog})
+        AND (${enrollmentStatus}::text IS NULL OR s.enrollment_status = ${enrollmentStatus})
         AND (${searchPattern}::text IS NULL OR s.full_name ILIKE ${searchPattern}
           OR COALESCE(s.username, '') ILIKE ${searchPattern}
           OR s.nis ILIKE ${searchPattern}
@@ -153,6 +158,7 @@ export async function GET(req: NextRequest) {
         AND (${entryIdNum}::int IS NULL OR s.entry_academic_year_id = ${entryIdNum})
         AND (${stType}::text IS NULL OR s.student_type = ${stType})
         AND (${prog}::text IS NULL OR s.program = ${prog})
+        AND (${enrollmentStatus}::text IS NULL OR s.enrollment_status = ${enrollmentStatus})
         AND (${searchPattern}::text IS NULL OR s.full_name ILIKE ${searchPattern}
           OR COALESCE(s.username, '') ILIKE ${searchPattern}
           OR s.nis ILIKE ${searchPattern}
@@ -167,6 +173,7 @@ export async function GET(req: NextRequest) {
         AND (${entryIdNum}::int IS NULL OR s.entry_academic_year_id = ${entryIdNum})
         AND (${stType}::text IS NULL OR s.student_type = ${stType})
         AND (${prog}::text IS NULL OR s.program = ${prog})
+        AND (${enrollmentStatus}::text IS NULL OR s.enrollment_status = ${enrollmentStatus})
         AND (${searchPattern}::text IS NULL OR s.full_name ILIKE ${searchPattern}
           OR COALESCE(s.username, '') ILIKE ${searchPattern}
           OR s.nis ILIKE ${searchPattern}
@@ -194,7 +201,7 @@ export async function POST(req: NextRequest) {
     INSERT INTO core_students (
       school_id, cohort_id, full_name, nickname, username, nis, nisn, nik, gender, date_of_birth,
       phone, address, student_type, program, curriculum, photo_url,
-      entry_academic_year_id, active_academic_year_id
+      entry_academic_year_id, active_academic_year_id, enrollment_status
     ) VALUES (
       ${data.school_id},
       ${data.cohort_id},
@@ -213,7 +220,8 @@ export async function POST(req: NextRequest) {
       ${data.curriculum || null},
       ${data.photo_url || null},
       ${data.entry_academic_year_id || null},
-      ${data.active_academic_year_id || null}
+      ${data.active_academic_year_id || null},
+      'active'
     ) RETURNING *
   `;
   const sid = (row as { id: number }).id;

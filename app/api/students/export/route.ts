@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     rows = await sql`
       SELECT DISTINCT ON (s.id)
         s.id, s.school_id, s.full_name, s.nis, s.nisn, s.gender, s.student_type, s.program,
-        s.phone, s.email, s.is_alumni, s.username,
+        s.phone, s.email, s.is_alumni, s.enrollment_status, s.username,
         sch.name AS school_name,
         c.name AS class_name,
         ay_h.name AS rombel_academic_year_name
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     rows = await sql`
       SELECT DISTINCT ON (s.id)
         s.id, s.school_id, s.full_name, s.nis, s.nisn, s.gender, s.student_type, s.program,
-        s.phone, s.email, s.is_alumni, s.username,
+        s.phone, s.email, s.is_alumni, s.enrollment_status, s.username,
         sch.name AS school_name,
         c.name AS class_name,
         ay_h.name AS rombel_academic_year_name
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
     rows = await sql`
       SELECT
         s.id, s.school_id, s.full_name, s.nis, s.nisn, s.gender, s.student_type, s.program,
-        s.phone, s.email, s.is_alumni, s.username,
+        s.phone, s.email, s.is_alumni, s.enrollment_status, s.username,
         sch.name AS school_name,
         (SELECT c.name FROM core_student_class_histories ch2
           JOIN core_classes c ON ch2.class_id = c.id
@@ -118,6 +118,7 @@ export async function GET(req: NextRequest) {
     phone: r.phone,
     email: r.email,
     is_alumni: r.is_alumni,
+    enrollment_status: r.enrollment_status,
     class_name: r.class_name,
     rombel_year: r.rombel_academic_year_name,
   }));

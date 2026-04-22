@@ -522,6 +522,9 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
       physical_abnormalities: emptyToNull(form.physical_abnormalities as string),
       recurring_diseases: emptyToNull(form.recurring_diseases as string),
       graduated_at: emptyToNull(form.graduated_at as string),
+      enrollment_status: (form.enrollment_status as string) || 'active',
+      left_school_at: emptyToNull(form.left_school_at as string),
+      exit_notes: emptyToNull(form.exit_notes as string),
       address_latitude: emptyToNull(form.address_latitude as string),
       address_longitude: emptyToNull(form.address_longitude as string),
       current_class_id: numOrNull(form.current_class_id as string),
@@ -558,7 +561,8 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
   const canGraduate =
     !viewOnly &&
     classHistories.some((h) => h.status === 'active' && isTerminalLevel(h.level_is_terminal)) &&
-    !(form.is_alumni === true || form.is_alumni === 'true');
+    !(form.is_alumni === true || form.is_alumni === 'true') &&
+    form.enrollment_status !== 'graduated';
 
   const navIdx = listNavIds.indexOf(Number(id));
   const prevStudentId = navIdx > 0 ? listNavIds[navIdx - 1] : null;
@@ -1205,6 +1209,35 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                   value={String(form.head_circumference_cm || '')}
                   onChange={(e) => setForm((f) => ({ ...f, head_circumference_cm: e.target.value }))}
                   disabled={viewOnly}
+                />
+              </Field>
+              <Field label="Status Pendaftaran">
+                <Select
+                  value={String(form.enrollment_status || 'active')}
+                  onChange={(e) => setForm((f) => ({ ...f, enrollment_status: e.target.value }))}
+                  disabled={viewOnly}
+                >
+                  <option value="active">Aktif</option>
+                  <option value="graduated">Lulus</option>
+                  <option value="transferred_out">Pindah</option>
+                  <option value="withdrawn">Mengundurkan Diri</option>
+                  <option value="expelled">Dikeluarkan</option>
+                </Select>
+              </Field>
+              <Field label="Tanggal Keluar Sekolah">
+                <Input
+                  type="date"
+                  value={String(form.left_school_at || '')}
+                  onChange={(e) => setForm((f) => ({ ...f, left_school_at: e.target.value }))}
+                  disabled={viewOnly}
+                />
+              </Field>
+              <Field label="Catatan Keluar">
+                <Input
+                  value={String(form.exit_notes || '')}
+                  onChange={(e) => setForm((f) => ({ ...f, exit_notes: e.target.value }))}
+                  disabled={viewOnly}
+                  placeholder="Alasan pindah / keluar"
                 />
               </Field>
               <Field label="Alumni">

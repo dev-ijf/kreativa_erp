@@ -157,8 +157,8 @@ export async function POST(req: NextRequest) {
         const ins = await c.query(
           `INSERT INTO core_students (
             school_id, cohort_id, full_name, username, nis, nisn, gender, student_type, program,
-            entry_academic_year_id, active_academic_year_id
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            entry_academic_year_id, active_academic_year_id, enrollment_status
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'active')
           RETURNING id`,
           [
             schoolId,

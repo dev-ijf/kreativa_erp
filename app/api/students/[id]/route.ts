@@ -190,6 +190,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       physical_abnormalities = ${data.physical_abnormalities ?? null},
       recurring_diseases = ${data.recurring_diseases ?? null},
       graduated_at = ${mergedGraduatedAt},
+      enrollment_status = ${data.enrollment_status ?? 'active'},
+      left_school_at = ${data.left_school_at ?? null},
+      exit_notes = ${data.exit_notes ?? null},
       address_latitude = ${numOrSqlNull(mergedLat)},
       address_longitude = ${numOrSqlNull(mergedLng)},
       updated_at = NOW()
@@ -226,6 +229,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         VALUES (${sid}, ${classId}, ${cls.level_grade_id}, ${ayForClass}, 'active')
       `;
     }
+  }
+
+  const exitStatuses = ['transferred_out', 'withdrawn', 'expelled'];
+  const enrollStatus = data.enrollment_status ?? 'active';
+  if (exitStatuses.includes(enrollStatus)) {
+    const histStatus = enrollStatus === 'transferred_out' ? 'transferred' : enrollStatus;
+    await sql`
+      UPDATE core_student_class_histories
+      SET status = ${histStatus}
+      WHERE student_id = ${sid} AND status = 'active'
+    `;
   }
 
   if (data.parent_profiles && Array.isArray(data.parent_profiles)) {

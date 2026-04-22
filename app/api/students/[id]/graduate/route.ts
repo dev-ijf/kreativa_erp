@@ -23,6 +23,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         `UPDATE core_students SET
           is_alumni = true,
           graduated_at = COALESCE(graduated_at, CURRENT_DATE),
+          enrollment_status = 'graduated',
           active_academic_year_id = NULL,
           updated_at = NOW()
          WHERE id = $1`,

@@ -33,6 +33,7 @@ interface StudentRow {
   program?: string | null;
   photo_url?: string | null;
   is_alumni?: boolean;
+  enrollment_status?: string | null;
   boarding_status?: string | null;
   updated_at?: string | null;
   school_name?: string;
@@ -75,6 +76,7 @@ export default function StudentsPage() {
   const [filterClass, setFilterClass] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterProgram, setFilterProgram] = useState('');
+  const [filterEnrollment, setFilterEnrollment] = useState('');
   const [searchQ, setSearchQ] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
@@ -109,6 +111,7 @@ export default function StudentsPage() {
     if (filterClass) params.set('class_id', filterClass);
     if (filterType) params.set('student_type', filterType);
     if (filterProgram) params.set('program', filterProgram);
+    if (filterEnrollment) params.set('enrollment_status', filterEnrollment);
     if (searchQ.trim()) params.set('q', searchQ.trim());
 
     fetch(`/api/students?${params}`)
@@ -136,6 +139,7 @@ export default function StudentsPage() {
     filterClass,
     filterType,
     filterProgram,
+    filterEnrollment,
     searchQ,
   ]);
 
@@ -567,7 +571,7 @@ export default function StudentsPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-[#E2E8F1] shadow-sm p-4 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
           <Field label="Sekolah">
             <Select
               value={filterSchool}
@@ -659,6 +663,38 @@ export default function StudentsPage() {
               <option value="Reguler">Reguler</option>
             </Select>
           </Field>
+          <Field label="Status">
+            <Select
+              value={filterEnrollment}
+              onChange={(e) => {
+                setFilterEnrollment(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Semua</option>
+              <option value="active">Aktif</option>
+              <option value="graduated">Lulus</option>
+              <option value="transferred_out">Pindah</option>
+              <option value="withdrawn">Mengundurkan Diri</option>
+              <option value="expelled">Dikeluarkan</option>
+            </Select>
+          </Field>
+          <Field label="Status">
+            <Select
+              value={filterEnrollment}
+              onChange={(e) => {
+                setFilterEnrollment(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Semua</option>
+              <option value="active">Aktif</option>
+              <option value="graduated">Lulus</option>
+              <option value="transferred_out">Pindah</option>
+              <option value="withdrawn">Mengundurkan Diri</option>
+              <option value="expelled">Dikeluarkan</option>
+            </Select>
+          </Field>
           <Field label="Cari">
             <div className="relative">
               <Search
@@ -701,7 +737,7 @@ export default function StudentsPage() {
               <th className="px-3 py-3">NIS / NISN</th>
               <th className="px-3 py-3 min-w-[200px]">Nama</th>
               <th className="px-3 py-3">Rombel</th>
-              <th className="px-3 py-3">Alumni</th>
+              <th className="px-3 py-3">Status</th>
               <th className="px-3 py-3">Dokumen</th>
               <th className="px-3 py-3">Tgl Update</th>
               <th className="px-3 py-3 text-right">Aksi</th>
@@ -768,7 +804,22 @@ export default function StudentsPage() {
                       Boarding: {r.boarding_status ?? '—'}
                     </div>
                   </td>
-                  <td className="px-3 py-2">{r.is_alumni ? 'Ya' : 'Tidak'}</td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                      r.enrollment_status === 'graduated' ? 'bg-emerald-50 text-emerald-700' :
+                      r.enrollment_status === 'transferred_out' ? 'bg-amber-50 text-amber-700' :
+                      r.enrollment_status === 'withdrawn' ? 'bg-red-50 text-red-700' :
+                      r.enrollment_status === 'expelled' ? 'bg-red-100 text-red-800' :
+                      'bg-blue-50 text-blue-700'
+                    }`}>
+                      {r.enrollment_status === 'active' ? 'Aktif' :
+                       r.enrollment_status === 'graduated' ? 'Lulus' :
+                       r.enrollment_status === 'transferred_out' ? 'Pindah' :
+                       r.enrollment_status === 'withdrawn' ? 'Mengundurkan Diri' :
+                       r.enrollment_status === 'expelled' ? 'Dikeluarkan' :
+                       r.enrollment_status ?? 'Aktif'}
+                    </span>
+                  </td>
                   <td className="px-3 py-2">{r.document_count ?? 0}</td>
                   <td className="px-3 py-2 text-slate-500 whitespace-nowrap">
                     {r.updated_at
