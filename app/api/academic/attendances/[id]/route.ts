@@ -28,19 +28,37 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     b?.note_en != null && String(b.note_en).trim() !== '' ? String(b.note_en).trim() : null;
   const noteId =
     b?.note_id != null && String(b.note_id).trim() !== '' ? String(b.note_id).trim() : null;
+
+  const existing = await sql`SELECT attendance_date FROM academic_attendances WHERE id = ${Number(id)}`;
+  if (existing.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const oldDate = String(existing[0].attendance_date).slice(0, 10);
+
+  if (oldDate === attendanceDate) {
+    const [row] = await sql`
+      UPDATE academic_attendances
+      SET student_id = ${studentId}, status = ${status},
+          note_en = ${noteEn}, note_id = ${noteId}
+      WHERE id = ${Number(id)} AND attendance_date = ${attendanceDate}::date
+      RETURNING *
+    `;
+    if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json(row);
+  }
+
+  await sql`DELETE FROM academic_attendances WHERE id = ${Number(id)} AND attendance_date = ${oldDate}::date`;
   const [row] = await sql`
-    UPDATE academic_attendances
-    SET student_id = ${studentId}, attendance_date = ${attendanceDate}, status = ${status},
-        note_en = ${noteEn}, note_id = ${noteId}
-    WHERE id = ${Number(id)}
+    INSERT INTO academic_attendances (student_id, attendance_date, status, note_en, note_id)
+    VALUES (${studentId}, ${attendanceDate}::date, ${status}, ${noteEn}, ${noteId})
     RETURNING *
   `;
-  if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(row);
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await sql`DELETE FROM academic_attendances WHERE id = ${Number(id)}`;
+  const existing = await sql`SELECT attendance_date FROM academic_attendances WHERE id = ${Number(id)}`;
+  if (existing.length === 0) return NextResponse.json({ success: true });
+  const attDate = String(existing[0].attendance_date).slice(0, 10);
+  await sql`DELETE FROM academic_attendances WHERE id = ${Number(id)} AND attendance_date = ${attDate}::date`;
   return NextResponse.json({ success: true });
 }

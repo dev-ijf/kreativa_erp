@@ -605,12 +605,14 @@ export const academicSchedules = pgTable(
 );
 
 // ==============================================================================
-// ACADEMIC: ATTENDANCES
+// ACADEMIC: ATTENDANCES (composite PK id + attendance_date; RANGE partitioned by attendance_date per bulan)
 // ==============================================================================
 export const academicAttendances = pgTable(
   'academic_attendances',
   {
-    id: serial('id').primaryKey(),
+    id: bigint('id', { mode: 'number' })
+      .notNull()
+      .generatedAlwaysAsIdentity({ name: 'academic_attendances_id_seq' }),
     studentId: integer('student_id')
       .notNull()
       .references(() => coreStudents.id),
@@ -621,6 +623,7 @@ export const academicAttendances = pgTable(
     createdAt: timestamp('created_at').defaultNow(),
   },
   (t) => [
+    primaryKey({ columns: [t.id, t.attendanceDate] }),
     index('idx_acad_att_student_date').on(t.studentId, t.attendanceDate),
     index('idx_acad_att_status').on(t.status),
   ]

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import DataTable from '@/components/ui/DataTable';
-import { Button } from '@/components/ui/FormFields';
-import { Plus, Edit2, Trash2, Eye, ChevronDown, Users, ClipboardList, UserCheck, UserX, Percent } from 'lucide-react';
+import { Button, Field, Select } from '@/components/ui/FormFields';
+import { Plus, Edit2, Trash2, Eye, ChevronDown, Users, ClipboardList, UserCheck, UserX, Percent, FileDown, Upload, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { confirmToast } from '@/components/ui/confirmToast';
@@ -13,6 +13,7 @@ import StatsCard from '@/components/ui/StatsCard';
 import { useActiveAcademicYear } from '@/hooks/useActiveAcademicYear';
 import { buildStudentSummaryParams } from '@/lib/academic-student-summary-params';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, AreaChart, Area } from 'recharts';
+import * as XLSX from 'xlsx';
 
 interface Row {
   id: number;
@@ -255,6 +256,117 @@ export default function AcademicAttendancesPage() {
   const [studentId, setStudentId] = useState('');
   const [q, setQ] = useState('');
 
+  // Template modal state
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [tplSchools, setTplSchools] = useState<{ id: number; name: string }[]>([]);
+  const [tplLevels, setTplLevels] = useState<{ id: number; name: string; school_id: number; level_order: number }[]>([]);
+  const [tplClasses, setTplClasses] = useState<{ id: number; name: string; level_grade_id: number; level_name?: string }[]>([]);
+  const [tplSchoolId, setTplSchoolId] = useState('');
+  const [tplLevelId, setTplLevelId] = useState('');
+  const [tplClassId, setTplClassId] = useState('');
+  const [tplStudents, setTplStudents] = useState<{ id: number; full_name: string; nis: string }[]>([]);
+  const [tplLoadingStudents, setTplLoadingStudents] = useState(false);
+
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!templateModalOpen) return;
+    void fetch('/api/master/schools').then((r) => r.json()).then((d) => setTplSchools(Array.isArray(d) ? d : []));
+    void fetch('/api/master/level-grades').then((r) => r.json()).then((d) => setTplLevels(Array.isArray(d) ? d : []));
+  }, [templateModalOpen]);
+
+  useEffect(() => {
+    if (!tplSchoolId || !activeYearId) { setTplClasses([]); setTplClassId(''); return; }
+    const sp = new URLSearchParams({ for_active_year: '1', school_id: tplSchoolId });
+    void fetch(`/api/master/classes?${sp}`)
+      .then((r) => r.json())
+      .then((d) => setTplClasses(Array.isArray(d) ? d : []));
+  }, [tplSchoolId, activeYearId]);
+
+  useEffect(() => {
+    if (!tplClassId || !activeYearId || !tplSchoolId) { setTplStudents([]); return; }
+    setTplLoadingStudents(true);
+    const sp = new URLSearchParams({
+      limit: '500', page: '1',
+      academic_year_id: String(activeYearId),
+      class_id: tplClassId,
+      school_id: tplSchoolId,
+    });
+    void fetch(`/api/students?${sp}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const list = ((j?.data as { id: number; full_name: string; nis: string }[]) || [])
+          .sort((a, b) => a.full_name.localeCompare(b.full_name));
+        setTplStudents(list);
+        setTplLoadingStudents(false);
+      })
+      .catch(() => setTplLoadingStudents(false));
+  }, [tplClassId, activeYearId, tplSchoolId]);
+
+  useEffect(() => {
+    if (templateModalOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [templateModalOpen]);
+
+  useEffect(() => {
+    if (!templateModalOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setTemplateModalOpen(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [templateModalOpen]);
+
+  const filteredTplLevels = tplLevels.filter((l) => String(l.school_id) === tplSchoolId);
+  const filteredTplClasses = tplLevelId
+    ? tplClasses.filter((c) => String(c.level_grade_id) === tplLevelId)
+    : tplClasses;
+
+  const downloadImportTemplate = () => {
+    if (!tplClassId || tplStudents.length === 0) {
+      toast.error('Pilih kelas yang memiliki siswa terlebih dahulu.');
+      return;
+    }
+    const school = tplSchools.find((s) => String(s.id) === tplSchoolId);
+    const cls = tplClasses.find((c) => String(c.id) === tplClassId);
+    const header = ['student_id', 'student_name', 'nis', 'attendance_date', 'status', 'note'];
+    const sampleDate = new Date().toISOString().slice(0, 10);
+    const rows = tplStudents.map((s) => [s.id, s.full_name, s.nis, sampleDate, 'hadir', '']);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Kehadiran');
+    const safe = (cls?.name || 'kelas').replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, '_');
+    const schoolSafe = (school?.name || '').replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, '_');
+    XLSX.writeFile(wb, `template_kehadiran_${schoolSafe}_${safe}.xlsx`);
+    setTemplateModalOpen(false);
+  };
+
+  const handleImportFile = async (file: File) => {
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.xlsx')) {
+      toast.error('Impor kehadiran hanya mendukung file Microsoft Excel (.xlsx).');
+      return;
+    }
+    const fd = new FormData();
+    fd.set('file', file);
+    try {
+      const res = await fetch('/api/academic/attendances/import', { method: 'POST', body: fd });
+      const j = await res.json();
+      if (!res.ok) {
+        toast.error((j as { error?: string }).error || 'Gagal mengimpor');
+        return;
+      }
+      const result = j as { inserted: number; skipped: number; errors: string[] };
+      if (result.errors && result.errors.length > 0) {
+        toast.warning(`Berhasil: ${result.inserted} baris. Dilewati: ${result.skipped}. Error: ${result.errors.slice(0, 3).join('; ')}`);
+      } else {
+        toast.success(`Berhasil mengimpor ${result.inserted} data kehadiran`);
+      }
+      void applyFilters();
+    } catch {
+      toast.error('Terjadi kesalahan saat mengimpor');
+    }
+  };
+
   const listQueryParams = useCallback(
     () =>
       buildStudentSummaryParams({
@@ -462,6 +574,30 @@ export default function AcademicAttendancesPage() {
       className: 'w-24 text-center',
       render: (r: DailySummaryRow) => statusBadge('', r.terlambat, 'bg-orange-100 text-orange-700'),
     },
+    {
+      key: 'actions',
+      label: 'Aksi',
+      className: 'text-right w-32',
+      render: (r: DailySummaryRow) => {
+        const d = String(r.attendance_date).slice(0, 10);
+        const cid = r.class_id;
+        if (!cid) return null;
+        return (
+          <div className="flex justify-end gap-2">
+            <Link href={`/academic/attendances/daily/${d}/${cid}`}>
+              <Button size="sm" variant="outline">
+                <Eye size={13} />
+              </Button>
+            </Link>
+            <Link href={`/academic/attendances/daily/${d}/${cid}/edit`}>
+              <Button size="sm" variant="outline">
+                <Edit2 size={13} />
+              </Button>
+            </Link>
+          </div>
+        );
+      },
+    },
   ];
 
   return (
@@ -471,8 +607,161 @@ export default function AcademicAttendancesPage() {
           <h2 className="text-xl font-bold text-slate-800">Kehadiran</h2>
           <p className="text-slate-400 text-[13px]">Absensi harian</p>
         </div>
-        <AddDropdown />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={() => {
+              setTplSchoolId(schoolId || '');
+              setTplLevelId('');
+              setTplClassId('');
+              setTemplateModalOpen(true);
+            }}
+          >
+            <FileDown size={14} /> Template Excel
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+          >
+            <Upload size={14} /> Upload Kehadiran
+          </Button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="hidden"
+            aria-label="Upload file kehadiran"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (!file) return;
+              await handleImportFile(file);
+            }}
+          />
+          <AddDropdown />
+        </div>
       </div>
+
+      {templateModalOpen && (
+        <div
+          className="fixed inset-0 z-100 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tpl-attendance-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
+            aria-label="Tutup"
+            onClick={() => setTemplateModalOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 id="tpl-attendance-title" className="text-lg font-bold text-slate-800">
+                  Unduh template kehadiran (.xlsx)
+                </h3>
+                <p className="text-[13px] text-slate-500 mt-1">
+                  Pilih sekolah, tingkat, dan kelas. Template akan berisi daftar siswa dengan kolom{' '}
+                  <span className="font-mono text-[12px]">student_id</span> yang sudah terisi.
+                  Isi kolom <span className="font-mono text-[12px]">attendance_date</span> dan{' '}
+                  <span className="font-mono text-[12px]">status</span> lalu upload kembali.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTemplateModalOpen(false)}
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Tutup"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <Field label="Sekolah (wajib)">
+                <Select
+                  value={tplSchoolId}
+                  onChange={(e) => {
+                    setTplSchoolId(e.target.value);
+                    setTplLevelId('');
+                    setTplClassId('');
+                  }}
+                >
+                  <option value="">— Pilih sekolah —</option>
+                  {tplSchools.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Tingkat (wajib)">
+                <Select
+                  value={tplLevelId}
+                  onChange={(e) => {
+                    setTplLevelId(e.target.value);
+                    setTplClassId('');
+                  }}
+                  disabled={!tplSchoolId}
+                >
+                  <option value="">— Pilih tingkat —</option>
+                  {filteredTplLevels.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Kelas aktif (wajib)">
+                <Select
+                  value={tplClassId}
+                  onChange={(e) => setTplClassId(e.target.value)}
+                  disabled={!tplSchoolId}
+                >
+                  <option value="">— Pilih kelas —</option>
+                  {filteredTplClasses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.level_name ? `${c.level_name} — ${c.name}` : c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {tplLoadingStudents && (
+                <p className="text-[12px] text-slate-400">Memuat daftar siswa...</p>
+              )}
+              {!tplLoadingStudents && tplClassId && tplStudents.length === 0 && (
+                <p className="text-[12px] text-amber-700">
+                  Tidak ada siswa aktif di kelas ini untuk tahun ajaran aktif.
+                </p>
+              )}
+              {!tplLoadingStudents && tplStudents.length > 0 && (
+                <p className="text-[12px] text-emerald-700">
+                  {tplStudents.length} siswa akan dimasukkan ke template.
+                </p>
+              )}
+              <p className="text-[12px] text-slate-500 leading-relaxed">
+                Kolom <span className="font-mono">student_id</span> sudah terisi otomatis, jangan diubah.
+                Kolom <span className="font-mono">student_name</span> dan <span className="font-mono">nis</span>{' '}
+                hanya referensi. Isi <span className="font-mono">attendance_date</span> (format YYYY-MM-DD),{' '}
+                <span className="font-mono">status</span> (hadir/izin/sakit/alpha/terlambat), dan{' '}
+                <span className="font-mono">note</span> (opsional). Anda bisa menduplikasi baris untuk tanggal berbeda.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-end pt-2">
+                <Button variant="outline" type="button" onClick={() => setTemplateModalOpen(false)}>
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  onClick={downloadImportTemplate}
+                  disabled={!tplClassId || tplStudents.length === 0 || tplLoadingStudents}
+                >
+                  <FileDown size={14} /> Download Template
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <StudentSummaryFilters
         schoolId={schoolId}
