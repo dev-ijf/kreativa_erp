@@ -711,12 +711,14 @@ export const academicClinicVisits = pgTable(
 );
 
 // ==============================================================================
-// ACADEMIC: HABITS
+// ACADEMIC: HABITS (composite PK id + habit_date; RANGE partitioned by habit_date per bulan)
 // ==============================================================================
 export const academicHabits = pgTable(
   'academic_habits',
   {
-    id: serial('id').primaryKey(),
+    id: bigint('id', { mode: 'number' })
+      .notNull()
+      .generatedAlwaysAsIdentity({ name: 'academic_habits_id_seq' }),
     studentId: integer('student_id')
       .notNull()
       .references(() => coreStudents.id),
@@ -743,6 +745,7 @@ export const academicHabits = pgTable(
     updatedAt: timestamp('updated_at').defaultNow(),
   },
   (t) => [
+    primaryKey({ columns: [t.id, t.habitDate] }),
     index('idx_acad_hbt_student_date').on(t.studentId, t.habitDate),
     unique('unique_student_habit_date').on(t.studentId, t.habitDate),
   ]

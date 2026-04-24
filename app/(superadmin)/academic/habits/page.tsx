@@ -10,6 +10,10 @@ import StudentSummaryFilters from '@/components/academic/StudentSummaryFilters';
 import StatsCard from '@/components/ui/StatsCard';
 import { useActiveAcademicYear } from '@/hooks/useActiveAcademicYear';
 import { buildStudentSummaryParams } from '@/lib/academic-student-summary-params';
+import {
+  HABIT_DATE_PARTITION_END,
+  HABIT_DATE_PARTITION_START,
+} from '@/lib/academic-habits-partition-bounds';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area } from 'recharts';
 
 interface Row {
@@ -411,6 +415,8 @@ export default function AcademicHabitsPage() {
         studentId: studentId || undefined,
         q: q.trim() || undefined,
         academicYearId: activeYearId,
+        startDate: HABIT_DATE_PARTITION_START,
+        endDate: HABIT_DATE_PARTITION_END,
       }),
     [schoolId, classId, studentId, q, activeYearId]
   );
@@ -500,7 +506,9 @@ export default function AcademicHabitsPage() {
       className: 'text-right',
       render: (r: Row) => (
         <div className="flex justify-end">
-          <Link href={`/academic/habits/${r.id}`}>
+          <Link
+            href={`/academic/habits/${r.id}?habit_date=${encodeURIComponent(String(r.habit_date).slice(0, 10))}`}
+          >
             <Button size="sm" variant="outline">
               <Eye size={13} /> Detail
             </Button>

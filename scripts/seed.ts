@@ -446,8 +446,8 @@ async function seed() {
   await db
     .insert(schema.academicHabits)
     .values([
-      { studentId: 1, habitDate: '2023-11-18', fajr: true, dhuhr: true, asr: false, maghrib: false, isha: false, dhuha: true, tahajud: false, readQuran: false, wakeUpEarly: true, helpParents: true },
-      { studentId: 1, habitDate: '2023-11-17', fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true, dhuha: false, tahajud: false, readQuran: true, wakeUpEarly: true, helpParents: true },
+      { studentId: 1, habitDate: '2025-11-18', fajr: true, dhuhr: true, asr: false, maghrib: false, isha: false, dhuha: true, tahajud: false, readQuran: false, wakeUpEarly: true, helpParents: true },
+      { studentId: 1, habitDate: '2025-11-17', fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true, dhuha: false, tahajud: false, readQuran: true, wakeUpEarly: true, helpParents: true },
     ])
     .onConflictDoNothing();
 

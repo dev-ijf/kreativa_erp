@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { Suspense, useEffect, useState, use, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -24,19 +25,25 @@ const BOOL_KEYS = [
   { k: 'child_tell_parents', l: 'Anak Bercerita ke Orang Tua' },
 ] as const;
 
-export default function HabitDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function HabitDetailPageInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
+  const habitDateQs = useMemo(() => {
+    const d = searchParams.get('habit_date')?.trim();
+    return d && d.length >= 10 ? `?habit_date=${encodeURIComponent(d.slice(0, 10))}` : '';
+  }, [searchParams]);
   const [row, setRow] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/academic/habits/${id}`)
+    setLoading(true);
+    fetch(`/api/academic/habits/${id}${habitDateQs}`)
       .then((r) => r.json())
       .then((d) => {
         setRow(d?.error ? null : d);
         setLoading(false);
       });
-  }, [id]);
+  }, [id, habitDateQs]);
 
   if (loading) return <div className="p-10 text-center text-slate-400">Memuat…</div>;
   if (!row) return <div className="p-10 text-center text-rose-500">Data tidak ditemukan</div>;
@@ -82,5 +89,13 @@ export default function HabitDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
     </div>
+  );
+}
+
+export default function HabitDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-slate-400">Memuat…</div>}>
+      <HabitDetailPageInner params={params} />
+    </Suspense>
   );
 }

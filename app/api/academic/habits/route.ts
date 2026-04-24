@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { resolveAcademicYearId } from '@/lib/academic-student-filters';
+import { resolveHabitDateRangeFromSearchParams } from '@/lib/academic-habits-partition-bounds';
 
 export async function GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
@@ -16,8 +17,7 @@ export async function GET(req: NextRequest) {
   const academicYearIdParam = ayRaw && ayRaw !== '' && !Number.isNaN(Number(ayRaw)) ? Number(ayRaw) : null;
   const academicYearId = await resolveAcademicYearId(academicYearIdParam);
 
-  const startDate = sp.get('start_date') || null;
-  const endDate = sp.get('end_date') || null;
+  const { startDate, endDate } = resolveHabitDateRangeFromSearchParams(sp);
 
   const pageRaw = sp.get('page');
   const limitRaw = sp.get('limit');

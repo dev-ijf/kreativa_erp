@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { parseAcademicListFilters, resolveAcademicYearId } from '@/lib/academic-student-filters';
+import { resolveHabitDateRangeFromSearchParams } from '@/lib/academic-habits-partition-bounds';
 
 const BOOL_COLS = [
   'fajr', 'dhuhr', 'asr', 'maghrib', 'isha', 'dhuha', 'tahajud',
@@ -18,6 +19,7 @@ const sumExpr = (cols: string[]) => cols.map((c) => `COALESCE(t.${c}::int,0)`).j
 export async function GET(req: NextRequest) {
   const f = parseAcademicListFilters(req);
   const academicYearId = await resolveAcademicYearId(f.academicYearIdParam);
+  const { startDate, endDate } = resolveHabitDateRangeFromSearchParams(new URL(req.url).searchParams);
 
   const totalBoolCount = BOOL_COLS.length;
 
@@ -65,6 +67,8 @@ export async function GET(req: NextRequest) {
         OR COALESCE(s.username, '') ILIKE ${f.qPattern})
       AND (${f.schoolId}::int IS NULL OR s.school_id = ${f.schoolId})
       AND (${f.studentId}::int IS NULL OR s.id = ${f.studentId})
+      AND (${startDate}::date IS NULL OR t.habit_date >= ${startDate}::date)
+      AND (${endDate}::date IS NULL OR t.habit_date <= ${endDate}::date)
       AND (
         ${f.classId}::int IS NULL
         OR (

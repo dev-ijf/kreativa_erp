@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { parseAcademicListFilters, resolveAcademicYearId } from '@/lib/academic-student-filters';
+import { resolveHabitDateRangeFromSearchParams } from '@/lib/academic-habits-partition-bounds';
 
 const BOOL_COLS = [
   'fajr', 'dhuhr', 'asr', 'maghrib', 'isha', 'dhuha', 'tahajud',
@@ -13,13 +14,20 @@ const SHOLAT_5 = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 const sumExpr = (cols: string[]) => cols.map((c) => `COALESCE(t.${c}::int,0)`).join('+');
 
-function filterWhere(f: { qPattern: string | null; schoolId: number | null; studentId: number | null; classId: number | null }, academicYearId: number | null) {
+function filterWhere(
+  f: { qPattern: string | null; schoolId: number | null; studentId: number | null; classId: number | null },
+  academicYearId: number | null,
+  startDate: string | null,
+  endDate: string | null
+) {
   return sql`
     (${f.qPattern}::text IS NULL OR s.full_name ILIKE ${f.qPattern}
       OR s.nis ILIKE ${f.qPattern}
       OR COALESCE(s.username, '') ILIKE ${f.qPattern})
     AND (${f.schoolId}::int IS NULL OR s.school_id = ${f.schoolId})
     AND (${f.studentId}::int IS NULL OR s.id = ${f.studentId})
+    AND (${startDate}::date IS NULL OR t.habit_date >= ${startDate}::date)
+    AND (${endDate}::date IS NULL OR t.habit_date <= ${endDate}::date)
     AND (
       ${f.classId}::int IS NULL
       OR (
@@ -40,9 +48,10 @@ function filterWhere(f: { qPattern: string | null; schoolId: number | null; stud
 export async function GET(req: NextRequest) {
   const f = parseAcademicListFilters(req);
   const academicYearId = await resolveAcademicYearId(f.academicYearIdParam);
+  const { startDate, endDate } = resolveHabitDateRangeFromSearchParams(new URL(req.url).searchParams);
 
   const totalBoolCount = BOOL_COLS.length;
-  const where = filterWhere(f, academicYearId);
+  const where = filterWhere(f, academicYearId, startDate, endDate);
 
   const [totalsRow] = await sql`
     SELECT

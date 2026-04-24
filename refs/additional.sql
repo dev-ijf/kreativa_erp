@@ -133,6 +133,9 @@ CREATE INDEX IF NOT EXISTS "idx_acad_cln_student_date" ON "public"."academic_cli
 
 -- ==============================================================================
 -- 8. HABITS (PEMBIASAAN HARIAN)
+-- Untuk database produksi: RANGE partition by habit_date (bulanan, 2025–2027)
+-- dan PK komposit (id, habit_date) diterapkan lewat
+-- scripts/migrations/0012_academic_habits_partition.sql (gantikan struktur di bawah setelah init).
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS "public"."academic_habits" (
     "id" bigserial PRIMARY KEY,
@@ -369,10 +372,10 @@ WHERE NOT EXISTS (
     AND cv."complaint_en" IS NOT DISTINCT FROM v.complaint_en
 );
 
--- Seed Habits (Pembiasaan)
+-- Seed Habits (Pembiasaan) — tanggal dalam rentang partisi 2025–2027 bila memakai migrasi 0012
 INSERT INTO "public"."academic_habits" ("student_id", "habit_date", "fajr", "dhuhr", "asr", "maghrib", "isha", "dhuha", "tahajud", "read_quran", "wake_up_early", "help_parents") VALUES 
-(1, '2023-11-18', true, true, false, false, false, true, false, false, true, true),
-(1, '2023-11-17', true, true, true, true, true, false, false, true, true, true)
+(1, '2025-11-18', true, true, false, false, false, true, false, false, true, true),
+(1, '2025-11-17', true, true, true, true, true, false, false, true, true, true)
 ON CONFLICT ("student_id", "habit_date") DO NOTHING;
 
 -- Seed Adaptive Tests (harus sebelum soal)
