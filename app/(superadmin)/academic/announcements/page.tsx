@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import DataTable from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/FormFields';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { confirmToast } from '@/components/ui/confirmToast';
@@ -20,6 +20,7 @@ export default function AcademicAnnouncementsPage() {
   const [data, setData] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [togglingActive, setTogglingActive] = useState<number | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -34,6 +35,33 @@ export default function AcademicAnnouncementsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const handleToggleActive = (r: Row) => {
+    const nextActive = !r.active;
+    confirmToast(
+      nextActive
+        ? 'Aktifkan pengumuman ini? Pengumuman akan ditampilkan sebagai aktif.'
+        : 'Nonaktifkan pengumuman ini? Pengumuman tidak akan ditampilkan sebagai aktif.',
+      {
+        confirmLabel: nextActive ? 'Aktifkan' : 'Nonaktifkan',
+        onConfirm: async () => {
+          setTogglingActive(r.id);
+          const res = await fetch(`/api/academic/announcements/${r.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: nextActive }),
+          });
+          setTogglingActive(null);
+          if (!res.ok) {
+            toast.error('Gagal memperbarui status');
+            return;
+          }
+          toast.success(nextActive ? 'Pengumuman diaktifkan' : 'Pengumuman dinonaktifkan');
+          load();
+        },
+      }
+    );
+  };
 
   const handleDelete = async (sid: number) => {
     confirmToast('Hapus pengumuman ini?', {
@@ -78,6 +106,16 @@ export default function AcademicAnnouncementsPage() {
       className: 'text-right',
       render: (r: Row) => (
         <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            title={r.active ? 'Nonaktifkan' : 'Aktifkan'}
+            loading={togglingActive === r.id}
+            onClick={() => handleToggleActive(r)}
+          >
+            {r.active ? <EyeOff size={13} /> : <Eye size={13} />}
+          </Button>
           <Link href={`/academic/announcements/${r.id}`}>
             <Button size="sm" variant="outline">
               <Edit2 size={13} />

@@ -18,6 +18,24 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json(row);
 }
 
+/** Ubah status aktif saja (tanpa kirim seluruh isi form). */
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  if (b?.active !== true && b?.active !== false) {
+    return NextResponse.json({ error: 'Field active (boolean) wajib' }, { status: 400 });
+  }
+  const active = b.active === true;
+  const [row] = await sql`
+    UPDATE academic_announcements
+    SET active = ${active}
+    WHERE id = ${Number(id)}
+    RETURNING *
+  `;
+  if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  return NextResponse.json(row);
+}
+
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;

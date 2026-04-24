@@ -1,10 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import DataTable from '@/components/ui/DataTable';
-import { Button } from '@/components/ui/FormFields';
-import { Eye, ClipboardList, Users, Percent, BookOpen, Trophy } from 'lucide-react';
+import { Button, Field, Input, Select } from '@/components/ui/FormFields';
+import {
+  Eye,
+  ClipboardList,
+  Users,
+  Percent,
+  BookOpen,
+  Trophy,
+  FileDown,
+  Upload,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
+import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 import AcademicResourceTabs, { type AcademicTabId } from '@/components/academic/AcademicResourceTabs';
 import StudentSummaryFilters from '@/components/academic/StudentSummaryFilters';
 import StatsCard from '@/components/ui/StatsCard';
@@ -67,6 +79,56 @@ interface StatsData {
   totals: StatsTotals;
   distribution: StatsDistItem[];
   daily: StatsDailyItem[];
+}
+
+type SchoolOpt = { id: number; name: string };
+type ClassOpt = { id: number; name: string; level_name?: string };
+type AyOpt = { id: number; name: string };
+
+const HABIT_TEMPLATE_HEADERS = [
+  'student_id',
+  'nis',
+  'full_name',
+  'habit_date',
+  'fajr',
+  'dhuhr',
+  'asr',
+  'maghrib',
+  'isha',
+  'dhuha',
+  'tahajud',
+  'read_quran',
+  'sunnah_fasting',
+  'wake_up_early',
+  'help_parents',
+  'pray_with_parents',
+  'give_greetings',
+  'smile_greet_polite',
+  'on_time_arrival',
+  'parent_hug_pray',
+  'child_tell_parents',
+  'quran_juz_info',
+] as const;
+
+function pad2(n: number) {
+  return String(n).padStart(2, '0');
+}
+
+function defaultHabitDateInPartition(): string {
+  const t = new Date();
+  const s = `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`;
+  if (s >= HABIT_DATE_PARTITION_START && s <= HABIT_DATE_PARTITION_END) return s;
+  return HABIT_DATE_PARTITION_START;
+}
+
+function habitTemplateDataRow(
+  habitDate: string,
+  studentId: number | '',
+  nis: string,
+  fullName: string
+): (string | number)[] {
+  const z = Array(14).fill(0);
+  return [studentId, nis, fullName, habitDate, ...z, '', 0, 0, ''];
 }
 
 /* ── Progress bar component ── */
@@ -407,6 +469,18 @@ export default function AcademicHabitsPage() {
   const [studentId, setStudentId] = useState('');
   const [q, setQ] = useState('');
 
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [tplSchoolId, setTplSchoolId] = useState('');
+  const [tplAyId, setTplAyId] = useState('');
+  const [tplClassId, setTplClassId] = useState('');
+  const [tplHabitDate, setTplHabitDate] = useState(defaultHabitDateInPartition);
+  const [tplSchools, setTplSchools] = useState<SchoolOpt[]>([]);
+  const [tplYears, setTplYears] = useState<AyOpt[]>([]);
+  const [tplClasses, setTplClasses] = useState<ClassOpt[]>([]);
+  const [tplLoadingClasses, setTplLoadingClasses] = useState(false);
+
   const listQueryParams = useCallback(
     () =>
       buildStudentSummaryParams({
@@ -472,6 +546,145 @@ export default function AcademicHabitsPage() {
     loadScorecard();
     loadStats();
   }, [loadList, loadSummary, loadScorecard, loadStats]);
+
+  const reloadAllHabitData = useCallback(() => {
+    void loadList();
+    loadSummary();
+    loadScorecard();
+    loadStats();
+  }, [loadList, loadSummary, loadScorecard, loadStats]);
+
+  useEffect(() => {
+    if (!templateModalOpen) return;
+    void fetch('/api/master/schools')
+      .then((r) => r.json())
+      .then((d) => setTplSchools(Array.isArray(d) ? d : []));
+    void fetch('/api/master/academic-years')
+      .then((r) => r.json())
+      .then((d) => setTplYears(Array.isArray(d) ? d : []));
+  }, [templateModalOpen]);
+
+  useEffect(() => {
+    if (!templateModalOpen || !tplSchoolId || !tplAyId) {
+      setTplClasses([]);
+      return;
+    }
+    setTplLoadingClasses(true);
+    const sp = new URLSearchParams({ school_id: tplSchoolId, academic_year_id: tplAyId });
+    void fetch(`/api/master/classes?${sp}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setTplClasses(Array.isArray(d) ? d : []);
+        setTplLoadingClasses(false);
+      })
+      .catch(() => setTplLoadingClasses(false));
+  }, [templateModalOpen, tplSchoolId, tplAyId]);
+
+  const openTemplateModal = () => {
+    setTplSchoolId(schoolId || '');
+    setTplClassId(classId || '');
+    setTplAyId(activeYearId != null ? String(activeYearId) : '');
+    setTplHabitDate(defaultHabitDateInPartition());
+    setTemplateModalOpen(true);
+  };
+
+  const downloadHabitImportTemplate = async () => {
+    if (!tplSchoolId) {
+      toast.error('Pilih sekolah terlebih dahulu.');
+      return;
+    }
+    if (!tplAyId) {
+      toast.error('Pilih tahun ajaran terlebih dahulu.');
+      return;
+    }
+    if (!tplHabitDate || tplHabitDate < HABIT_DATE_PARTITION_START || tplHabitDate > HABIT_DATE_PARTITION_END) {
+      toast.error(`Tanggal harus antara ${HABIT_DATE_PARTITION_START} dan ${HABIT_DATE_PARTITION_END}.`);
+      return;
+    }
+
+    const header = [...HABIT_TEMPLATE_HEADERS];
+    let aoa: (string | number)[][] = [header];
+
+    if (tplClassId.trim()) {
+      const all: { id: number; nis: string; full_name: string }[] = [];
+      let page = 1;
+      const limit = 100;
+      let capped = false;
+      while (all.length < 2000) {
+        const p = new URLSearchParams({
+          school_id: tplSchoolId,
+          academic_year_id: tplAyId,
+          class_id: tplClassId.trim(),
+          limit: String(limit),
+          page: String(page),
+        });
+        const res = await fetch(`/api/students?${p}`);
+        const j = (await res.json().catch(() => ({}))) as { data?: { id: number; nis: string; full_name: string }[] };
+        const chunk = Array.isArray(j.data) ? j.data : [];
+        if (chunk.length === 0) break;
+        all.push(...chunk);
+        if (chunk.length < limit) break;
+        page += 1;
+      }
+      if (all.length >= 2000) capped = true;
+      if (all.length === 0) {
+        toast.error('Tidak ada siswa di kelas ini untuk diisi template.');
+        return;
+      }
+      for (const s of all) {
+        aoa.push(habitTemplateDataRow(tplHabitDate, s.id, s.nis ?? '', s.full_name ?? ''));
+      }
+      if (capped) {
+        toast.message('Template dibatasi 2000 baris pertama', {
+          description: 'Jika kelas lebih besar, bagi impor menjadi beberapa file.',
+        });
+      }
+    } else {
+      aoa.push(
+        habitTemplateDataRow(tplHabitDate, '', '', 'Isi student_id (wajib). Kolom nis & full_name opsional (referensi).')
+      );
+    }
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    XLSX.utils.book_append_sheet(wb, ws, 'Pembiasaan');
+    const schoolName = tplSchools.find((s) => String(s.id) === tplSchoolId)?.name || tplSchoolId;
+    const safe = schoolName.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, '_');
+    XLSX.writeFile(wb, `template_import_pembiasaan_${safe}.xlsx`);
+    setTemplateModalOpen(false);
+    toast.success('Template berhasil diunduh');
+  };
+
+  const handleHabitImportFile = async (file: File) => {
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith('.xlsx')) {
+      toast.error('Impor pembiasaan hanya mendukung file Microsoft Excel (.xlsx).');
+      return;
+    }
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.set('file', file);
+      const sidForImport = tplSchoolId || schoolId;
+      if (sidForImport) fd.set('school_id', sidForImport);
+      const res = await fetch('/api/academic/habits/import', { method: 'POST', body: fd });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        inserted?: number;
+        skipped?: number;
+        errors?: string[];
+      };
+      if (!res.ok) {
+        toast.error(j.error || 'Import pembiasaan gagal');
+        return;
+      }
+      const errList = j.errors?.length ? ` (${j.errors.slice(0, 3).join('; ')}${(j.errors?.length ?? 0) > 3 ? '…' : ''})` : '';
+      toast.success(`Import selesai: ${j.inserted ?? 0} baris diproses, ${j.skipped ?? 0} dilewati${errList}`);
+      reloadAllHabitData();
+    } finally {
+      setImporting(false);
+    }
+  };
 
   useEffect(() => {
     void loadList();
@@ -539,9 +752,145 @@ export default function AcademicHabitsPage() {
 
   return (
     <div className="p-6 space-y-5 max-w-[1200px] mx-auto">
-      <div>
-        <h2 className="text-xl font-bold text-slate-800">Pembiasaan</h2>
-        <p className="text-slate-400 text-[13px]">Hanya lihat — data diinput dari sumber lain</p>
+      {templateModalOpen ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="habit-template-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
+            aria-label="Tutup"
+            onClick={() => setTemplateModalOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 id="habit-template-title" className="text-lg font-bold text-slate-800">
+                  Unduh template import Excel (.xlsx)
+                </h3>
+                <p className="text-[13px] text-slate-500 mt-1">
+                  Isi checklist per siswa dan tanggal. Impor memakai file <strong>.xlsx</strong> saja. Tanggal harus
+                  antara {HABIT_DATE_PARTITION_START} dan {HABIT_DATE_PARTITION_END}. Pilih kelas untuk mengisi baris
+                  semua siswa sekaligus; tanpa kelas, template berisi satu baris petunjuk.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTemplateModalOpen(false)}
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100 shrink-0"
+                aria-label="Tutup"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <Field label="Sekolah (wajib)">
+                <Select
+                  value={tplSchoolId}
+                  onChange={(e) => {
+                    setTplSchoolId(e.target.value);
+                    setTplClassId('');
+                  }}
+                >
+                  <option value="">— Pilih sekolah —</option>
+                  {tplSchools.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Tahun ajaran (wajib)">
+                <Select value={tplAyId} onChange={(e) => setTplAyId(e.target.value)} disabled={!tplSchoolId}>
+                  <option value="">— Pilih tahun ajaran —</option>
+                  {tplYears.map((y) => (
+                    <option key={y.id} value={y.id}>
+                      {y.name}
+                      {y.id === activeYearId ? ' (aktif)' : ''}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Kelas (opsional — untuk prefilling daftar siswa)">
+                <Select
+                  value={tplClassId}
+                  onChange={(e) => setTplClassId(e.target.value)}
+                  disabled={!tplSchoolId || tplLoadingClasses}
+                >
+                  <option value="">Kosong — baris contoh + petunjuk</option>
+                  {tplClasses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.level_name} {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Tanggal pembiasaan (habit_date)">
+                <Input
+                  type="date"
+                  value={tplHabitDate}
+                  min={HABIT_DATE_PARTITION_START}
+                  max={HABIT_DATE_PARTITION_END}
+                  onChange={(e) => setTplHabitDate(e.target.value)}
+                />
+              </Field>
+              <p className="text-[12px] text-slate-500 leading-relaxed">
+                Nilai checklist: <span className="font-mono">1</span>, <span className="font-mono">ya</span>,{' '}
+                <span className="font-mono">true</span> untuk Ya; kosong atau lainnya = Tidak. Saat unggah, opsional{' '}
+                <strong>school_id</strong> memvalidasi bahwa setiap <span className="font-mono">student_id</span>{' '}
+                milik sekolah tersebut (diisi dari sekolah di modal template, atau dari filter Sekolah di halaman jika
+                modal tidak dipakai).
+              </p>
+              <div className="flex flex-wrap gap-2 justify-end pt-2">
+                <Button variant="outline" type="button" onClick={() => setTemplateModalOpen(false)}>
+                  Batal
+                </Button>
+                <Button type="button" onClick={() => void downloadHabitImportTemplate()}>
+                  <FileDown size={14} /> Unduh .xlsx
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">Pembiasaan</h2>
+          <p className="text-slate-400 text-[13px]">
+            Lihat ringkasan, impor data dari Excel (template + unggah), atau buka detail per siswa.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="hidden"
+            aria-label="Unggah file pembiasaan"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (!file) return;
+              await handleHabitImportFile(file);
+            }}
+          />
+          <Button variant="outline" size="sm" type="button" onClick={openTemplateModal}>
+            <FileDown size={14} /> Template Excel
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            loading={importing}
+            onClick={() => importInputRef.current?.click()}
+          >
+            <Upload size={14} /> Import
+          </Button>
+        </div>
       </div>
 
       <StudentSummaryFilters

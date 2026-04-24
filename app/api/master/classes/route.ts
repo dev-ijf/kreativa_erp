@@ -11,6 +11,36 @@ export async function GET(req: NextRequest) {
   const schoolIdRaw = sp.get('school_id');
   const forActiveYear = sp.get('for_active_year') === '1';
   const includeEmpty = sp.get('include_empty') === '1';
+  const academicYearIdRaw = sp.get('academic_year_id');
+
+  /** Sekolah + tahun ajaran tertentu (mis. impor pembiasaan / filter selain tahun aktif). */
+  if (schoolIdRaw && academicYearIdRaw && !Number.isNaN(Number(academicYearIdRaw)) && !forActiveYear) {
+    const schoolId = Number(schoolIdRaw);
+    const ayId = Number(academicYearIdRaw);
+    if (includeEmpty) {
+      const rows = await sql`
+        SELECT c.*, s.name AS school_name, lg.name AS level_name
+        FROM core_classes c
+        JOIN core_schools s ON c.school_id = s.id
+        JOIN core_level_grades lg ON c.level_grade_id = lg.id
+        WHERE c.school_id = ${schoolId}
+        ORDER BY lg.level_order ASC, c.name ASC
+      `;
+      return NextResponse.json(rows.map((r) => ({ ...r, filter_academic_year_id: ayId })));
+    }
+    const rows = await sql`
+      SELECT DISTINCT c.*, s.name AS school_name, lg.name AS level_name, lg.level_order
+      FROM core_classes c
+      JOIN core_schools s ON c.school_id = s.id
+      JOIN core_level_grades lg ON c.level_grade_id = lg.id
+      INNER JOIN core_student_class_histories ch ON ch.class_id = c.id
+        AND ch.academic_year_id = ${ayId}
+        AND ch.status = 'active'
+      WHERE c.school_id = ${schoolId}
+      ORDER BY lg.level_order ASC, c.name ASC
+    `;
+    return NextResponse.json(rows.map((r) => ({ ...r, filter_academic_year_id: ayId })));
+  }
 
   if (forActiveYear && schoolIdRaw) {
     const schoolId = Number(schoolIdRaw);
