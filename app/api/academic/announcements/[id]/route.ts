@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
+function parseActive(b: Record<string, unknown> | null | undefined): boolean {
+  if (b?.active === false || b?.active === 'false') return false;
+  return true;
+}
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [row] = await sql`
@@ -34,10 +39,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     b?.featured_image != null && String(b.featured_image).trim() !== ''
       ? String(b.featured_image).trim()
       : null;
+  const active = parseActive(b);
   const [row] = await sql`
     UPDATE academic_announcements
     SET school_id = ${schoolId}, publish_date = ${publishDate}, title_en = ${titleEn}, title_id = ${titleId},
-        content_en = ${contentEn}, content_id = ${contentId}, featured_image = ${featuredImage}
+        content_en = ${contentEn}, content_id = ${contentId}, featured_image = ${featuredImage}, active = ${active}
     WHERE id = ${Number(id)}
     RETURNING *
   `;

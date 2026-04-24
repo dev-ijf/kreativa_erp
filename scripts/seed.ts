@@ -420,6 +420,7 @@ async function seed() {
         contentEn: 'Starting next month, we are adding a new route covering the South District.',
         contentId: 'Mulai bulan depan, kami menambahkan rute baru yang mencakup Area Selatan.',
         featuredImage: '/assets/announcements/school-bus.jpg',
+        active: true,
       },
       {
         schoolId: 4,
@@ -429,6 +430,7 @@ async function seed() {
         contentEn: 'Students can now enjoy the newly renovated library.',
         contentId: 'Siswa kini dapat menikmati perpustakaan yang baru direnovasi.',
         featuredImage: '/assets/announcements/library.jpg',
+        active: true,
       },
     ])
     .onConflictDoNothing();

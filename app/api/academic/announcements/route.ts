@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
+function parseActive(b: Record<string, unknown> | null | undefined): boolean {
+  if (b?.active === false || b?.active === 'false') return false;
+  return true;
+}
+
 export async function GET() {
   const rows = await sql`
     SELECT a.*, s.name AS school_name
@@ -31,11 +36,12 @@ export async function POST(req: NextRequest) {
     b?.featured_image != null && String(b.featured_image).trim() !== ''
       ? String(b.featured_image).trim()
       : null;
+  const active = parseActive(b);
   const [row] = await sql`
     INSERT INTO academic_announcements (
-      school_id, publish_date, title_en, title_id, content_en, content_id, featured_image
+      school_id, publish_date, title_en, title_id, content_en, content_id, featured_image, active
     )
-    VALUES (${schoolId}, ${publishDate}, ${titleEn}, ${titleId}, ${contentEn}, ${contentId}, ${featuredImage})
+    VALUES (${schoolId}, ${publishDate}, ${titleEn}, ${titleId}, ${contentEn}, ${contentId}, ${featuredImage}, ${active})
     RETURNING *
   `;
   return NextResponse.json(row, { status: 201 });

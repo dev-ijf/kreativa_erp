@@ -13,6 +13,7 @@ interface Row {
   school_name: string;
   publish_date: string;
   title_id: string;
+  active: boolean;
 }
 
 export default function AcademicAnnouncementsPage() {
@@ -55,6 +56,21 @@ export default function AcademicAnnouncementsPage() {
     { key: 'id', label: 'ID', sortable: true, className: 'w-14 text-slate-400 font-mono text-xs' },
     { key: 'school_name', label: 'Sekolah', sortable: true },
     { key: 'publish_date', label: 'Tanggal', render: (r: Row) => String(r.publish_date).slice(0, 10) },
+    {
+      key: 'active',
+      label: 'Aktif',
+      sortable: true,
+      className: 'w-[100px]',
+      render: (r: Row) => (
+        <span
+          className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+            r.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+          }`}
+        >
+          {r.active ? 'Ya' : 'Tidak'}
+        </span>
+      ),
+    },
     { key: 'title_id', label: 'Judul', sortable: true },
     {
       key: 'actions',

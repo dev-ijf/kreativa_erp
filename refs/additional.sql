@@ -103,12 +103,16 @@ CREATE TABLE IF NOT EXISTS "public"."academic_announcements" (
     "title_id" varchar NOT NULL,
     "content_en" text NOT NULL,
     "content_id" text NOT NULL,
-    "featured_image" text
+    "featured_image" text,
+    "active" boolean NOT NULL DEFAULT true
 );
 CREATE INDEX IF NOT EXISTS "idx_acad_ann_school_date" ON "public"."academic_announcements" ("school_id", "publish_date" DESC);
 
 ALTER TABLE "public"."academic_announcements"
   ADD COLUMN IF NOT EXISTS "featured_image" text;
+
+ALTER TABLE "public"."academic_announcements"
+  ADD COLUMN IF NOT EXISTS "active" boolean NOT NULL DEFAULT true;
 
 
 -- ==============================================================================

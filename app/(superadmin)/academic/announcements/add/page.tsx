@@ -22,6 +22,7 @@ export default function AddAnnouncementPage() {
     title_id: '',
     content_en: '',
     content_id: '',
+    active: true,
   });
   const [saving, setSaving] = useState(false);
 
@@ -80,6 +81,7 @@ export default function AddAnnouncementPage() {
         content_en: form.content_en,
         content_id: form.content_id,
         featured_image: featuredImage,
+        active: form.active,
       }),
     });
     setSaving(false);
@@ -133,6 +135,15 @@ export default function AddAnnouncementPage() {
           <Field label="Judul (EN)" required>
             <Input value={form.title_en} onChange={(e) => setForm((f) => ({ ...f, title_en: e.target.value }))} />
           </Field>
+          <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.active}
+              onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))}
+              className="rounded border-slate-300"
+            />
+            Pengumuman aktif (ditampilkan)
+          </label>
           <Field label="Isi (ID)" required>
             <RichTextEditor
               value={form.content_id}

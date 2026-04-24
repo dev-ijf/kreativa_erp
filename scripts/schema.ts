@@ -685,6 +685,7 @@ export const academicAnnouncements = pgTable(
     contentEn: text('content_en').notNull(),
     contentId: text('content_id').notNull(),
     featuredImage: text('featured_image'),
+    active: boolean('active').notNull().default(true),
   },
   (t) => [index('idx_acad_ann_school_date').on(t.schoolId, t.publishDate)]
 );

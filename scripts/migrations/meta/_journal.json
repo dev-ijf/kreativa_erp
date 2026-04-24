@@ -64,6 +64,13 @@
       "when": 1775500000000,
       "tag": "0008_tuition_bills_denormalization_parent_relations",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1775600000000,
+      "tag": "0011_academic_announcements_active",
+      "breakpoints": true
     }
   ]
 }

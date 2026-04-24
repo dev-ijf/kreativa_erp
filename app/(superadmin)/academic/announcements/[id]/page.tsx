@@ -18,6 +18,7 @@ export default function EditAnnouncementPage({ params }: { params: Promise<{ id:
     title_id: '',
     content_en: '',
     content_id: '',
+    active: true,
   });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,7 @@ export default function EditAnnouncementPage({ params }: { params: Promise<{ id:
           title_id: row.title_id ?? '',
           content_en: row.content_en ?? '',
           content_id: row.content_id ?? '',
+          active: row.active !== false && row.active !== 'false',
         });
         const img = row.featured_image ?? '';
         setServerImage(img);
@@ -98,6 +100,7 @@ export default function EditAnnouncementPage({ params }: { params: Promise<{ id:
         content_en: form.content_en,
         content_id: form.content_id,
         featured_image: featuredImage,
+        active: form.active,
       }),
     });
     setSaving(false);
@@ -153,6 +156,15 @@ export default function EditAnnouncementPage({ params }: { params: Promise<{ id:
           <Field label="Judul (EN)" required>
             <Input value={form.title_en} onChange={(e) => setForm((f) => ({ ...f, title_en: e.target.value }))} />
           </Field>
+          <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.active}
+              onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))}
+              className="rounded border-slate-300"
+            />
+            Pengumuman aktif (ditampilkan)
+          </label>
           <Field label="Isi (ID)" required>
             <RichTextEditor
               value={form.content_id}
