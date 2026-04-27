@@ -21,16 +21,30 @@ function cellNum(r: RowIn, keys: string[]): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function formId(v: FormDataEntryValue | null): number | null {
+  if (v == null || v === '') return null;
+  const n = Number(String(v).trim());
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const preview = searchParams.get('preview') === 'true';
 
   const ct = req.headers.get('content-type') || '';
   let workbook: XLSX.WorkBook;
+  let ctxSchoolId: number | null = null;
+  let ctxAyId: number | null = null;
+  let ctxProductId: number | null = null;
+  let ctxCohortId: number | null = null;
 
   if (ct.includes('multipart/form-data')) {
     const form = await req.formData();
     const file = form.get('file');
+    ctxSchoolId = formId(form.get('school_id'));
+    ctxAyId = formId(form.get('academic_year_id'));
+    ctxProductId = formId(form.get('product_id'));
+    ctxCohortId = formId(form.get('cohort_id'));
     if (!file || !(file instanceof Blob)) {
       return NextResponse.json({ error: 'Field file wajib (.xlsx)' }, { status: 400 });
     }
@@ -75,15 +89,19 @@ export async function POST(req: NextRequest) {
     const r = rows[i];
     const line = i + 2;
     const nis = cellStr(r, ['nis', 'NIS', 'Nis']);
-    const academicYearId = cellNum(r, ['academic_year_id', 'academic_year', 'tahun_ajaran_id']);
-    const productId = cellNum(r, ['product_id', 'product', 'produk_id']);
-    const schoolId = cellNum(r, ['school_id', 'sekolah_id']);
-    const cohortId = cellNum(r, ['cohort_id', 'angkatan_id']);
+    const academicYearId =
+      cellNum(r, ['academic_year_id', 'academic_year', 'tahun_ajaran_id']) ?? ctxAyId;
+    const productId = cellNum(r, ['product_id', 'product', 'produk_id']) ?? ctxProductId;
+    const schoolIdRow = cellNum(r, ['school_id', 'sekolah_id']);
+    const schoolId = schoolIdRow ?? ctxSchoolId;
+    const cohortIdRow = cellNum(r, ['cohort_id', 'angkatan_id']);
+    const cohortId = cohortIdRow ?? ctxCohortId;
     const billMonth = cellNum(r, ['bill_month', 'bulan']);
     const billYear = cellNum(r, ['bill_year', 'tahun']);
     const title = cellStr(r, ['title', 'judul']) || undefined;
     const amountOverride = cellStr(r, ['amount', 'nominal', 'jumlah']);
     const discountAmount = cellStr(r, ['discount_amount', 'potongan', 'diskon']) || '0';
+    const minPaymentOverride = cellStr(r, ['min_payment', 'min bayar', 'minimal_bayar', 'minimal bayar']);
     const statusImport = cellStr(r, ['status', 'Status', 'keterangan_bayar']) || 'unpaid';
     const studentNameHelper = cellStr(r, ['student_name', 'nama_siswa']);
 
@@ -91,7 +109,7 @@ export async function POST(req: NextRequest) {
     let rowStatus: 'valid' | 'invalid' = 'valid';
 
     if (!nis || !academicYearId || !productId) {
-      rowError = `nis, academic_year_id, dan product_id wajib`;
+      rowError = `NIS wajib; tahun ajaran & produk wajib (isi di Excel atau pilih konteks di formulir impor sebelum unggah)`;
       rowStatus = 'invalid';
     }
 
@@ -101,20 +119,28 @@ export async function POST(req: NextRequest) {
     let ayData: any = null;
 
     if (rowStatus === 'valid') {
-      let studentRows = await sql`
-        SELECT id, full_name FROM core_students WHERE nis = ${nis}
-      `;
-      if (schoolId != null) {
-        studentRows = await sql`
-          SELECT id, full_name FROM core_students WHERE nis = ${nis} AND school_id = ${schoolId}
-        `;
-      }
+      const studentRows =
+        schoolId != null && cohortId != null
+          ? await sql`
+              SELECT id, full_name FROM core_students
+              WHERE nis = ${nis} AND school_id = ${schoolId} AND cohort_id = ${cohortId}
+            `
+          : schoolId != null
+            ? await sql`
+                SELECT id, full_name FROM core_students WHERE nis = ${nis} AND school_id = ${schoolId}
+              `
+            : await sql`
+                SELECT id, full_name FROM core_students WHERE nis = ${nis}
+              `;
 
       if (studentRows.length === 0) {
-        rowError = `Siswa dengan NIS ${nis} tidak ditemukan`;
+        rowError =
+          schoolId != null
+            ? `Siswa NIS ${nis} tidak ditemukan di sekolah ini (periksa NIS / angkatan)`
+            : `Siswa dengan NIS ${nis} tidak ditemukan — pilih Sekolah di formulir impor`;
         rowStatus = 'invalid';
       } else if (studentRows.length > 1) {
-        rowError = `Lebih dari satu siswa dengan NIS ${nis} — isi school_id`;
+        rowError = `Lebih dari satu siswa dengan NIS ${nis} — pilih Sekolah (dan Angkatan) di formulir impor`;
         rowStatus = 'invalid';
       } else {
         studentId = studentRows[0].id as number;
@@ -153,14 +179,22 @@ export async function POST(req: NextRequest) {
     }
 
     let resolvedAmount = amountOverride;
-    if (rowStatus === 'valid' && amountOverride === '') {
+    let resolvedMinPayment = '0';
+    if (rowStatus === 'valid') {
       const t = await resolveTariffAmount(studentId!, productId!, academicYearId!);
-      if (!t.ok) {
+      if (t.ok) {
+        resolvedMinPayment = t.minPayment;
+        if (amountOverride === '') {
+          resolvedAmount = t.amount;
+        }
+      } else if (amountOverride === '') {
         rowError = t.error || 'Tarif tidak ditemukan';
         rowStatus = 'invalid';
-      } else {
-        resolvedAmount = t.amount;
       }
+    }
+
+    if (rowStatus === 'valid' && minPaymentOverride.trim() !== '') {
+      resolvedMinPayment = minPaymentOverride.trim();
     }
 
     if (preview) {
@@ -192,11 +226,12 @@ export async function POST(req: NextRequest) {
         paymentType: String(productData.payment_type),
         ayName: String(ayData.name),
         amount: resolvedAmount,
+        minPayment: resolvedMinPayment,
         discountAmount,
         status: statusImport,
         bill_month: billMonth ?? undefined,
         bill_year: billYear ?? undefined,
-        title,
+        title: title?.trim() || undefined,
       });
       if (res.created) inserted++;
       else skipped++;

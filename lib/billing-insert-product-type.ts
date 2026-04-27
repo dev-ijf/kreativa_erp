@@ -13,6 +13,7 @@ export async function insertOneBillForProductType(args: {
   paymentType: string;
   ayName: string;
   amount: string;
+  minPayment?: string | number | null;
   discountAmount?: string | number;
   paidAmount?: string | number;
   status?: string;
@@ -28,6 +29,7 @@ export async function insertOneBillForProductType(args: {
     productId: args.productId,
     academicYearId: args.academicYearId,
     amount: args.amount,
+    minPayment: args.minPayment,
     discountAmount: args.discountAmount,
     paidAmount: args.paidAmount,
     status: args.status,

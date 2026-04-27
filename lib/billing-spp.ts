@@ -81,6 +81,7 @@ export type InsertBillParams = {
   billMonth: number | null;
   billYear: number | null;
   relatedMonth: string | null;
+  minPayment?: string | number | null;
 };
 
 /**
@@ -109,6 +110,7 @@ export async function insertTuitionBillIfNotExists(
   }
 
   const discount = p.discountAmount ?? 0;
+  const minPay = p.minPayment != null && p.minPayment !== '' ? p.minPayment : 0;
   let status = p.status || 'unpaid';
   let paidAmount = p.paidAmount ?? 0;
 
@@ -121,7 +123,7 @@ export async function insertTuitionBillIfNotExists(
     INSERT INTO tuition_bills (
       school_id, cohort_id, student_id, product_id, academic_year_id, title,
       total_amount, discount_amount, paid_amount, status,
-      bill_month, bill_year, related_month
+      bill_month, bill_year, related_month, min_payment
     )
     VALUES (
       ${schoolId},
@@ -136,7 +138,8 @@ export async function insertTuitionBillIfNotExists(
       ${status},
       ${p.billMonth},
       ${p.billYear},
-      ${p.relatedMonth}
+      ${p.relatedMonth},
+      ${minPay}
     )
   `;
   return { created: true };
@@ -152,7 +155,9 @@ export async function insertSppMonthBill(
   academicYearId: number,
   monthName: string,
   academicYearStart: number,
-  amount: string | number
+  amount: string | number,
+  minPayment?: string | number | null,
+  discountAmount?: string | number | null
 ): Promise<{ created: boolean }> {
   const title = `SPP ${monthName}`;
   const billYear = billYearForMonth(monthName, academicYearStart);
@@ -166,6 +171,8 @@ export async function insertSppMonthBill(
     billMonth,
     billYear,
     relatedMonth: relatedMonthDate(billYear, billMonth),
+    minPayment,
+    discountAmount,
   });
 }
 
@@ -177,7 +184,9 @@ export async function generateSpp12ForStudent(
   productId: number,
   academicYearId: number,
   academicYearStart: number,
-  amount: string | number
+  amount: string | number,
+  minPayment?: string | number | null,
+  discountAmount?: string | number | null
 ): Promise<{ bills_created: number }> {
   let bills_created = 0;
   for (const month of SPP_MONTHS) {
@@ -187,7 +196,9 @@ export async function generateSpp12ForStudent(
       academicYearId,
       month,
       academicYearStart,
-      amount
+      amount,
+      minPayment,
+      discountAmount
     );
     if (created) bills_created++;
   }

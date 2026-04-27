@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const cohortIds = [...new Set(students.map((s) => s.cohort_id))];
 
     const tariffs = await sql`
-      SELECT cohort_id, amount 
+      SELECT cohort_id, amount, min_payment
       FROM tuition_product_tariffs
       WHERE school_id = ${cls.school_id}
         AND product_id = ${Number(product_id)}
@@ -55,15 +55,20 @@ export async function POST(req: NextRequest) {
         AND cohort_id = ANY(${cohortIds}::int[])
     `;
 
-    const tariffMap = new Map(tariffs.map((t) => [t.cohort_id, t.amount]));
+    const tariffMap = new Map(
+      tariffs.map((t) => [
+        t.cohort_id,
+        { amount: t.amount, minPayment: String(t.min_payment ?? 0) },
+      ])
+    );
 
     let billsCreated = 0;
     let studentsProcessed = 0;
 
     for (const student of students) {
-      const amount = tariffMap.get(student.cohort_id);
+      const slot = tariffMap.get(student.cohort_id);
 
-      if (amount == null) continue;
+      if (slot == null) continue;
 
       studentsProcessed++;
 
@@ -74,7 +79,8 @@ export async function POST(req: NextRequest) {
           Number(academic_year_id),
           month,
           startYear,
-          amount
+          slot.amount,
+          slot.minPayment
         );
         if (created) billsCreated++;
       }

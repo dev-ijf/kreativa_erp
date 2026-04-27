@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Field, Select, Button, Input } from '@/components/ui/FormFields';
+import { Field, Select, Button, Input, MoneyInput } from '@/components/ui/FormFields';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { billMonthSelectOptions, billYearSelectOptions } from '@/lib/billing-period-ui';
@@ -21,7 +21,10 @@ export default function CreateBillPage() {
   const [academicYears, setAcademicYears] = useState<{ id: number; name: string }[]>([]);
   const [classes, setClasses] = useState<{ id: number; name: string; school_id: number }[]>([]);
   const [products, setProducts] = useState<{ id: number; name: string; payment_type: string }[]>([]);
-  const [students, setStudents] = useState<{ id: number; full_name: string; nis: string }[]>([]);
+  const [students, setStudents] = useState<{ id: number; full_name: string; nis: string; cohort_id?: number }[]>(
+    []
+  );
+  const [cohortList, setCohortList] = useState<{ id: number; name: string; school_id: number }[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -29,12 +32,15 @@ export default function CreateBillPage() {
   const [schoolId, setSchoolId] = useState('');
   const [academicYearId, setAcademicYearId] = useState('');
   const [classId, setClassId] = useState('');
+  const [cohortFilterId, setCohortFilterId] = useState('');
   const [studentId, setStudentId] = useState('');
   const [productId, setProductId] = useState('');
   const [billMonth, setBillMonth] = useState('');
   const [billYear, setBillYear] = useState('');
   const [title, setTitle] = useState('');
   const [amountOverride, setAmountOverride] = useState('');
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [minPayment, setMinPayment] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -52,6 +58,18 @@ export default function CreateBillPage() {
       if (sch.length > 0) setSchoolId(String(sch[0].id));
     });
   }, []);
+
+  useEffect(() => {
+    setCohortFilterId('');
+    if (!schoolId) {
+      setCohortList([]);
+      return;
+    }
+    fetch(`/api/master/cohorts?school_id=${schoolId}`)
+      .then((r) => r.json())
+      .then((d) => setCohortList(Array.isArray(d) ? d : []))
+      .catch(() => setCohortList([]));
+  }, [schoolId]);
 
   useEffect(() => {
     if (!academicYearId || !schoolId) {
@@ -78,6 +96,10 @@ export default function CreateBillPage() {
   const selectedProduct = products.find((p) => String(p.id) === productId);
   const pt = selectedProduct?.payment_type;
 
+  const studentsFiltered = cohortFilterId
+    ? students.filter((s) => String(s.cohort_id ?? '') === cohortFilterId)
+    : students;
+
   const submitSingle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentId || !productId || !academicYearId) {
@@ -97,6 +119,8 @@ export default function CreateBillPage() {
       body.bill_year = parseInt(billYear, 10);
     }
     if (pt === 'annualy' && billYear.trim()) body.bill_year = parseInt(billYear, 10);
+    if (discountAmount.trim()) body.discount_amount = discountAmount.trim();
+    if (minPayment.trim()) body.min_payment = minPayment.trim();
 
     setSaving(true);
     try {
@@ -134,6 +158,8 @@ export default function CreateBillPage() {
       body.bill_year = parseInt(billYear, 10);
     }
     if (pt === 'annualy' && billYear.trim()) body.bill_year = parseInt(billYear, 10);
+    if (discountAmount.trim()) body.discount_amount = discountAmount.trim();
+    if (minPayment.trim()) body.min_payment = minPayment.trim();
 
     setSaving(true);
     try {
@@ -163,15 +189,19 @@ export default function CreateBillPage() {
     }
     setSaving(true);
     try {
+      const body: Record<string, unknown> = {
+        mode: 'spp_12_student',
+        student_id: parseInt(studentId, 10),
+        product_id: parseInt(productId, 10),
+        academic_year_id: parseInt(academicYearId, 10),
+      };
+      if (discountAmount.trim()) body.discount_amount = discountAmount.trim();
+      if (minPayment.trim()) body.min_payment = minPayment.trim();
+
       const res = await fetch('/api/billing/bills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'spp_12_student',
-          student_id: parseInt(studentId, 10),
-          product_id: parseInt(productId, 10),
-          academic_year_id: parseInt(academicYearId, 10),
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -192,15 +222,19 @@ export default function CreateBillPage() {
     }
     setSaving(true);
     try {
+      const body: Record<string, unknown> = {
+        mode: 'spp_12_class',
+        class_id: parseInt(classId, 10),
+        product_id: parseInt(productId, 10),
+        academic_year_id: parseInt(academicYearId, 10),
+      };
+      if (discountAmount.trim()) body.discount_amount = discountAmount.trim();
+      if (minPayment.trim()) body.min_payment = minPayment.trim();
+
       const res = await fetch('/api/billing/bills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'spp_12_class',
-          class_id: parseInt(classId, 10),
-          product_id: parseInt(productId, 10),
-          academic_year_id: parseInt(academicYearId, 10),
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -215,14 +249,51 @@ export default function CreateBillPage() {
     }
   };
 
+  const billImportContextReady =
+    Boolean(schoolId) &&
+    Boolean(cohortFilterId) &&
+    Boolean(academicYearId) &&
+    Boolean(classId) &&
+    Boolean(productId);
+
+  const appendBillImportContext = (fd: FormData) => {
+    fd.set('school_id', schoolId);
+    fd.set('cohort_id', cohortFilterId);
+    fd.set('academic_year_id', academicYearId);
+    fd.set('class_id', classId);
+    fd.set('product_id', productId);
+  };
+
+  const downloadBillImportTemplate = () => {
+    if (!billImportContextReady) {
+      toast.error('Lengkapi Sekolah, Angkatan, Tahun ajaran, Kelas, dan Produk biaya');
+      return;
+    }
+    const p = new URLSearchParams({
+      school_id: schoolId,
+      cohort_id: cohortFilterId,
+      class_id: classId,
+      academic_year_id: academicYearId,
+      product_id: productId,
+    });
+    window.open(`/api/billing/bills/template?${p}`, '_blank');
+  };
+
   const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    if (!billImportContextReady) {
+      toast.error(
+        'Isi konteks impor di atas (sama seperti saat unduh template). File Excel tidak perlu berisi ID sekolah/produk.'
+      );
+      return;
+    }
     setImporting(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
+      appendBillImportContext(fd);
       const res = await fetch('/api/billing/bills/import', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
@@ -320,6 +391,22 @@ export default function CreateBillPage() {
               ))}
             </Select>
           </Field>
+          <Field label="Angkatan (filter daftar siswa, opsional)">
+            <Select
+              value={cohortFilterId}
+              onChange={(e) => {
+                setCohortFilterId(e.target.value);
+                setStudentId('');
+              }}
+            >
+              <option value="">Semua angkatan</option>
+              {cohortList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Tahun ajaran" required>
             <Select value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)}>
               {academicYears.map((y) => (
@@ -346,7 +433,7 @@ export default function CreateBillPage() {
               disabled={loadingStudents}
             >
               <option value="">{loadingStudents ? 'Memuat…' : 'Pilih siswa'}</option>
-              {students.map((s) => (
+              {studentsFiltered.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.full_name} — {s.nis}
                 </option>
@@ -370,6 +457,14 @@ export default function CreateBillPage() {
           <Field label="Nominal override (opsional)">
             <Input value={amountOverride} onChange={(e) => setAmountOverride(e.target.value)} />
           </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Diskon (opsional)">
+              <MoneyInput value={discountAmount} onChange={(v) => setDiscountAmount(v)} placeholder="0" />
+            </Field>
+            <Field label="Min. bayar override (opsional)">
+              <MoneyInput value={minPayment} onChange={(v) => setMinPayment(v)} placeholder="0" />
+            </Field>
+          </div>
           <Button type="submit" loading={saving}>
             Simpan tagihan
           </Button>
@@ -383,6 +478,16 @@ export default function CreateBillPage() {
               {schools.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Angkatan (opsional)">
+            <Select value={cohortFilterId} onChange={(e) => setCohortFilterId(e.target.value)}>
+              <option value="">Semua angkatan</option>
+              {cohortList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </Select>
@@ -420,6 +525,14 @@ export default function CreateBillPage() {
           <Field label="Judul (opsional)">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Diskon sama untuk semua (opsional)">
+              <MoneyInput value={discountAmount} onChange={(v) => setDiscountAmount(v)} placeholder="0" />
+            </Field>
+            <Field label="Min. bayar sama untuk semua (opsional)">
+              <MoneyInput value={minPayment} onChange={(v) => setMinPayment(v)} placeholder="0" />
+            </Field>
+          </div>
           <Button type="submit" loading={saving}>
             Buat tagihan untuk semua siswa kelas
           </Button>
@@ -436,6 +549,22 @@ export default function CreateBillPage() {
               {schools.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Angkatan (filter siswa, opsional)">
+            <Select
+              value={cohortFilterId}
+              onChange={(e) => {
+                setCohortFilterId(e.target.value);
+                setStudentId('');
+              }}
+            >
+              <option value="">Semua angkatan</option>
+              {cohortList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </Select>
@@ -462,7 +591,7 @@ export default function CreateBillPage() {
           <Field label="Siswa" required>
             <Select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
               <option value="">Pilih</option>
-              {students.map((s) => (
+              {studentsFiltered.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.full_name} — {s.nis}
                 </option>
@@ -481,6 +610,14 @@ export default function CreateBillPage() {
                 ))}
             </Select>
           </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Diskon per bulan (sama, opsional)">
+              <MoneyInput value={discountAmount} onChange={(v) => setDiscountAmount(v)} placeholder="0" />
+            </Field>
+            <Field label="Min. bayar per bulan (override matriks, opsional)">
+              <MoneyInput value={minPayment} onChange={(v) => setMinPayment(v)} placeholder="0" />
+            </Field>
+          </div>
           <Button type="submit" loading={saving}>
             Generate 12 bulan
           </Button>
@@ -497,6 +634,16 @@ export default function CreateBillPage() {
               {schools.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Angkatan (opsional)">
+            <Select value={cohortFilterId} onChange={(e) => setCohortFilterId(e.target.value)}>
+              <option value="">Semua angkatan</option>
+              {cohortList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </Select>
@@ -532,6 +679,14 @@ export default function CreateBillPage() {
                 ))}
             </Select>
           </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Diskon per bulan (sama, opsional)">
+              <MoneyInput value={discountAmount} onChange={(v) => setDiscountAmount(v)} placeholder="0" />
+            </Field>
+            <Field label="Min. bayar per bulan (override matriks, opsional)">
+              <MoneyInput value={minPayment} onChange={(v) => setMinPayment(v)} placeholder="0" />
+            </Field>
+          </div>
           <Button type="submit" loading={saving}>
             Generate untuk kelas
           </Button>
@@ -540,23 +695,85 @@ export default function CreateBillPage() {
 
       {tab === 'import' && (
         <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
-          <p className="text-sm text-slate-600">
-            Unduh template, isi kolom, lalu unggah file .xlsx di sini.
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Pilih konteks tagihan di bawah (seperti impor siswa). File unduhan memuat kolom{' '}
+            <span className="font-medium">school_id</span> / <span className="font-medium">school_label</span> dan
+            pasangan ID–label untuk angkatan, tahun ajaran, kelas, dan produk (sama dengan dropdown), lalu baris siswa
+            dan nominal dari Matriks Tarif. Saat unggah, sistem tetap mengirim ID dari form ini; kolom ID di Excel
+            boleh dipakai sebagai cadangan jika isinya konsisten.
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => window.open('/api/billing/bills/template')}>
-              Unduh template
+          <Field label="Sekolah" required>
+            <Select value={schoolId} onChange={(e) => setSchoolId(e.target.value)}>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Angkatan" required>
+            <Select
+              value={cohortFilterId}
+              onChange={(e) => setCohortFilterId(e.target.value)}
+              disabled={!schoolId}
+            >
+              <option value="">— Pilih angkatan —</option>
+              {cohortList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Tahun ajaran" required>
+            <Select value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)}>
+              {academicYears.map((y) => (
+                <option key={y.id} value={y.id}>
+                  {y.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Kelas (rombel)" required>
+            <Select value={classId} onChange={(e) => setClassId(e.target.value)} disabled={!schoolId}>
+              <option value="">— Pilih kelas —</option>
+              {availableClasses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Produk biaya" required>
+            <Select value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <option value="">— Pilih produk —</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.payment_type})
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="flex flex-wrap gap-2 items-center pt-2">
+            <Button type="button" variant="outline" onClick={downloadBillImportTemplate} disabled={!billImportContextReady}>
+              Unduh template .xlsx
             </Button>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+            <label
+              className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium ${
+                !billImportContextReady || importing
+                  ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+            >
               <input
                 type="file"
-                accept=".xlsx"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="hidden"
                 onChange={onImportFile}
-                disabled={importing}
+                disabled={importing || !billImportContextReady}
               />
               {importing ? <Loader2 size={16} className="animate-spin" /> : null}
-              Pilih file .xlsx
+              Unggah .xlsx
             </label>
           </div>
         </div>

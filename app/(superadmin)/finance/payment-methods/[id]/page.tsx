@@ -84,15 +84,17 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
   const router = useRouter();
   const { id } = use(params);
   
-  const [form, setForm] = useState({ 
-    name: '', 
-    code: '', 
-    category: 'bank_transfer', 
-    coa: '', 
+  const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [form, setForm] = useState({
+    name: '',
+    code: '',
+    school_id: '' as string | number,
+    category: 'bank_transfer',
+    coa: '',
     vendor: '',
     is_publish: true,
     is_redirect: false,
-    is_active: true 
+    is_active: true,
   });
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [saving, setSaving] = useState(false);
@@ -110,15 +112,16 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
     const res = await fetch(`/api/finance/payment-methods/${id}`);
     const item = await res.json();
     if (item) {
-      setForm({ 
-        name: item.name, 
-        code: item.code, 
-        category: item.category, 
-        coa: item.coa || '', 
+      setForm({
+        name: item.name,
+        code: item.code,
+        school_id: item.school_id != null ? String(item.school_id) : '',
+        category: item.category,
+        coa: item.coa || '',
         vendor: item.vendor || '',
         is_publish: item.is_publish ?? true,
         is_redirect: item.is_redirect ?? false,
-        is_active: item.is_active 
+        is_active: item.is_active,
       });
     }
     setLoading(false);
@@ -133,6 +136,13 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
   };
 
   useEffect(() => {
+    fetch('/api/master/schools')
+      .then((r) => r.json())
+      .then((d) => setSchools(Array.isArray(d) ? d : []))
+      .catch(() => setSchools([]));
+  }, []);
+
+  useEffect(() => {
     void loadMethod();
     void loadInstructions();
   }, [id]);
@@ -140,10 +150,13 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await fetch(`/api/finance/payment-methods/${id}`, { 
-      method: 'PUT', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(form) 
+    await fetch(`/api/finance/payment-methods/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...form,
+        school_id: form.school_id === '' ? null : Number(form.school_id),
+      }),
     });
     setSaving(false);
     toast.success('Metode pembayaran diperbarui');
@@ -203,6 +216,19 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
             <div className="flex items-center gap-2 mb-2 text-slate-800 font-semibold text-sm">
                <CreditCard size={16} className="text-violet-600" /> Informasi Dasar
             </div>
+            <Field
+              label="Sekolah (opsional)"
+              hint="Kosong = global. Untuk tunai per sekolah (COA berbeda), pilih sekolah."
+            >
+              <Select value={String(form.school_id)} onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}>
+                <option value="">Semua sekolah (global)</option>
+                {schools.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Grid cols={2} gap={5}>
               <Field label="Nama Bank / E-Wallet" required hint="Contoh: Bank BSI, BCA, GoPay, Tunai">
                 <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />

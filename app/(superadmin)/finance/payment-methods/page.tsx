@@ -34,6 +34,8 @@ interface PaymentMethod {
   is_publish: boolean;
   is_active: boolean;
   sort_order?: number | null;
+  school_id?: number | null;
+  school_name?: string | null;
 }
 
 function SortableRow({
@@ -74,6 +76,9 @@ function SortableRow({
         <div className="text-[11px] text-slate-400 font-medium tracking-tight uppercase">{row.vendor || '-'}</div>
       </td>
       <td className="px-5 py-3.5 text-[13px] font-mono text-slate-500">{row.code}</td>
+      <td className="px-5 py-3.5 text-[12px] text-slate-600 max-w-[140px] truncate" title={row.school_name || ''}>
+        {row.school_id != null && row.school_name ? row.school_name : <span className="text-slate-400">Semua sekolah</span>}
+      </td>
       <td className="px-5 py-3.5 uppercase tracking-wider text-[11px] text-slate-700">{row.category}</td>
       <td className="px-5 py-3.5 text-[13px] font-mono text-slate-600">
         {row.coa ? <Badge variant="neutral">{row.coa}</Badge> : '-'}
@@ -103,6 +108,8 @@ function SortableRow({
 
 export default function PaymentMethodsPage() {
   const [data, setData] = useState<PaymentMethod[]>([]);
+  const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [filterSchoolId, setFilterSchoolId] = useState('');
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [reordering, setReordering] = useState(false);
@@ -119,12 +126,20 @@ export default function PaymentMethodsPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  useEffect(() => {
+    fetch('/api/master/schools')
+      .then((r) => r.json())
+      .then((d) => setSchools(Array.isArray(d) ? d : []))
+      .catch(() => setSchools([]));
+  }, []);
+
   const load = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set('page', String(page));
     params.set('limit', String(limit));
     if (search.trim()) params.set('q', search.trim());
+    if (filterSchoolId) params.set('school_id', filterSchoolId);
 
     fetch(`/api/finance/payment-methods?${params}`)
       .then((r) => r.json())
@@ -135,7 +150,7 @@ export default function PaymentMethodsPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [page, limit, search]);
+  }, [page, limit, search, filterSchoolId]);
 
   useEffect(() => {
     load();
@@ -221,15 +236,33 @@ export default function PaymentMethodsPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-[#E2E8F1] shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#E2E8F1] flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Cari metode pembayaran..."
-              className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] w-72 focus:outline-none focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 placeholder:text-slate-400"
-            />
+        <div className="px-5 py-4 border-b border-[#E2E8F1] flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Cari metode pembayaran..."
+                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] w-72 focus:outline-none focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 placeholder:text-slate-400"
+              />
+            </div>
+            <div className="min-w-[12rem]">
+              <Select
+                value={filterSchoolId}
+                onChange={(e) => {
+                  setFilterSchoolId(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Semua / relevan semua sekolah</option>
+                {schools.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} (global + khusus)
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
           <div className="text-[12px] text-slate-400">
             {reordering ? 'Menyimpan urutan...' : `${total} metode`}
@@ -245,6 +278,7 @@ export default function PaymentMethodsPage() {
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-16">ID</th>
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nama Metode</th>
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Kode</th>
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sekolah</th>
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Jenis</th>
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">COA</th>
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Publish</th>
@@ -256,7 +290,7 @@ export default function PaymentMethodsPage() {
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-b border-[#E2E8F1]">
-                      {Array.from({ length: 9 }).map((__, j) => (
+                      {Array.from({ length: 10 }).map((__, j) => (
                         <td key={j} className="px-5 py-3.5">
                           <div className="h-4 bg-slate-100 rounded animate-pulse" />
                         </td>
@@ -265,7 +299,7 @@ export default function PaymentMethodsPage() {
                   ))
                 ) : data.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-16 text-slate-400 text-[13px]">
+                    <td colSpan={10} className="text-center py-16 text-slate-400 text-[13px]">
                       Belum ada metode pembayaran
                     </td>
                   </tr>

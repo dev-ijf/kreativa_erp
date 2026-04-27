@@ -85,6 +85,13 @@
       "when": 1775800000000,
       "tag": "0014_tuition_bills_fk_student_product_academic_year",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1775900000000,
+      "tag": "0015_tuition_product_tariffs_min_payment",
+      "breakpoints": true
     }
   ]
 }

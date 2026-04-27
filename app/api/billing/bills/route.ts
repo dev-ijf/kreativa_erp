@@ -108,28 +108,45 @@ async function handleSpp12Class(body: Record<string, unknown>) {
 
   const cohortIds = [...new Set(students.map((s) => s.cohort_id))];
   const tariffs = await sql`
-    SELECT cohort_id, amount 
+    SELECT cohort_id, amount, min_payment
     FROM tuition_product_tariffs
     WHERE school_id = ${cls.school_id}
       AND product_id = ${product_id}
       AND academic_year_id = ${academic_year_id}
       AND cohort_id = ANY(${cohortIds}::int[])
   `;
-  const tariffMap = new Map(tariffs.map((t) => [t.cohort_id, t.amount]));
+  const tariffMap = new Map(
+    tariffs.map((t) => [
+      t.cohort_id,
+      { amount: t.amount, minPayment: String(t.min_payment ?? 0) },
+    ])
+  );
+
+  const sppDisc =
+    body.discount_amount != null && String(body.discount_amount).trim() !== ''
+      ? String(body.discount_amount)
+      : undefined;
+  const sppMinOverride =
+    body.min_payment != null && String(body.min_payment).trim() !== ''
+      ? String(body.min_payment)
+      : undefined;
 
   let bills_created = 0;
   let students_processed = 0;
 
   for (const student of students) {
-    const amount = tariffMap.get(student.cohort_id);
-    if (amount == null) continue;
+    const slot = tariffMap.get(student.cohort_id);
+    if (slot == null) continue;
     students_processed++;
+    const minPay = sppMinOverride ?? slot.minPayment;
     const r = await generateSpp12ForStudent(
       student.student_id,
       product_id,
       academic_year_id,
       startYear,
-      amount
+      slot.amount,
+      minPay,
+      sppDisc
     );
     bills_created += r.bills_created;
   }
@@ -177,12 +194,24 @@ async function handleSpp12Student(body: Record<string, unknown>) {
     return NextResponse.json({ error: t.error }, { status: 400 });
   }
 
+  const sppDisc =
+    body.discount_amount != null && String(body.discount_amount).trim() !== ''
+      ? String(body.discount_amount)
+      : undefined;
+  const sppMinOverride =
+    body.min_payment != null && String(body.min_payment).trim() !== ''
+      ? String(body.min_payment)
+      : undefined;
+  const minPay = sppMinOverride ?? t.minPayment;
+
   const { bills_created } = await generateSpp12ForStudent(
     student_id,
     product_id,
     academic_year_id,
     startYear,
-    t.amount
+    t.amount,
+    minPay,
+    sppDisc
   );
 
   return NextResponse.json({ success: true, bills_created });
@@ -244,12 +273,21 @@ async function handleClassSinglePeriod(body: Record<string, unknown>) {
   let bills_created = 0;
   let students_processed = 0;
   const paymentType = String(product.payment_type);
+  const classDisc =
+    body.discount_amount != null && String(body.discount_amount).trim() !== ''
+      ? String(body.discount_amount)
+      : undefined;
+  const classMinOverride =
+    body.min_payment != null && String(body.min_payment).trim() !== ''
+      ? String(body.min_payment)
+      : undefined;
 
   for (const row of students) {
     const sid = row.student_id as number;
     const t = await resolveTariffAmount(sid, product_id, academic_year_id);
     if (!t.ok) continue;
     students_processed++;
+    const minPay = classMinOverride ?? t.minPayment;
     const r = await insertOneBillForProductType({
       studentId: sid,
       productId: product_id,
@@ -258,6 +296,8 @@ async function handleClassSinglePeriod(body: Record<string, unknown>) {
       paymentType,
       ayName: String(ay.name),
       amount: t.amount,
+      minPayment: minPay,
+      discountAmount: classDisc,
       bill_month: body.bill_month != null ? Number(body.bill_month) : undefined,
       bill_year: body.bill_year != null ? Number(body.bill_year) : undefined,
       title: body.title != null ? String(body.title) : undefined,
@@ -315,12 +355,20 @@ async function handleSingle(body: Record<string, unknown>) {
   }
 
   const amountOverride = body.amount_override != null ? String(body.amount_override) : null;
-  const t = amountOverride
-    ? { ok: true as const, amount: amountOverride }
-    : await resolveTariffAmount(student_id, product_id, academic_year_id);
+  const t = await resolveTariffAmount(student_id, product_id, academic_year_id);
   if (!t.ok) {
     return NextResponse.json({ error: t.error }, { status: 400 });
   }
+  const amount = amountOverride ?? t.amount;
+  const singleDisc =
+    body.discount_amount != null && String(body.discount_amount).trim() !== ''
+      ? String(body.discount_amount)
+      : undefined;
+  const singleMinOverride =
+    body.min_payment != null && String(body.min_payment).trim() !== ''
+      ? String(body.min_payment)
+      : undefined;
+  const minPayment = singleMinOverride ?? t.minPayment;
 
   const r = await insertOneBillForProductType({
     studentId: student_id,
@@ -329,7 +377,9 @@ async function handleSingle(body: Record<string, unknown>) {
     productName: String(product.name),
     paymentType: String(product.payment_type),
     ayName: String(ay.name),
-    amount: t.amount,
+    amount,
+    minPayment,
+    discountAmount: singleDisc,
     bill_month: body.bill_month != null ? Number(body.bill_month) : undefined,
     bill_year: body.bill_year != null ? Number(body.bill_year) : undefined,
     title: body.title != null ? String(body.title) : undefined,

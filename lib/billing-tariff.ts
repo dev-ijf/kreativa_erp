@@ -1,7 +1,7 @@
 import sql from '@/lib/db';
 
 export type TariffResolve =
-  | { ok: true; amount: string; schoolId: number; cohortId: number }
+  | { ok: true; amount: string; minPayment: string; schoolId: number; cohortId: number }
   | { ok: false; error: string };
 
 /**
@@ -13,7 +13,7 @@ export async function resolveTariffAmount(
   academicYearId: number
 ): Promise<TariffResolve> {
   const [row] = await sql`
-    SELECT t.amount, s.school_id, s.cohort_id
+    SELECT t.amount, t.min_payment, s.school_id, s.cohort_id
     FROM core_students s
     JOIN tuition_product_tariffs t ON t.school_id = s.school_id
       AND t.cohort_id = s.cohort_id
@@ -31,6 +31,7 @@ export async function resolveTariffAmount(
   return {
     ok: true,
     amount: String(row.amount),
+    minPayment: String(row.min_payment ?? 0),
     schoolId: row.school_id as number,
     cohortId: row.cohort_id as number,
   };

@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const bills = await sql`
-      SELECT b.id, b.total_amount, b.paid_amount, b.student_id, b.product_id, b.academic_year_id
+      SELECT b.id, b.total_amount, b.paid_amount, b.student_id, b.product_id, b.academic_year_id, b.school_id
       FROM tuition_bills b
       WHERE b.id = ANY(${billIds})
     `;
@@ -34,9 +34,26 @@ export async function POST(req: NextRequest) {
     const uid = userId ?? 1;
     const ayId = academicYearId ?? bills[0].academic_year_id;
 
+    const schoolIds = [...new Set(bills.map((b) => b.school_id as number | null))].filter(
+      (id) => id != null && Number.isFinite(Number(id))
+    ) as number[];
+    if (schoolIds.length !== 1) {
+      return NextResponse.json(
+        {
+          error:
+            'Tagihan yang dipilih harus dari satu sekolah yang sama (untuk memilih metode pembayaran / COA yang tepat).',
+        },
+        { status: 400 }
+      );
+    }
+    const billSchoolId = schoolIds[0]!;
+    const codeRaw = String(methodCode || 'BCA_TF').trim();
+
     const [pm] = await sql`
       SELECT id FROM tuition_payment_methods
-      WHERE code = ${methodCode || 'BCA_TF'}
+      WHERE lower(trim(both from code::text)) = lower(trim(both from ${codeRaw}))
+        AND (school_id IS NULL OR school_id = ${billSchoolId})
+      ORDER BY CASE WHEN school_id IS NOT NULL THEN 0 ELSE 1 END
       LIMIT 1
     `;
     const paymentMethodId = pm?.id ?? null;

@@ -93,6 +93,7 @@ export async function selectTuitionBills(
       p.payment_type as product_payment_type,
       p.is_installment as product_is_installment,
       ay.name AS academic_year_name,
+      co.name AS cohort_name,
       (SELECT c.name FROM core_student_class_histories ch
        JOIN core_classes c ON c.id = ch.class_id
        WHERE ch.student_id = s.id AND ch.academic_year_id = b.academic_year_id AND ch.status = 'active'
@@ -102,6 +103,7 @@ export async function selectTuitionBills(
     JOIN core_schools sch ON b.school_id = sch.id
     JOIN tuition_products p ON b.product_id = p.id
     JOIN core_academic_years ay ON b.academic_year_id = ay.id
+    LEFT JOIN core_cohorts co ON co.id = b.cohort_id
     WHERE (${filters.schoolId}::int IS NULL OR b.school_id = ${filters.schoolId})
       AND (${filters.cohortId}::int IS NULL OR b.cohort_id = ${filters.cohortId})
       AND (${filters.academicYearId}::int IS NULL OR b.academic_year_id = ${filters.academicYearId})
@@ -144,9 +146,11 @@ export async function selectTuitionBillsForExport(
       b.student_id,
       b.product_id,
       b.academic_year_id,
+      b.cohort_id,
       b.title,
       b.total_amount,
       b.paid_amount,
+      b.discount_amount,
       b.min_payment,
       b.due_date,
       b.status,
@@ -161,6 +165,7 @@ export async function selectTuitionBillsForExport(
       p.payment_type as product_payment_type,
       p.is_installment as product_is_installment,
       ay.name AS academic_year_name,
+      co.name AS cohort_name,
       (SELECT c.name FROM core_student_class_histories ch
        JOIN core_classes c ON c.id = ch.class_id
        WHERE ch.student_id = s.id AND ch.academic_year_id = b.academic_year_id AND ch.status = 'active'
@@ -170,6 +175,7 @@ export async function selectTuitionBillsForExport(
     JOIN core_schools sch ON s.school_id = sch.id
     JOIN tuition_products p ON b.product_id = p.id
     JOIN core_academic_years ay ON b.academic_year_id = ay.id
+    LEFT JOIN core_cohorts co ON co.id = b.cohort_id
     WHERE (${filters.schoolId}::int IS NULL OR s.school_id = ${filters.schoolId})
       AND (${filters.cohortId}::int IS NULL OR b.cohort_id = ${filters.cohortId})
       AND (${filters.academicYearId}::int IS NULL OR b.academic_year_id = ${filters.academicYearId})

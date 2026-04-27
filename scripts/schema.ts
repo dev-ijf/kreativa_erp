@@ -377,6 +377,7 @@ export const tuitionProductTariffs = pgTable(
     academicYearId: integer('academic_year_id').notNull(),
     cohortId: integer('cohort_id').notNull(),
     amount: decimal('amount', { precision: 15, scale: 2 }).notNull(),
+    minPayment: decimal('min_payment', { precision: 15, scale: 2 }).notNull().default('0.00'),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
   },
@@ -396,7 +397,8 @@ export const tuitionProductTariffs = pgTable(
 export const tuitionPaymentMethods = pgTable('tuition_payment_methods', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
-  code: varchar('code', { length: 50 }).notNull().unique(),
+  code: varchar('code', { length: 50 }).notNull(),
+  schoolId: integer('school_id').references(() => coreSchools.id, { onDelete: 'set null' }),
   category: varchar('category', { length: 50 }).notNull(),
   coa: varchar('coa', { length: 50 }),
   vendor: varchar('vendor', { length: 100 }),

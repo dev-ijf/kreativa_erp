@@ -14,6 +14,8 @@ type BillRow = {
   title: string;
   total_amount: string;
   paid_amount: string;
+  discount_amount?: string;
+  min_payment?: string;
   status: string | null;
   bill_month: number | null;
   bill_year: number | null;
@@ -23,6 +25,7 @@ type BillRow = {
   product_name: string;
   payment_type: string;
   academic_year_name: string;
+  cohort_name?: string | null;
   class_name: string | null;
 };
 
@@ -205,15 +208,28 @@ export default function BillsPage() {
     window.open(`/api/billing/bills/template?${p.toString()}`, '_blank');
   };
 
+  const appendBillImportContext = (fd: FormData) => {
+    fd.set('school_id', tSchoolId);
+    fd.set('cohort_id', tCohortId);
+    fd.set('academic_year_id', tAyId);
+    fd.set('class_id', tClassId);
+    fd.set('product_id', tProductId);
+  };
+
   const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    if (!tSchoolId || !tCohortId || !tClassId || !tProductId || !tAyId) {
+      toast.error('Buka Template dan lengkapi Sekolah, Angkatan, Tahun ajaran, Kelas, Produk — lalu impor lagi.');
+      return;
+    }
 
     setImporting(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
+      appendBillImportContext(fd);
       const res = await fetch('/api/billing/bills/import?preview=true', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
@@ -236,6 +252,7 @@ export default function BillsPage() {
     try {
       const fd = new FormData();
       fd.append('file', pendingFile);
+      appendBillImportContext(fd);
       const res = await fetch('/api/billing/bills/import', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
@@ -302,16 +319,41 @@ export default function BillsPage() {
             <FileSpreadsheet size={14} className="mr-1" />
             {showFilters ? 'Sembunyikan Filter' : 'Tampilkan Filter'}
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => setTemplateOpen(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (schoolId) setTSchoolId(schoolId);
+              if (cohortId) setTCohortId(cohortId);
+              if (classId) setTClassId(classId);
+              if (productId) setTProductId(productId);
+              if (academicYearId) setTAyId(academicYearId);
+              setTemplateOpen(true);
+            }}
+          >
             <Download size={14} className="mr-1" /> Template
           </Button>
-          <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+          <label
+            className={`inline-flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium ${
+              !tSchoolId || !tCohortId || !tClassId || !tProductId || !tAyId
+                ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+            title={
+              !tSchoolId || !tCohortId || !tClassId || !tProductId || !tAyId
+                ? 'Isi dialog Template (Sekolah–Produk) dulu — konteks yang sama dipakai saat impor'
+                : undefined
+            }
+          >
             <input
               type="file"
               accept=".xlsx"
               className="hidden"
               onChange={onImportFile}
-              disabled={importing}
+              disabled={
+                importing || !tSchoolId || !tCohortId || !tClassId || !tProductId || !tAyId
+              }
             />
             {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
             {importing ? 'Memproses...' : 'Impor'}
@@ -445,7 +487,10 @@ export default function BillsPage() {
                 <th className="text-left p-3 font-semibold text-slate-600">Judul</th>
                 <th className="text-left p-3 font-semibold text-slate-600">Produk</th>
                 <th className="text-left p-3 font-semibold text-slate-600">TA</th>
+                <th className="text-left p-3 font-semibold text-slate-600">Angkatan</th>
                 <th className="text-right p-3 font-semibold text-slate-600">Total</th>
+                <th className="text-right p-3 font-semibold text-slate-600">Diskon</th>
+                <th className="text-right p-3 font-semibold text-slate-600">Min. bayar</th>
                 <th className="text-left p-3 font-semibold text-slate-600">Status</th>
                 <th className="text-right p-3 font-semibold text-slate-600 w-36">Aksi</th>
               </tr>
@@ -453,13 +498,13 @@ export default function BillsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                  <td colSpan={11} className="p-8 text-center text-slate-400">
                     Memuat…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                  <td colSpan={11} className="p-8 text-center text-slate-400">
                     Tidak ada data
                   </td>
                 </tr>
@@ -476,7 +521,12 @@ export default function BillsPage() {
                     </td>
                     <td className="p-3 text-slate-600">{r.product_name}</td>
                     <td className="p-3 text-slate-600 text-xs">{r.academic_year_name}</td>
+                    <td className="p-3 text-slate-600 text-xs max-w-[140px] truncate" title={r.cohort_name ?? ''}>
+                      {r.cohort_name || '—'}
+                    </td>
                     <td className="p-3 text-right font-medium">{fmtMoney(r.total_amount)}</td>
+                    <td className="p-3 text-right text-slate-600">{fmtMoney(r.discount_amount ?? 0)}</td>
+                    <td className="p-3 text-right text-slate-600">{fmtMoney(r.min_payment ?? 0)}</td>
                     <td className="p-3">
                       <span
                         className={`text-xs px-2 py-0.5 rounded border ${
@@ -598,11 +648,11 @@ export default function BillsPage() {
       <Modal
         open={templateOpen}
         onClose={() => setTemplateOpen(false)}
-        title="Download Template Import"
-        subtitle="Pilih filter untuk menyesuaikan template tagihan"
+        title="Unduh template import Excel"
+        subtitle="Pilih konteks tagihan di sini (bukan di file). Excel cukup berisi NIS, nominal, diskon, min. bayar, dll. — pilihan yang sama dipakai saat Impor."
       >
         <div className="space-y-4">
-          <Field label="Pilih Sekolah">
+          <Field label="Sekolah" required>
             <Select
               value={tSchoolId}
               onChange={(e) => {
@@ -611,7 +661,7 @@ export default function BillsPage() {
                 setTClassId('');
               }}
             >
-              <option value="">— Pilih Sekolah —</option>
+              <option value="">— Pilih sekolah —</option>
               {schools.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -620,13 +670,13 @@ export default function BillsPage() {
             </Select>
           </Field>
 
-          <Field label="Angkatan (Cohort)">
+          <Field label="Angkatan" required>
             <Select
               value={tCohortId}
               onChange={(e) => setTCohortId(e.target.value)}
               disabled={!tSchoolId}
             >
-              <option value="">— Pilih Angkatan —</option>
+              <option value="">— Pilih angkatan —</option>
               {cohorts
                 .filter((c) => String(c.school_id) === tSchoolId)
                 .map((c) => (
@@ -637,13 +687,24 @@ export default function BillsPage() {
             </Select>
           </Field>
 
-          <Field label="Kelas (Rombel)">
+          <Field label="Tahun ajaran" required>
+            <Select value={tAyId} onChange={(e) => setTAyId(e.target.value)}>
+              <option value="">— Pilih tahun ajaran —</option>
+              {academicYears.map((ay) => (
+                <option key={ay.id} value={ay.id}>
+                  {ay.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Kelas (rombel)" required>
             <Select
               value={tClassId}
               onChange={(e) => setTClassId(e.target.value)}
               disabled={!tSchoolId}
             >
-              <option value="">— Pilih Kelas —</option>
+              <option value="">— Pilih kelas —</option>
               {classes
                 .filter((c) => String(c.school_id) === tSchoolId)
                 .map((c) => (
@@ -654,23 +715,12 @@ export default function BillsPage() {
             </Select>
           </Field>
 
-          <Field label="Produk Biaya">
+          <Field label="Produk biaya" required>
             <Select value={tProductId} onChange={(e) => setTProductId(e.target.value)}>
-              <option value="">— Pilih Produk —</option>
+              <option value="">— Pilih produk —</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.payment_type})
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Tahun Ajaran">
-            <Select value={tAyId} onChange={(e) => setTAyId(e.target.value)}>
-              <option value="">— Pilih TA —</option>
-              {academicYears.map((ay) => (
-                <option key={ay.id} value={ay.id}>
-                  {ay.name}
                 </option>
               ))}
             </Select>

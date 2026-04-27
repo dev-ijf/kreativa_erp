@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Field, Select, Button, Input } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
@@ -8,25 +8,37 @@ import Link from 'next/link';
 
 export default function AddPaymentMethodPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ 
-    name: '', 
-    code: '', 
-    category: 'bank_transfer', 
-    coa: '', 
+  const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [form, setForm] = useState({
+    name: '',
+    code: '',
+    school_id: '' as string | number,
+    category: 'bank_transfer',
+    coa: '',
     vendor: '',
     is_publish: true,
     is_redirect: false,
-    is_active: true 
+    is_active: true,
   });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/master/schools')
+      .then((r) => r.json())
+      .then((d) => setSchools(Array.isArray(d) ? d : []))
+      .catch(() => setSchools([]));
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await fetch('/api/finance/payment-methods', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(form) 
+    await fetch('/api/finance/payment-methods', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...form,
+        school_id: form.school_id === '' ? null : Number(form.school_id),
+      }),
     });
     setSaving(false);
     router.push('/finance/payment-methods');
@@ -46,6 +58,19 @@ export default function AddPaymentMethodPage() {
 
       <form onSubmit={handleSave} className="bg-white rounded-2xl border border-[#E2E8F1] shadow-sm overflow-hidden">
         <div className="p-6 space-y-5">
+          <Field
+            label="Sekolah (opsional)"
+            hint="Kosong = metode global semua sekolah. Untuk tunai / COA berbeda per sekolah, pilih sekolah."
+          >
+            <Select value={String(form.school_id)} onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}>
+              <option value="">Semua sekolah (global)</option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Nama Bank / E-Wallet" required hint="Contoh: Bank BSI, BCA, GoPay, Tunai">
             <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
           </Field>

@@ -69,34 +69,55 @@ export default function EditBillPage() {
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
 
-    const loadMaster = async () => {
+    (async () => {
+      setLoading(true);
       try {
-        const [scl, coh, ay, prod, std] = await Promise.all([
+        const [scl, coh, ay, prod] = await Promise.all([
           fetch('/api/master/schools').then((r) => r.json()),
           fetch('/api/master/cohorts').then((r) => r.json()),
           fetch('/api/master/academic-years').then((r) => r.json()),
           fetch('/api/finance/products').then((r) => r.json()),
-          fetch('/api/students?limit=2000').then((r) => r.json()),
         ]);
+        if (cancelled) return;
         setSchools(scl || []);
         setCohorts(coh || []);
         setAcademicYears(ay || []);
         setProducts(prod || []);
-        setStudents(std.data || []);
-      } catch (e) {
-        console.error('Master data load failed', e);
-      }
-    };
 
-    const loadBill = async () => {
-      try {
         const res = await fetch(`/api/billing/bills/${id}`);
         const d = await res.json();
+        if (cancelled) return;
         if (d.error) {
           toast.error(d.error);
+          setRow(null);
           return;
         }
+
+        const q = new URLSearchParams({
+          school_id: String(d.school_id),
+          academic_year_id: String(d.academic_year_id),
+          limit: '100',
+          page: '1',
+        });
+        const stdRes = await fetch(`/api/students?${q}`);
+        const stdJson = await stdRes.json();
+        if (cancelled) return;
+        const pageList = (stdJson.data || []) as { id: number; full_name: string; nis: string }[];
+        const current = {
+          id: d.student_id as number,
+          full_name: String(d.student_name ?? ''),
+          nis: String(d.nis ?? ''),
+        };
+        const seen = new Set<number>();
+        const merged: { id: number; full_name: string; nis: string }[] = [];
+        for (const s of [current, ...pageList]) {
+          if (seen.has(s.id)) continue;
+          seen.add(s.id);
+          merged.push(s);
+        }
+        setStudents(merged);
         setRow(d);
         setForm({
           school_id: String(d.school_id ?? ''),
@@ -117,11 +138,16 @@ export default function EditBillPage() {
           related_month: d.related_month ? String(d.related_month).slice(0, 10) : '',
         });
       } catch (e) {
+        console.error(e);
         toast.error('Gagal memuat data tagihan');
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    };
+    })();
 
-    Promise.all([loadMaster(), loadBill()]).finally(() => setLoading(false));
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const paid = row ? parseFloat(String(row.paid_amount)) : 0;
@@ -232,10 +258,14 @@ export default function EditBillPage() {
             </Field>
           </div>
 
-          <Field label="Siswa (student_id)" required hint="Ketik untuk mencari nama siswa">
+          <Field label="Siswa (student_id)" required hint="Daftar siswa per sekolah & TA tagihan; siswa saat ini selalu tercantum">
             <Select value={form.student_id} onChange={(e) => setForm(f => ({ ...f, student_id: e.target.value }))}>
               <option value="">Pilih Siswa...</option>
-              {students.map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.nis})</option>)}
+              {students.map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.full_name} ({s.nis})
+                </option>
+              ))}
             </Select>
           </Field>
         </div>

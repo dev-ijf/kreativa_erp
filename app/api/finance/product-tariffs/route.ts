@@ -4,6 +4,7 @@ import sql from '@/lib/db';
 export async function GET() {
   const rows = await sql`
     SELECT t.*,
+      p.is_installment AS product_is_installment,
       s.name AS school_name,
       p.name AS product_name,
       ay.name AS academic_year_name,
@@ -26,15 +27,20 @@ export async function POST(req: NextRequest) {
     academic_year_id,
     cohort_id,
     amount,
+    min_payment,
   } = body;
+  const minPay = min_payment != null && min_payment !== '' ? Number(min_payment) : 0;
   const [row] = await sql`
     INSERT INTO tuition_product_tariffs (
-      school_id, product_id, academic_year_id, cohort_id, amount
+      school_id, product_id, academic_year_id, cohort_id, amount, min_payment
     ) VALUES (
-      ${school_id}, ${product_id}, ${academic_year_id}, ${cohort_id}, ${amount}
+      ${school_id}, ${product_id}, ${academic_year_id}, ${cohort_id}, ${amount}, ${minPay}
     )
     ON CONFLICT ON CONSTRAINT unique_tariff_matrix
-    DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()
+    DO UPDATE SET
+      amount = EXCLUDED.amount,
+      min_payment = EXCLUDED.min_payment,
+      updated_at = NOW()
     RETURNING *
   `;
   return NextResponse.json(row, { status: 201 });

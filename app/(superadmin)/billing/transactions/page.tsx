@@ -60,14 +60,26 @@ export default function BillingTransactionsPage() {
     Promise.all([
       fetch('/api/master/schools').then((r) => r.json()),
       fetch('/api/master/academic-years').then((r) => r.json()),
-      fetch('/api/finance/payment-methods?limit=500&page=1').then((r) => r.json()),
-    ]).then(([sch, ay, pm]) => {
+    ]).then(([sch, ay]) => {
       setSchools(Array.isArray(sch) ? sch : []);
       setAcademicYears(Array.isArray(ay) ? ay : []);
-      const list = pm?.data ?? pm?.items ?? pm;
-      setPaymentMethods(Array.isArray(list) ? list.map((x: { id: number; name: string }) => ({ id: x.id, name: x.name })) : []);
     });
   }, []);
+
+  useEffect(() => {
+    const u = `/api/finance/payment-methods?limit=500&page=1${
+      applied.schoolId ? `&school_id=${encodeURIComponent(applied.schoolId)}` : ''
+    }`;
+    fetch(u)
+      .then((r) => r.json())
+      .then((pm) => {
+        const list = pm?.data ?? pm?.items ?? pm;
+        setPaymentMethods(
+          Array.isArray(list) ? list.map((x: { id: number; name: string }) => ({ id: x.id, name: x.name })) : []
+        );
+      })
+      .catch(() => setPaymentMethods([]));
+  }, [applied.schoolId]);
 
   const buildParams = useCallback(() => {
     const q = new URLSearchParams();

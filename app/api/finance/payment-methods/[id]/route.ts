@@ -15,9 +15,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const data = await req.json();
+  const schoolId =
+    data.school_id != null && data.school_id !== '' ? Number(data.school_id) : null;
+  const schoolIdVal = schoolId != null && Number.isFinite(schoolId) ? schoolId : null;
+
   const [row] = await sql`
     UPDATE tuition_payment_methods SET 
-      name=${data.name}, code=${data.code}, category=${data.category}, 
+      name=${data.name}, code=${data.code}, school_id=${schoolIdVal}, category=${data.category}, 
       coa=${data.coa || null}, vendor=${data.vendor || null},
       is_redirect=${data.is_redirect ?? false}, 
       is_publish=${data.is_publish ?? true},

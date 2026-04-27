@@ -271,18 +271,32 @@ async function seed() {
   await db
     .insert(schema.tuitionProductTariffs)
     .values([
-      { schoolId: 1, productId: 1, academicYearId: 1, cohortId: 1, amount: '750000' },
-      { schoolId: 4, productId: 1, academicYearId: 1, cohortId: 2, amount: '1100000' },
-      { schoolId: 1, productId: 1, academicYearId: 2, cohortId: 1, amount: '800000' },
-      { schoolId: 4, productId: 1, academicYearId: 2, cohortId: 2, amount: '1200000' },
+      { schoolId: 1, productId: 1, academicYearId: 1, cohortId: 1, amount: '750000', minPayment: '0' },
+      { schoolId: 4, productId: 1, academicYearId: 1, cohortId: 2, amount: '1100000', minPayment: '0' },
+      { schoolId: 1, productId: 1, academicYearId: 2, cohortId: 1, amount: '800000', minPayment: '0' },
+      { schoolId: 4, productId: 1, academicYearId: 2, cohortId: 2, amount: '1200000', minPayment: '0' },
     ])
     .onConflictDoNothing();
 
   await db
     .insert(schema.tuitionPaymentMethods)
     .values([
-      { id: 1, name: 'BCA Virtual Account', code: 'BCA_TF', category: 'Virtual Account', coa: '1101.01.001' },
-      { id: 2, name: 'GoPay', code: 'GOPAY', category: 'e-Wallet', coa: '1101.02.002' },
+      {
+        id: 1,
+        name: 'BCA Virtual Account',
+        code: 'BCA_TF',
+        schoolId: null,
+        category: 'Virtual Account',
+        coa: '1101.01.001',
+      },
+      {
+        id: 2,
+        name: 'GoPay',
+        code: 'GOPAY',
+        schoolId: null,
+        category: 'e-Wallet',
+        coa: '1101.02.002',
+      },
     ])
     .onConflictDoNothing();
 

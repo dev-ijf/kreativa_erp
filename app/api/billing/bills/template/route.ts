@@ -6,30 +6,44 @@ import {
   billYearForMonth,
   billMonthNumber,
   parseAcademicYearStartYear,
-  relatedMonthDate,
 } from '@/lib/billing-spp';
 import { resolveTariffAmount } from '@/lib/billing-tariff';
 
-const HEADERS = [
+/** Konteks unduhan (sama dengan pilihan dropdown); diulang tiap baris. Label hanya referensi — impor memakai ID + FormData. */
+const CONTEXT_HEADERS = [
+  'school_id',
+  'school_label',
+  'cohort_id',
+  'cohort_label',
+  'academic_year_id',
+  'academic_year_label',
+  'class_id',
+  'class_label',
+  'product_id',
+  'product_label',
+] as const;
+
+const ROW_HEADERS = [
   'nis',
-  'student_name', // helper
-  'class_name', // helper
+  'student_name',
+  'class_name',
   'title',
   'amount',
   'discount_amount',
+  'min_payment',
   'status',
   'notes',
   'bill_month',
   'bill_year',
-  'school_id',
-  'academic_year_id',
-  'product_id',
-  'cohort_id',
-  'school_label', // helper
-  'academic_year_label', // helper
-  'product_label', // helper
-  'cohort_label', // helper
-];
+] as const;
+
+const HEADERS = [...CONTEXT_HEADERS, ...ROW_HEADERS];
+
+function applyColumnWidths(sheet: XLSX.WorkSheet) {
+  sheet['!cols'] = HEADERS.map((h, i) => ({
+    wch: Math.min(36, Math.max(10, String(h).length + 2, i < CONTEXT_HEADERS.length ? 16 : 14)),
+  }));
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -39,11 +53,12 @@ export async function GET(req: NextRequest) {
   const productIdStr = searchParams.get('product_id');
   const ayIdStr = searchParams.get('academic_year_id');
 
-  // Jika tidak ada parameter, kembalikan template kosong dengan headers saja
+  // Tanpa parameter: hanya header (konteks master diisi di aplikasi saat unduh template penuh & saat unggah)
   if (!schoolIdStr || !cohortIdStr || !classIdStr || !productIdStr || !ayIdStr) {
     const wb = XLSX.utils.book_new();
-    const aoa = [HEADERS];
+    const aoa = [HEADERS as unknown as string[]];
     const sheet = XLSX.utils.aoa_to_sheet(aoa);
+    applyColumnWidths(sheet);
     XLSX.utils.book_append_sheet(wb, sheet, 'Import');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     return new NextResponse(buf, {
@@ -84,31 +99,31 @@ export async function GET(req: NextRequest) {
   `;
 
   const ayStartYear = parseAcademicYearStartYear(String(ay.name));
-  const aoa: (string | number | null)[][] = [HEADERS];
+  const aoa: (string | number | null)[][] = [HEADERS as unknown as string[]];
 
-  const commonLabels = [
-    school.name as string,
-    ay.name as string,
-    product.name as string,
-    cohort.name as string,
+  const contextPrefix: (string | number)[] = [
+    schoolId,
+    String(school.name),
+    cohortId,
+    String(cohort.name),
+    ayId,
+    String(ay.name),
+    classId,
+    String(cls?.name ?? ''),
+    productId,
+    String(product.name),
   ];
 
   for (const s of students) {
     const studentId = s.id as number;
     const tariff = await resolveTariffAmount(studentId, productId, ayId);
     const amount = tariff.ok ? (tariff.amount as string) : '';
+    const minFromTariff = tariff.ok ? String(tariff.minPayment ?? '0') : '';
 
     const baseRow = [
       s.nis as string,
       s.full_name as string,
       cls?.name as string,
-    ];
-
-    const techIds = [
-      schoolId,
-      ayId,
-      productId,
-      cohortId,
     ];
 
     if (product.payment_type === 'monthly') {
@@ -120,37 +135,38 @@ export async function GET(req: NextRequest) {
           : `${product.name} ${monthName}`;
 
         aoa.push([
+          ...contextPrefix,
           ...baseRow,
           title,
           amount,
           '0', // discount_amount
-          'unpaid', // status
-          '', // notes
+          minFromTariff, // min_payment (dari matriks; boleh diedit di Excel)
+          'unpaid',
+          '',
           bm,
           by,
-          ...techIds,
-          ...commonLabels,
         ]);
       }
     } else {
       const title = product.payment_type === 'annualy' ? `${product.name} ${ay.name}` : `${product.name}`;
       aoa.push([
+        ...contextPrefix,
         ...baseRow,
         title,
         amount,
-        '0', // discount_amount
-        'unpaid', // status
-        '', // notes
-        null, // bill_month
-        product.payment_type === 'annualy' ? ayStartYear : null, // bill_year
-        ...techIds,
-        ...commonLabels,
+        '0',
+        minFromTariff,
+        'unpaid',
+        '',
+        null,
+        product.payment_type === 'annualy' ? ayStartYear : null,
       ]);
     }
   }
 
   const wb = XLSX.utils.book_new();
   const sheet = XLSX.utils.aoa_to_sheet(aoa);
+  applyColumnWidths(sheet);
   XLSX.utils.book_append_sheet(wb, sheet, 'Import');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
