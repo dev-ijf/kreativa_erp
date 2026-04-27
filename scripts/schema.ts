@@ -433,13 +433,13 @@ export const tuitionBills = pgTable(
     cohortId: bigint('cohort_id', { mode: 'number' })
       .notNull()
       .references(() => coreCohorts.id),
-    studentId: bigint('student_id', { mode: 'number' })
+    studentId: integer('student_id')
       .notNull()
       .references(() => coreStudents.id),
-    productId: bigint('product_id', { mode: 'number' })
+    productId: integer('product_id')
       .notNull()
       .references(() => tuitionProducts.id),
-    academicYearId: bigint('academic_year_id', { mode: 'number' })
+    academicYearId: integer('academic_year_id')
       .notNull()
       .references(() => coreAcademicYears.id),
     title: varchar('title', { length: 100 }).notNull(),

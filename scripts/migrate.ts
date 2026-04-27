@@ -7,6 +7,12 @@ import { pgConnectionString } from './pg-url';
 
 config({ path: path.join(process.cwd(), '.env.local') });
 
+function logMigratePreflight() {
+  console.log(
+    '[db:migrate] Produksi: backup/snapshot DB dulu. Sebelum FK tuition_bills (0014), jalankan: npx tsx scripts/check-tuition-bills-orphans.ts'
+  );
+}
+
 function runDrizzleMigrate() {
   const bin = process.platform === 'win32' ? 'drizzle-kit.cmd' : 'drizzle-kit';
   const binPath = path.join(process.cwd(), 'node_modules', '.bin', bin);
@@ -165,7 +171,25 @@ async function runAdditionalSql() {
   }
 }
 
+async function maybeCheckTuitionOrphans() {
+  if (process.env.CHECK_TUITION_BILLS_ORPHANS !== '1') return;
+
+  const bin = process.platform === 'win32' ? 'tsx.cmd' : 'tsx';
+  const binPath = path.join(process.cwd(), 'node_modules', '.bin', bin);
+  const result = spawnSync(
+    binPath,
+    ['scripts/check-tuition-bills-orphans.ts'],
+    { stdio: 'inherit', cwd: process.cwd() }
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error('check-tuition-bills-orphans gagal — perbaiki data lalu ulang migrate');
+  }
+}
+
 async function main() {
+  logMigratePreflight();
+  await maybeCheckTuitionOrphans();
   runDrizzleMigrate();
   await runAdditionalSql();
 }

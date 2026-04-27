@@ -1,6 +1,10 @@
 /**
  * Seed memakai driver `pg` (TCP), sama seperti drizzle-kit migrate — hindari neon-http
  * yang bergantung pada `fetch` (sering gagal di beberapa jaringan / proxy).
+ *
+ * Lembaga / tenant lain: ganti data master di bawah ini (urutan tetap — FK memerlukan
+ * core_portal_themes → core_schools → core_cohorts → core_students → tuition_products
+ * sebelum tuition_bills). Jangan impor dump TablePlus yang berisi DROP TABLE pada DB berisi data.
  */
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';

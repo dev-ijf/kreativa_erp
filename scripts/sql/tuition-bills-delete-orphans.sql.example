@@ -1,0 +1,10 @@
+-- Contoh perbaikan data: salin ke file baru, tinjau hasil SELECT orphan, lalu jalankan dengan hati-hati.
+-- Hapus tagihan yang siswanya tidak ada (uncomment setelah verifikasi):
+-- DELETE FROM public.tuition_bills b
+-- WHERE NOT EXISTS (SELECT 1 FROM public.core_students s WHERE s.id = b.student_id);
+--
+-- DELETE FROM public.tuition_bills b
+-- WHERE NOT EXISTS (SELECT 1 FROM public.tuition_products p WHERE p.id = b.product_id);
+--
+-- DELETE FROM public.tuition_bills b
+-- WHERE NOT EXISTS (SELECT 1 FROM public.core_academic_years y WHERE y.id = b.academic_year_id);

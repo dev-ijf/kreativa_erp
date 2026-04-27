@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:check-tuition-orphans": "tsx scripts/check-tuition-bills-orphans.ts",
     "db:reset": "tsx scripts/db-reset.ts",
     "db:baseline": "tsx scripts/baseline-drizzle.ts",
     "db:seed": "tsx scripts/seed.ts",
