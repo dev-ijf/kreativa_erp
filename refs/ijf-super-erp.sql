@@ -9,6 +9,7 @@ CREATE TABLE core_portal_themes (
     logo_url TEXT,
     primary_color VARCHAR(20),
     login_bg_url TEXT,
+    favicon_url TEXT,
     welcome_text TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Di-update oleh backend/ORM
@@ -436,9 +437,9 @@ CREATE TABLE tuition_transaction_details_y2024m10 PARTITION OF tuition_transacti
 -- ==============================================================================
 
 -- 1. Insert Portal Themes
-INSERT INTO core_portal_themes (id, host_domain, portal_title, logo_url, primary_color, login_bg_url, welcome_text) VALUES
-(1, 'parents.kreativaglobal.sch.id', 'Kreativa Parent Portal', '/assets/brand/kreativa-main.png', '#2563eb', '/assets/bg/kreativa-bg.jpg', 'Selamat Datang di Portal Kreativa Global School.'),
-(2, 'parents.talentajuara.sch.id', 'Talenta Juara Portal', '/assets/brand/talenta-main.png', '#ea580c', '/assets/bg/talenta-bg.jpg', 'Mari bersama membangun generasi juara di Talenta Juara.');
+INSERT INTO core_portal_themes (id, host_domain, portal_title, logo_url, primary_color, login_bg_url, favicon_url, welcome_text) VALUES
+(1, 'parents.kreativaglobal.sch.id', 'Kreativa Parent Portal', '/assets/brand/kreativa-main.png', '#2563eb', '/assets/bg/kreativa-bg.jpg', NULL, 'Selamat Datang di Portal Kreativa Global School.'),
+(2, 'parents.talentajuara.sch.id', 'Talenta Juara Portal', '/assets/brand/talenta-main.png', '#ea580c', '/assets/bg/talenta-bg.jpg', NULL, 'Mari bersama membangun generasi juara di Talenta Juara.');
 
 -- 2. Insert Schools
 INSERT INTO core_schools (id, theme_id, name, address, school_logo_url) VALUES

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     if (q) {
       const like = '%' + q + '%';
       const rows = await sql`
-        SELECT id, host_domain, portal_title, logo_url, primary_color, login_bg_url, welcome_text, created_at, updated_at
+        SELECT id, host_domain, portal_title, logo_url, primary_color, login_bg_url, favicon_url, welcome_text, created_at, updated_at
         FROM core_portal_themes
         WHERE host_domain ILIKE ${like} OR portal_title ILIKE ${like}
         ORDER BY id
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(rows);
     }
     const rows = await sql`
-      SELECT id, host_domain, portal_title, logo_url, primary_color, login_bg_url, welcome_text, created_at, updated_at
+      SELECT id, host_domain, portal_title, logo_url, primary_color, login_bg_url, favicon_url, welcome_text, created_at, updated_at
       FROM core_portal_themes ORDER BY id
     `;
     return NextResponse.json(rows);
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     WHERE (${pattern}::text IS NULL OR host_domain ILIKE ${pattern} OR portal_title ILIKE ${pattern})
   `,
     sql`
-    SELECT id, host_domain, portal_title, logo_url, primary_color, login_bg_url, welcome_text, created_at, updated_at
+    SELECT id, host_domain, portal_title, logo_url, primary_color, login_bg_url, favicon_url, welcome_text, created_at, updated_at
     FROM core_portal_themes
     WHERE (${pattern}::text IS NULL OR host_domain ILIKE ${pattern} OR portal_title ILIKE ${pattern})
     ORDER BY id ASC
@@ -67,14 +67,16 @@ export async function POST(req: NextRequest) {
       : null;
   const login_bg_url =
     b.login_bg_url != null && String(b.login_bg_url).trim() !== '' ? String(b.login_bg_url).trim() : null;
+  const favicon_url =
+    b.favicon_url != null && String(b.favicon_url).trim() !== '' ? String(b.favicon_url).trim() : null;
   const welcome_text =
     b.welcome_text != null && String(b.welcome_text).trim() !== '' ? String(b.welcome_text).trim() : null;
 
   try {
     const [row] = await sql`
-      INSERT INTO core_portal_themes (host_domain, portal_title, logo_url, primary_color, login_bg_url, welcome_text)
-      VALUES (${host_domain}, ${portal_title}, ${logo_url}, ${primary_color}, ${login_bg_url}, ${welcome_text})
-      RETURNING id, host_domain, portal_title, logo_url, primary_color, login_bg_url, welcome_text, created_at, updated_at
+      INSERT INTO core_portal_themes (host_domain, portal_title, logo_url, primary_color, login_bg_url, favicon_url, welcome_text)
+      VALUES (${host_domain}, ${portal_title}, ${logo_url}, ${primary_color}, ${login_bg_url}, ${favicon_url}, ${welcome_text})
+      RETURNING id, host_domain, portal_title, logo_url, primary_color, login_bg_url, favicon_url, welcome_text, created_at, updated_at
     `;
     return NextResponse.json(row, { status: 201 });
   } catch (e: unknown) {

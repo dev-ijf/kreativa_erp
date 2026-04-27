@@ -4,7 +4,7 @@ import sql from '@/lib/db';
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [row] = await sql`
-    SELECT id, host_domain, portal_title, logo_url, primary_color, login_bg_url, welcome_text, created_at, updated_at
+    SELECT id, host_domain, portal_title, logo_url, primary_color, login_bg_url, favicon_url, welcome_text, created_at, updated_at
     FROM core_portal_themes WHERE id = ${Number(id)}
   `;
   if (!row) return NextResponse.json({ error: 'Tidak ditemukan' }, { status: 404 });
@@ -26,6 +26,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       : null;
   const login_bg_url =
     b.login_bg_url != null && String(b.login_bg_url).trim() !== '' ? String(b.login_bg_url).trim() : null;
+  const favicon_url =
+    b.favicon_url != null && String(b.favicon_url).trim() !== '' ? String(b.favicon_url).trim() : null;
   const welcome_text =
     b.welcome_text != null && String(b.welcome_text).trim() !== '' ? String(b.welcome_text).trim() : null;
 
@@ -37,10 +39,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           logo_url = ${logo_url},
           primary_color = ${primary_color},
           login_bg_url = ${login_bg_url},
+          favicon_url = ${favicon_url},
           welcome_text = ${welcome_text},
           updated_at = NOW()
       WHERE id = ${Number(id)}
-      RETURNING id, host_domain, portal_title, logo_url, primary_color, login_bg_url, welcome_text, created_at, updated_at
+      RETURNING id, host_domain, portal_title, logo_url, primary_color, login_bg_url, favicon_url, welcome_text, created_at, updated_at
     `;
     if (!row) return NextResponse.json({ error: 'Tidak ditemukan' }, { status: 404 });
     return NextResponse.json(row);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Field, Input, Select } from '@/components/ui/FormFields';
 import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -9,6 +9,31 @@ import { confirmToast } from '@/components/ui/confirmToast';
 type TabId = 'themes' | 'modules' | 'access';
 
 const LIMIT = 15;
+
+const MAX_THEME_IMAGE_BYTES = 10 * 1024 * 1024;
+const COLOR_PICKER_FALLBACK = '#2563eb';
+
+type PendingImage = { file: File; previewUrl: string } | null;
+
+function revokePending(p: PendingImage) {
+  if (p?.previewUrl) URL.revokeObjectURL(p.previewUrl);
+}
+
+function isAllowedThemeImageFile(file: File): boolean {
+  if (file.type.startsWith('image/')) return true;
+  const name = file.name.toLowerCase();
+  return name.endsWith('.ico') || name.endsWith('.svg');
+}
+
+async function postBlobUpload(file: File, prefix: string): Promise<string> {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('prefix', prefix);
+  const res = await fetch('/api/upload/blob', { method: 'POST', body: fd });
+  const j = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!res.ok) throw new Error(j.error || 'Gagal mengunggah file');
+  return j.url as string;
+}
 
 interface ListResp<T> {
   data: T[];
@@ -69,6 +94,7 @@ type ThemeRow = {
   logo_url: string | null;
   primary_color: string | null;
   login_bg_url: string | null;
+  favicon_url: string | null;
   welcome_text: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -82,10 +108,37 @@ function ThemesSection() {
   const [total, setTotal] = useState(0);
   const [filterQ, setFilterQ] = useState('');
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [pendingLogo, setPendingLogo] = useState<PendingImage>(null);
+  const [pendingLoginBg, setPendingLoginBg] = useState<PendingImage>(null);
+  const [pendingFavicon, setPendingFavicon] = useState<PendingImage>(null);
   const [modal, setModal] = useState<{ open: boolean; record: Partial<ThemeRow> | null }>({
     open: false,
     record: null,
   });
+  const logoFileRef = useRef<HTMLInputElement>(null);
+  const loginBgFileRef = useRef<HTMLInputElement>(null);
+  const faviconFileRef = useRef<HTMLInputElement>(null);
+
+  const resetPending = useCallback(() => {
+    setPendingLogo((prev) => {
+      revokePending(prev);
+      return null;
+    });
+    setPendingLoginBg((prev) => {
+      revokePending(prev);
+      return null;
+    });
+    setPendingFavicon((prev) => {
+      revokePending(prev);
+      return null;
+    });
+  }, []);
+
+  const closeModal = useCallback(() => {
+    resetPending();
+    setModal({ open: false, record: null });
+  }, [resetPending]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -108,8 +161,32 @@ function ThemesSection() {
     load();
   }, [load]);
 
-  const openCreate = () => setModal({ open: true, record: {} });
-  const openEdit = (r: ThemeRow) => setModal({ open: true, record: { ...r } });
+  const openCreate = () => {
+    resetPending();
+    setModal({ open: true, record: {} });
+  };
+
+  const openEdit = (r: ThemeRow) => {
+    resetPending();
+    setModal({ open: true, record: { ...r } });
+  };
+
+  const handlePickImage = (file: File | undefined, setPending: React.Dispatch<React.SetStateAction<PendingImage>>) => {
+    if (!file) return;
+    if (!isAllowedThemeImageFile(file)) {
+      toast.error('Pilih gambar (JPG, PNG, WebP, ICO, dll.)');
+      return;
+    }
+    if (file.size > MAX_THEME_IMAGE_BYTES) {
+      toast.error('File terlalu besar (maks 10 MB)');
+      return;
+    }
+    setPending((prev) => {
+      revokePending(prev);
+      const previewUrl = URL.createObjectURL(file);
+      return { file, previewUrl };
+    });
+  };
 
   const save = async () => {
     const r = modal.record;
@@ -117,29 +194,54 @@ function ThemesSection() {
       toast.warning('Host domain dan judul portal wajib diisi');
       return;
     }
-    const body = {
-      host_domain: r.host_domain.trim(),
-      portal_title: r.portal_title.trim(),
-      logo_url: r.logo_url || null,
-      primary_color: r.primary_color || null,
-      login_bg_url: r.login_bg_url || null,
-      welcome_text: r.welcome_text || null,
-    };
-    const url = r.id ? `/api/master/portal-themes/${r.id}` : '/api/master/portal-themes';
-    const method = r.id ? 'PUT' : 'POST';
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const j = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) {
-      toast.error(j.error || 'Gagal menyimpan tema portal');
-      return;
+    setSaving(true);
+    try {
+      let logo_url: string | null =
+        r.logo_url != null && String(r.logo_url).trim() !== '' ? String(r.logo_url).trim() : null;
+      let login_bg_url: string | null =
+        r.login_bg_url != null && String(r.login_bg_url).trim() !== '' ? String(r.login_bg_url).trim() : null;
+      let favicon_url: string | null =
+        r.favicon_url != null && String(r.favicon_url).trim() !== '' ? String(r.favicon_url).trim() : null;
+
+      if (pendingLogo) logo_url = await postBlobUpload(pendingLogo.file, 'portal-themes/logo');
+      if (pendingLoginBg) login_bg_url = await postBlobUpload(pendingLoginBg.file, 'portal-themes/login-bg');
+      if (pendingFavicon) favicon_url = await postBlobUpload(pendingFavicon.file, 'portal-themes/favicon');
+
+      const primary_color =
+        r.primary_color != null && String(r.primary_color).trim() !== ''
+          ? String(r.primary_color).trim().slice(0, 20)
+          : null;
+
+      const body = {
+        host_domain: r.host_domain.trim(),
+        portal_title: r.portal_title.trim(),
+        logo_url,
+        primary_color,
+        login_bg_url,
+        favicon_url,
+        welcome_text: r.welcome_text != null && String(r.welcome_text).trim() !== '' ? String(r.welcome_text).trim() : null,
+      };
+      const url = r.id ? `/api/master/portal-themes/${r.id}` : '/api/master/portal-themes';
+      const method = r.id ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        toast.error(j.error || 'Gagal menyimpan tema portal');
+        return;
+      }
+      resetPending();
+      setModal({ open: false, record: null });
+      toast.success('Tema portal berhasil disimpan');
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menyimpan tema portal');
+    } finally {
+      setSaving(false);
     }
-    setModal({ open: false, record: null });
-    toast.success('Tema portal berhasil disimpan');
-    load();
   };
 
   const del = (id: number) => {
@@ -184,6 +286,7 @@ function ThemesSection() {
             <tr className="border-b border-slate-100 bg-slate-50/80 text-left text-[11px] uppercase text-slate-500">
               <th className="px-3 py-3">Host</th>
               <th className="px-3 py-3">Judul</th>
+              <th className="px-3 py-3">Favicon</th>
               <th className="px-3 py-3">Warna</th>
               <th className="px-3 py-3 text-right">Aksi</th>
             </tr>
@@ -191,13 +294,13 @@ function ThemesSection() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
                   Memuat...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
                   Tidak ada data
                 </td>
               </tr>
@@ -206,6 +309,19 @@ function ThemesSection() {
                 <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                   <td className="px-3 py-2 font-mono text-xs">{r.host_domain}</td>
                   <td className="px-3 py-2 font-medium text-slate-800">{r.portal_title}</td>
+                  <td className="px-3 py-2">
+                    {r.favicon_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.favicon_url}
+                        alt=""
+                        className="w-5 h-5 rounded object-contain border border-slate-200 bg-white"
+                        title={r.favicon_url}
+                      />
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     {r.primary_color ? (
                       <span className="inline-flex items-center gap-2">
@@ -264,7 +380,12 @@ function ThemesSection() {
               <h3 className="text-lg font-bold text-slate-800">
                 {modal.record?.id ? 'Edit tema portal' : 'Tambah tema portal'}
               </h3>
-              <button type="button" className="text-slate-400 hover:text-slate-600" onClick={() => setModal({ open: false, record: null })}>
+              <button
+                type="button"
+                className="text-slate-400 hover:text-slate-600"
+                onClick={closeModal}
+                aria-label="Tutup dialog"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -281,23 +402,196 @@ function ThemesSection() {
                 onChange={(e) => setModal((m) => ({ ...m, record: { ...m.record, portal_title: e.target.value } }))}
               />
             </Field>
-            <Field label="Logo URL">
-              <Input
-                value={modal.record?.logo_url ?? ''}
-                onChange={(e) => setModal((m) => ({ ...m, record: { ...m.record, logo_url: e.target.value } }))}
+            <Field
+              label="Logo"
+              hint="Pilih gambar lalu simpan; unggah ke penyimpanan saat Anda menekan Simpan."
+            >
+              <input
+                ref={logoFileRef}
+                type="file"
+                accept="image/*,.ico"
+                className="hidden"
+                aria-label="Unggah logo portal"
+                onChange={(e) => {
+                  handlePickImage(e.target.files?.[0], setPendingLogo);
+                  e.target.value = '';
+                }}
               />
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="w-20 h-20 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+                  {pendingLogo?.previewUrl || modal.record?.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pendingLogo?.previewUrl ?? modal.record?.logo_url ?? ''}
+                      alt="Pratinjau logo"
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-[11px] text-slate-400 px-1 text-center">Belum ada</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button size="sm" variant="outline" type="button" onClick={() => logoFileRef.current?.click()}>
+                    {pendingLogo || modal.record?.logo_url ? 'Ganti gambar' : 'Pilih gambar'}
+                  </Button>
+                  {pendingLogo && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      className="text-slate-500"
+                      onClick={() =>
+                        setPendingLogo((prev) => {
+                          revokePending(prev);
+                          return null;
+                        })
+                      }
+                    >
+                      Batalkan pilihan
+                    </Button>
+                  )}
+                </div>
+              </div>
             </Field>
-            <Field label="Warna primary (hex)" hint="Contoh: #7c3aed">
-              <Input
-                value={modal.record?.primary_color ?? ''}
-                onChange={(e) => setModal((m) => ({ ...m, record: { ...m.record, primary_color: e.target.value } }))}
+            <Field
+              label="Background login"
+              hint="Gambar latar halaman login portal; unggah saat Simpan."
+            >
+              <input
+                ref={loginBgFileRef}
+                type="file"
+                accept="image/*,.ico"
+                className="hidden"
+                aria-label="Unggah background login"
+                onChange={(e) => {
+                  handlePickImage(e.target.files?.[0], setPendingLoginBg);
+                  e.target.value = '';
+                }}
               />
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="w-28 h-16 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+                  {pendingLoginBg?.previewUrl || modal.record?.login_bg_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pendingLoginBg?.previewUrl ?? modal.record?.login_bg_url ?? ''}
+                      alt="Pratinjau background"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[11px] text-slate-400 px-1 text-center">Belum ada</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button size="sm" variant="outline" type="button" onClick={() => loginBgFileRef.current?.click()}>
+                    {pendingLoginBg || modal.record?.login_bg_url ? 'Ganti gambar' : 'Pilih gambar'}
+                  </Button>
+                  {pendingLoginBg && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      className="text-slate-500"
+                      onClick={() =>
+                        setPendingLoginBg((prev) => {
+                          revokePending(prev);
+                          return null;
+                        })
+                      }
+                    >
+                      Batalkan pilihan
+                    </Button>
+                  )}
+                </div>
+              </div>
             </Field>
-            <Field label="Background login URL">
-              <Input
-                value={modal.record?.login_bg_url ?? ''}
-                onChange={(e) => setModal((m) => ({ ...m, record: { ...m.record, login_bg_url: e.target.value } }))}
+            <Field
+              label="Favicon"
+              hint="Ikon tab browser (PNG, ICO, SVG); unggah saat Simpan."
+            >
+              <input
+                ref={faviconFileRef}
+                type="file"
+                accept="image/*,.ico,.svg,image/svg+xml"
+                className="hidden"
+                aria-label="Unggah favicon"
+                onChange={(e) => {
+                  handlePickImage(e.target.files?.[0], setPendingFavicon);
+                  e.target.value = '';
+                }}
               />
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="w-12 h-12 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+                  {pendingFavicon?.previewUrl || modal.record?.favicon_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pendingFavicon?.previewUrl ?? modal.record?.favicon_url ?? ''}
+                      alt="Pratinjau favicon"
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-[10px] text-slate-400 px-0.5 text-center leading-tight">—</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button size="sm" variant="outline" type="button" onClick={() => faviconFileRef.current?.click()}>
+                    {pendingFavicon || modal.record?.favicon_url ? 'Ganti file' : 'Pilih file'}
+                  </Button>
+                  {pendingFavicon && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      className="text-slate-500"
+                      onClick={() =>
+                        setPendingFavicon((prev) => {
+                          revokePending(prev);
+                          return null;
+                        })
+                      }
+                    >
+                      Batalkan pilihan
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Field>
+            <Field label="Warna primary" hint="Pilih warna tema; kosongkan jika tidak dipakai.">
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="color"
+                  className="h-10 w-14 cursor-pointer rounded border border-slate-200 bg-white p-0.5"
+                  value={
+                    modal.record?.primary_color && /^#[0-9A-Fa-f]{6}$/.test(modal.record.primary_color)
+                      ? modal.record.primary_color
+                      : COLOR_PICKER_FALLBACK
+                  }
+                  onChange={(e) =>
+                    setModal((m) => ({
+                      ...m,
+                      record: { ...m.record, primary_color: e.target.value },
+                    }))
+                  }
+                  aria-label="Pilih warna primary"
+                />
+                <span className="text-[12px] text-slate-500 font-mono tabular-nums">
+                  {modal.record?.primary_color && /^#[0-9A-Fa-f]{6}$/.test(modal.record.primary_color)
+                    ? modal.record.primary_color
+                    : '—'}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() =>
+                    setModal((m) => ({
+                      ...m,
+                      record: { ...m.record, primary_color: null },
+                    }))
+                  }
+                >
+                  Kosongkan warna
+                </Button>
+              </div>
             </Field>
             <Field label="Teks sambutan">
               <textarea
@@ -307,10 +601,10 @@ function ThemesSection() {
               />
             </Field>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" type="button" onClick={() => setModal({ open: false, record: null })}>
+              <Button variant="ghost" type="button" onClick={closeModal}>
                 Batal
               </Button>
-              <Button type="button" onClick={save}>
+              <Button type="button" loading={saving} onClick={save}>
                 Simpan
               </Button>
             </div>

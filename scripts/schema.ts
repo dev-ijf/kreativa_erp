@@ -26,6 +26,7 @@ export const corePortalThemes = pgTable('core_portal_themes', {
   logoUrl: text('logo_url'),
   primaryColor: varchar('primary_color', { length: 20 }),
   loginBgUrl: text('login_bg_url'),
+  faviconUrl: text('favicon_url'),
   welcomeText: text('welcome_text'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
