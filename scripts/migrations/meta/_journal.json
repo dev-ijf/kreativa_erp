@@ -92,6 +92,13 @@
       "when": 1775900000000,
       "tag": "0015_tuition_product_tariffs_min_payment",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1776000000000,
+      "tag": "0017_core_schools_bank_channel_school_code",
+      "breakpoints": true
     }
   ]
 }

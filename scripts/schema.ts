@@ -41,6 +41,8 @@ export const coreSchools = pgTable('core_schools', {
   name: varchar('name', { length: 100 }).notNull(),
   address: text('address'),
   schoolLogoUrl: text('school_logo_url'),
+  bankChannelCode: varchar('bank_channel_code', { length: 100 }),
+  schoolCode: varchar('school_code', { length: 100 }),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

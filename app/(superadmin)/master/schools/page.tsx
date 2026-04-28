@@ -12,6 +12,8 @@ interface School {
   id: number;
   name: string;
   address: string;
+  bank_channel_code: string | null;
+  school_code: string | null;
   created_at: string;
   [key: string]: any;
 }
@@ -55,6 +57,18 @@ export default function SchoolsPage() {
   const columns = [
     { key: 'id', label: 'ID', sortable: true, className: 'w-16 text-slate-400 font-mono text-xs' },
     { key: 'name', label: 'Nama Sekolah', sortable: true },
+    {
+      key: 'bank_channel_code',
+      label: 'Kode channel bank',
+      sortable: true,
+      render: (r: School) => <span className="text-slate-600 font-mono text-xs">{r.bank_channel_code || '–'}</span>,
+    },
+    {
+      key: 'school_code',
+      label: 'Kode sekolah',
+      sortable: true,
+      render: (r: School) => <span className="text-slate-600 font-mono text-xs">{r.school_code || '–'}</span>,
+    },
     { key: 'address', label: 'Alamat', render: (r: School) => <span className="text-slate-500">{r.address || '–'}</span> },
     {
       key: 'actions', label: 'Aksi', className: 'text-right',

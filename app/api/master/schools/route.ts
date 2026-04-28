@@ -7,7 +7,17 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, address } = await req.json();
-  const [row] = await sql`INSERT INTO core_schools (name, address) VALUES (${name}, ${address}) RETURNING *`;
+  const { name, address, bankChannelCode, schoolCode, schoolLogoUrl } = await req.json();
+  const [row] = await sql`
+    INSERT INTO core_schools (name, address, bank_channel_code, school_code, school_logo_url)
+    VALUES (
+      ${name},
+      ${address},
+      ${bankChannelCode ?? null},
+      ${schoolCode ?? null},
+      ${schoolLogoUrl ?? null}
+    )
+    RETURNING *
+  `;
   return NextResponse.json(row, { status: 201 });
 }
