@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { ArrowLeft, Receipt } from 'lucide-react';
+import { ArrowLeft, Receipt, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/FormFields';
 
 type Tx = {
@@ -74,8 +74,14 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
   const fmtDt = (iso: string) =>
     format(new Date(iso), 'd MMMM yyyy HH:mm', { locale: idLocale });
 
+  const openReceipt = () => {
+    if (!createdAt) return;
+    const url = `/billing/transactions/${id}/receipt?created_at=${encodeURIComponent(createdAt)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
-    <div className="p-6 md:p-8 max-w-3xl mx-auto">
+    <div className="p-6 md:p-8 max-w-[1400px] mx-auto">
       <Link
         href="/billing/transactions"
         className="inline-flex items-center gap-1 text-[13px] text-slate-500 hover:text-slate-800 mb-4"
@@ -83,16 +89,25 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
         <ArrowLeft size={14} /> Kembali ke riwayat pembayaran
       </Link>
 
-      <div className="flex items-start gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
-          <Receipt size={20} />
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+            <Receipt size={20} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">Detail transaksi</h1>
+            {tx && (
+              <p className="text-slate-500 text-[13px] mt-0.5 font-mono">{tx.reference_no}</p>
+            )}
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Detail transaksi</h1>
-          {tx && (
-            <p className="text-slate-500 text-[13px] mt-0.5 font-mono">{tx.reference_no}</p>
-          )}
-        </div>
+        {tx && createdAt ? (
+          <div className="shrink-0">
+            <Button type="button" variant="outline" size="sm" onClick={openReceipt}>
+              <Printer size={14} className="mr-1" /> Cetak Bukti
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       {loading && <p className="text-slate-400 text-[13px]">Memuat…</p>}
@@ -100,7 +115,7 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
 
       {!loading && tx && (
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4 text-[13px]">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-[13px]">
             <div>
               <p className="text-slate-400 text-[11px] uppercase font-bold tracking-wider">Waktu</p>
               <p className="text-slate-800 font-medium">{fmtDt(tx.created_at)}</p>
@@ -149,7 +164,10 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={openReceipt}>
+              <Printer size={14} className="mr-1" /> Cetak Bukti
+            </Button>
             <Link href="/billing/transactions">
               <Button type="button" variant="outline">
                 Tutup

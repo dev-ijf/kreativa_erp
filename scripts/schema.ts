@@ -476,11 +476,21 @@ export const tuitionTransactions = pgTable(
     id: bigint('id', { mode: 'number' })
       .notNull()
       .generatedAlwaysAsIdentity({ name: 'tuition_transactions_id_seq' }),
-    userId: integer('user_id').notNull(),
-    academicYearId: integer('academic_year_id').notNull(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => coreUsers.id),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => coreStudents.id),
+    academicYearId: integer('academic_year_id')
+      .notNull()
+      .references(() => coreAcademicYears.id),
     referenceNo: varchar('reference_no', { length: 50 }).notNull(),
     totalAmount: decimal('total_amount', { precision: 15, scale: 2 }).notNull(),
-    paymentMethodId: integer('payment_method_id'),
+    paymentMethodId: integer('payment_method_id').references(
+      () => tuitionPaymentMethods.id,
+      { onDelete: 'set null' }
+    ),
     vaNo: varchar('va_no', { length: 100 }),
     qrCode: text('qr_code'),
     status: varchar('status', { length: 50 }).default('pending'),
@@ -490,6 +500,8 @@ export const tuitionTransactions = pgTable(
   (t) => [
     primaryKey({ columns: [t.id, t.createdAt] }),
     unique('unique_ref_no_per_partition').on(t.referenceNo, t.createdAt),
+    index('idx_tuition_tx_student').on(t.studentId),
+    index('idx_tuition_tx_user').on(t.userId),
   ]
 );
 
@@ -501,8 +513,15 @@ export const tuitionTransactionDetails = pgTable(
       .generatedAlwaysAsIdentity({ name: 'tuition_transaction_details_id_seq' }),
     transactionId: bigint('transaction_id', { mode: 'number' }).notNull(),
     transactionCreatedAt: timestamp('transaction_created_at').notNull(),
-    billId: integer('bill_id').notNull(),
-    productId: integer('product_id').notNull(),
+    billId: integer('bill_id')
+      .notNull()
+      .references(() => tuitionBills.id),
+    productId: integer('product_id')
+      .notNull()
+      .references(() => tuitionProducts.id),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => coreStudents.id),
     amountPaid: decimal('amount_paid', { precision: 15, scale: 2 }).notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
@@ -512,6 +531,8 @@ export const tuitionTransactionDetails = pgTable(
       columns: [t.transactionId, t.transactionCreatedAt],
       foreignColumns: [tuitionTransactions.id, tuitionTransactions.createdAt],
     }).onDelete('cascade'),
+    index('idx_tuition_tx_det_student').on(t.studentId),
+    index('idx_tuition_tx_det_bill').on(t.billId),
   ]
 );
 

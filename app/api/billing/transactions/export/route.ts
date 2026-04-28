@@ -6,6 +6,37 @@ import {
   selectTuitionTransactionsForExport,
 } from '@/lib/billing-transactions-query';
 
+const HEADERS = [
+  'No',
+  'Referensi',
+  'Waktu',
+  'Siswa',
+  'NIS',
+  'Kelas',
+  'Sekolah',
+  'Pembayar',
+  'Email Pembayar',
+  'Tahun Ajaran',
+  'Metode',
+  'VA',
+  'Total',
+  'Status',
+  'Tanggal Bayar',
+] as const;
+
+function fmtTimestamp(v: unknown): string {
+  if (!v) return '';
+  const d = v instanceof Date ? v : new Date(String(v));
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().replace('T', ' ').slice(0, 19);
+}
+
+function toNumber(v: unknown): number {
+  if (v == null || v === '') return 0;
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export async function GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
   const parsed = parseTransactionListSearchParams(sp);
@@ -15,7 +46,33 @@ export async function GET(req: NextRequest) {
 
   try {
     const rows = await selectTuitionTransactionsForExport(parsed.filters, MAX_TRANSACTION_EXPORT);
-    const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{ pesan: 'Tidak ada data' }]);
+
+    const aoa: (string | number)[][] = [Array.from(HEADERS)];
+    rows.forEach((r, idx) => {
+      aoa.push([
+        idx + 1,
+        String(r.referensi ?? ''),
+        fmtTimestamp(r.waktu_transaksi),
+        String(r.siswa ?? ''),
+        String(r.nis ?? ''),
+        String(r.kelas ?? ''),
+        String(r.sekolah ?? ''),
+        String(r.pembayar ?? ''),
+        String(r.email_pembayar ?? ''),
+        String(r.tahun_ajaran ?? ''),
+        String(r.metode_pembayaran ?? ''),
+        String(r.va_no ?? ''),
+        toNumber(r.total),
+        String(r.status ?? ''),
+        fmtTimestamp(r.tanggal_bayar),
+      ]);
+    });
+
+    if (rows.length === 0) {
+      aoa.push(['(Tidak ada data pada filter ini)']);
+    }
+
+    const sheet = XLSX.utils.aoa_to_sheet(aoa);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, sheet, 'Transaksi');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });

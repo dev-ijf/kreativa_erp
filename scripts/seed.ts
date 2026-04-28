@@ -333,6 +333,37 @@ async function seed() {
         relatedMonth: '2025-07-01',
         status: 'unpaid',
       },
+      {
+        schoolId: 4,
+        cohortId: 2,
+        studentId: 2,
+        productId: 1,
+        academicYearId: 2,
+        title: 'SPP Agustus 2025',
+        totalAmount: '1200000',
+        discountAmount: '0',
+        paidAmount: '0',
+        billMonth: 8,
+        billYear: 2025,
+        relatedMonth: '2025-08-01',
+        status: 'unpaid',
+      },
+      {
+        schoolId: 4,
+        cohortId: 2,
+        studentId: 2,
+        productId: 2,
+        academicYearId: 2,
+        title: 'DSP Tahun 2025/2026',
+        totalAmount: '5000000',
+        discountAmount: '0',
+        paidAmount: '0',
+        minPayment: '1000000',
+        billMonth: null,
+        billYear: 2025,
+        relatedMonth: null,
+        status: 'unpaid',
+      },
     ])
     .onConflictDoNothing();
 
@@ -516,31 +547,126 @@ async function seed() {
     ])
     .onConflictDoNothing();
 
-  const createdAt = new Date('2024-10-15T10:00:00.000Z');
-  const txResult = await pool.query<{
-    id: string;
-    created_at: Date;
-  }>(
-    `INSERT INTO tuition_transactions (
-      user_id, academic_year_id, reference_no, total_amount, payment_method_id, status, payment_date, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    ON CONFLICT DO NOTHING
-    RETURNING id, created_at`,
-    [2, 2, 'TRX-OKT-001', 800000, 1, 'success', createdAt, createdAt]
+  // ==============================================================================
+  // TUITION TRANSACTIONS (2 skenario: 1tx-1det & 1tx-Ndet)
+  //
+  // Pakai pool.query mentah karena tabelnya RANGE-partitioned + composite PK
+  // (id, created_at). Reset dulu agar idempotent saat seeding ulang.
+  // Reset paid_amount/status bill juga supaya skenario di bawah konsisten.
+  // ==============================================================================
+  await pool.query(
+    `TRUNCATE TABLE tuition_transaction_details, tuition_transactions RESTART IDENTITY CASCADE`
+  );
+  await pool.query(
+    `UPDATE tuition_bills SET paid_amount = 0, status = 'unpaid', updated_at = NOW()`
   );
 
-  if (txResult.rows.length > 0) {
-    const tx = txResult.rows[0];
+  const billRows = await pool.query<{
+    id: number;
+    student_id: number;
+    product_id: number;
+    title: string;
+    total_amount: string;
+  }>(
+    `SELECT id, student_id, product_id, title, total_amount
+     FROM tuition_bills
+     WHERE student_id IN (1, 2)
+     ORDER BY id`
+  );
+
+  const findBill = (studentId: number, title: string) => {
+    const row = billRows.rows.find(
+      (b) => b.student_id === studentId && b.title === title
+    );
+    if (!row) {
+      throw new Error(
+        `Bill seed tidak ditemukan untuk student_id=${studentId} title="${title}"`
+      );
+    }
+    return row;
+  };
+
+  const billSppJuliSd = findBill(1, 'SPP Juli 2025');
+  const billSppJuliSmp = findBill(2, 'SPP Juli 2025');
+  const billSppAgtSmp = findBill(2, 'SPP Agustus 2025');
+  const billDspSmp = findBill(2, 'DSP Tahun 2025/2026');
+
+  // ----- Skenario A: 1 transaksi - 1 detail (student 1, SPP Juli 2025 SD) -----
+  {
+    const createdAt = new Date('2025-07-15T10:00:00.000Z');
+    const txRes = await pool.query<{ id: string; created_at: Date }>(
+      `INSERT INTO tuition_transactions (
+         user_id, student_id, academic_year_id, reference_no, total_amount,
+         payment_method_id, status, payment_date, created_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, created_at`,
+      [2, 1, 2, 'TRX-2025-07-001', 800000, 1, 'success', createdAt, createdAt]
+    );
+    const tx = txRes.rows[0];
+
     await pool.query(
       `INSERT INTO tuition_transaction_details (
-        transaction_id, transaction_created_at, bill_id, product_id, amount_paid, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT DO NOTHING`,
-      [tx.id, tx.created_at, 1, 1, 800000, createdAt]
+         transaction_id, transaction_created_at, bill_id, product_id,
+         student_id, amount_paid, created_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [tx.id, tx.created_at, billSppJuliSd.id, billSppJuliSd.product_id, 1, 800000, createdAt]
     );
 
     await pool.query(
-      `UPDATE tuition_bills SET paid_amount = total_amount, status = 'paid', updated_at = NOW() WHERE id = 1`
+      `UPDATE tuition_bills
+         SET paid_amount = total_amount, status = 'paid', updated_at = NOW()
+         WHERE id = $1`,
+      [billSppJuliSd.id]
+    );
+  }
+
+  // ----- Skenario B: 1 transaksi - banyak detail (student 2, SMP) -----
+  // Bayar sekaligus: SPP Juli + SPP Agustus + cicilan pertama DSP.
+  {
+    const createdAt = new Date('2025-08-05T10:00:00.000Z');
+    const sppJuliPay = 1200000;
+    const sppAgtPay = 1200000;
+    const dspPay = 1000000;
+    const totalAmount = sppJuliPay + sppAgtPay + dspPay;
+
+    const txRes = await pool.query<{ id: string; created_at: Date }>(
+      `INSERT INTO tuition_transactions (
+         user_id, student_id, academic_year_id, reference_no, total_amount,
+         payment_method_id, status, payment_date, created_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, created_at`,
+      [2, 2, 2, 'TRX-2025-08-001', totalAmount, 2, 'success', createdAt, createdAt]
+    );
+    const tx = txRes.rows[0];
+
+    const detailValues: Array<[number, number, number, number]> = [
+      [billSppJuliSmp.id, billSppJuliSmp.product_id, 2, sppJuliPay],
+      [billSppAgtSmp.id, billSppAgtSmp.product_id, 2, sppAgtPay],
+      [billDspSmp.id, billDspSmp.product_id, 2, dspPay],
+    ];
+
+    for (const [billId, productId, studentId, amount] of detailValues) {
+      await pool.query(
+        `INSERT INTO tuition_transaction_details (
+           transaction_id, transaction_created_at, bill_id, product_id,
+           student_id, amount_paid, created_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [tx.id, tx.created_at, billId, productId, studentId, amount, createdAt]
+      );
+    }
+
+    await pool.query(
+      `UPDATE tuition_bills
+         SET paid_amount = total_amount, status = 'paid', updated_at = NOW()
+         WHERE id IN ($1, $2)`,
+      [billSppJuliSmp.id, billSppAgtSmp.id]
+    );
+
+    await pool.query(
+      `UPDATE tuition_bills
+         SET paid_amount = $1, status = 'partial', updated_at = NOW()
+         WHERE id = $2`,
+      [dspPay, billDspSmp.id]
     );
   }
 

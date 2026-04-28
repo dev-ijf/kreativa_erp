@@ -95,30 +95,14 @@ export async function countTuitionTransactions(f: TransactionListFilters): Promi
     WHERE t.created_at >= ${f.rangeStart}
       AND t.created_at < ${f.rangeEndExclusive}
       AND (${f.userId}::int IS NULL OR t.user_id = ${f.userId})
+      AND (${f.studentId}::int IS NULL OR t.student_id = ${f.studentId})
       AND (${f.status}::text IS NULL OR t.status = ${f.status})
       AND (${f.paymentMethodId}::int IS NULL OR t.payment_method_id = ${f.paymentMethodId})
       AND (${f.academicYearId}::int IS NULL OR t.academic_year_id = ${f.academicYearId})
       AND (${ref}::text IS NULL OR t.reference_no ILIKE ${ref})
-      AND (${f.studentId}::int IS NULL OR EXISTS (
-        SELECT 1
-        FROM tuition_transaction_details d
-        JOIN tuition_bills b ON b.id = d.bill_id
-        WHERE d.transaction_id = t.id
-          AND d.transaction_created_at = t.created_at
-          AND d.created_at >= ${f.rangeStart}
-          AND d.created_at < ${f.rangeEndExclusive}
-          AND b.student_id = ${f.studentId}
-      ))
       AND (${f.schoolId}::int IS NULL OR EXISTS (
-        SELECT 1
-        FROM tuition_transaction_details d
-        JOIN tuition_bills b ON b.id = d.bill_id
-        JOIN core_students s ON s.id = b.student_id
-        WHERE d.transaction_id = t.id
-          AND d.transaction_created_at = t.created_at
-          AND d.created_at >= ${f.rangeStart}
-          AND d.created_at < ${f.rangeEndExclusive}
-          AND s.school_id = ${f.schoolId}
+        SELECT 1 FROM core_students s2
+        WHERE s2.id = t.student_id AND s2.school_id = ${f.schoolId}
       ))
   `;
   return (row?.c as number) ?? 0;
@@ -135,6 +119,7 @@ export async function selectTuitionTransactions(
       t.id,
       t.created_at,
       t.user_id,
+      t.student_id,
       t.academic_year_id,
       t.reference_no,
       t.total_amount,
@@ -143,39 +128,31 @@ export async function selectTuitionTransactions(
       t.payment_date,
       u.full_name AS payer_name,
       ay.name AS academic_year_name,
-      pm.name AS payment_method_name
+      pm.name AS payment_method_name,
+      s.full_name AS student_name,
+      s.nis,
+      sch.name AS school_name,
+      (SELECT cls.name FROM core_student_class_histories ch
+        JOIN core_classes cls ON cls.id = ch.class_id
+        WHERE ch.student_id = s.id
+          AND ch.academic_year_id = t.academic_year_id
+          AND ch.status = 'active'
+        LIMIT 1) AS class_name
     FROM tuition_transactions t
-    LEFT JOIN core_users u ON u.id = t.user_id
-    LEFT JOIN core_academic_years ay ON ay.id = t.academic_year_id
+    LEFT JOIN core_users u             ON u.id  = t.user_id
+    LEFT JOIN core_academic_years ay   ON ay.id = t.academic_year_id
     LEFT JOIN tuition_payment_methods pm ON pm.id = t.payment_method_id
+    LEFT JOIN core_students s          ON s.id  = t.student_id
+    LEFT JOIN core_schools sch         ON sch.id = s.school_id
     WHERE t.created_at >= ${f.rangeStart}
       AND t.created_at < ${f.rangeEndExclusive}
       AND (${f.userId}::int IS NULL OR t.user_id = ${f.userId})
+      AND (${f.studentId}::int IS NULL OR t.student_id = ${f.studentId})
       AND (${f.status}::text IS NULL OR t.status = ${f.status})
       AND (${f.paymentMethodId}::int IS NULL OR t.payment_method_id = ${f.paymentMethodId})
       AND (${f.academicYearId}::int IS NULL OR t.academic_year_id = ${f.academicYearId})
       AND (${ref}::text IS NULL OR t.reference_no ILIKE ${ref})
-      AND (${f.studentId}::int IS NULL OR EXISTS (
-        SELECT 1
-        FROM tuition_transaction_details d
-        JOIN tuition_bills b ON b.id = d.bill_id
-        WHERE d.transaction_id = t.id
-          AND d.transaction_created_at = t.created_at
-          AND d.created_at >= ${f.rangeStart}
-          AND d.created_at < ${f.rangeEndExclusive}
-          AND b.student_id = ${f.studentId}
-      ))
-      AND (${f.schoolId}::int IS NULL OR EXISTS (
-        SELECT 1
-        FROM tuition_transaction_details d
-        JOIN tuition_bills b ON b.id = d.bill_id
-        JOIN core_students s ON s.id = b.student_id
-        WHERE d.transaction_id = t.id
-          AND d.transaction_created_at = t.created_at
-          AND d.created_at >= ${f.rangeStart}
-          AND d.created_at < ${f.rangeEndExclusive}
-          AND s.school_id = ${f.schoolId}
-      ))
+      AND (${f.schoolId}::int IS NULL OR s.school_id = ${f.schoolId})
     ORDER BY t.created_at DESC
     LIMIT ${limit}
     OFFSET ${offset}
@@ -200,39 +177,31 @@ export async function selectTuitionTransactionsForExport(
       u.email AS email_pembayar,
       ay.name AS tahun_ajaran,
       pm.name AS metode_pembayaran,
-      t.va_no AS va_no
+      t.va_no AS va_no,
+      s.full_name AS siswa,
+      s.nis AS nis,
+      sch.name AS sekolah,
+      (SELECT cls.name FROM core_student_class_histories ch
+        JOIN core_classes cls ON cls.id = ch.class_id
+        WHERE ch.student_id = s.id
+          AND ch.academic_year_id = t.academic_year_id
+          AND ch.status = 'active'
+        LIMIT 1) AS kelas
     FROM tuition_transactions t
-    LEFT JOIN core_users u ON u.id = t.user_id
-    LEFT JOIN core_academic_years ay ON ay.id = t.academic_year_id
+    LEFT JOIN core_users u             ON u.id  = t.user_id
+    LEFT JOIN core_academic_years ay   ON ay.id = t.academic_year_id
     LEFT JOIN tuition_payment_methods pm ON pm.id = t.payment_method_id
+    LEFT JOIN core_students s          ON s.id  = t.student_id
+    LEFT JOIN core_schools sch         ON sch.id = s.school_id
     WHERE t.created_at >= ${f.rangeStart}
       AND t.created_at < ${f.rangeEndExclusive}
       AND (${f.userId}::int IS NULL OR t.user_id = ${f.userId})
+      AND (${f.studentId}::int IS NULL OR t.student_id = ${f.studentId})
       AND (${f.status}::text IS NULL OR t.status = ${f.status})
       AND (${f.paymentMethodId}::int IS NULL OR t.payment_method_id = ${f.paymentMethodId})
       AND (${f.academicYearId}::int IS NULL OR t.academic_year_id = ${f.academicYearId})
       AND (${ref}::text IS NULL OR t.reference_no ILIKE ${ref})
-      AND (${f.studentId}::int IS NULL OR EXISTS (
-        SELECT 1
-        FROM tuition_transaction_details d
-        JOIN tuition_bills b ON b.id = d.bill_id
-        WHERE d.transaction_id = t.id
-          AND d.transaction_created_at = t.created_at
-          AND d.created_at >= ${f.rangeStart}
-          AND d.created_at < ${f.rangeEndExclusive}
-          AND b.student_id = ${f.studentId}
-      ))
-      AND (${f.schoolId}::int IS NULL OR EXISTS (
-        SELECT 1
-        FROM tuition_transaction_details d
-        JOIN tuition_bills b ON b.id = d.bill_id
-        JOIN core_students s ON s.id = b.student_id
-        WHERE d.transaction_id = t.id
-          AND d.transaction_created_at = t.created_at
-          AND d.created_at >= ${f.rangeStart}
-          AND d.created_at < ${f.rangeEndExclusive}
-          AND s.school_id = ${f.schoolId}
-      ))
+      AND (${f.schoolId}::int IS NULL OR s.school_id = ${f.schoolId})
     ORDER BY t.created_at DESC
     LIMIT ${maxRows}
   `;
