@@ -325,7 +325,7 @@ CREATE TABLE "tuition_products" (
 -- tuition_transactions & tuition_transaction_details: PARTITION BY RANGE(created_at) bulanan.
 -- Partisi fisik 2023-01 .. 2031-12; setelah itu jalankan npm run db:ensure-partitions atau perluas rentang di DO block.
 CREATE TABLE "tuition_transactions" (
-	"id" bigint GENERATED ALWAYS AS IDENTITY (sequence name "tuition_transactions_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
+	"id" bigserial NOT NULL,
 	"user_id" integer NOT NULL,
 	"academic_year_id" integer NOT NULL,
 	"reference_no" varchar(50) NOT NULL,
@@ -341,7 +341,7 @@ CREATE TABLE "tuition_transactions" (
 ) PARTITION BY RANGE ("created_at");
 --> statement-breakpoint
 CREATE TABLE "tuition_transaction_details" (
-	"id" bigint GENERATED ALWAYS AS IDENTITY (sequence name "tuition_transaction_details_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
+	"id" bigserial NOT NULL,
 	"transaction_id" bigint NOT NULL,
 	"transaction_created_at" timestamp NOT NULL,
 	"bill_id" integer NOT NULL,

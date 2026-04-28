@@ -17,7 +17,7 @@ ALTER TABLE "tuition_transactions_old" RENAME CONSTRAINT "unique_ref_no_per_part
 ALTER TABLE "tuition_transaction_details_old" RENAME CONSTRAINT "tuition_transaction_details_id_created_at_pk" TO "tuition_transaction_details_old_id_created_at_pk";
 
 CREATE TABLE "tuition_transactions" (
-	"id" bigint GENERATED ALWAYS AS IDENTITY (sequence name "tuition_transactions_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
+	"id" bigserial NOT NULL,
 	"user_id" integer NOT NULL,
 	"academic_year_id" integer NOT NULL,
 	"reference_no" varchar(50) NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE "tuition_transactions" (
 ) PARTITION BY RANGE ("created_at");
 
 CREATE TABLE "tuition_transaction_details" (
-	"id" bigint GENERATED ALWAYS AS IDENTITY (sequence name "tuition_transaction_details_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
+	"id" bigserial NOT NULL,
 	"transaction_id" bigint NOT NULL,
 	"transaction_created_at" timestamp NOT NULL,
 	"bill_id" integer NOT NULL,

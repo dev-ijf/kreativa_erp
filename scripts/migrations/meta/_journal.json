@@ -113,6 +113,13 @@
       "when": 1776200000000,
       "tag": "0019_academic_adaptive_tests_student_id_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1776300000000,
+      "tag": "0020_tuition_transactions_id_bigserial",
+      "breakpoints": true
     }
   ]
 }

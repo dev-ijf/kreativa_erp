@@ -6,6 +6,7 @@ import {
   boolean,
   integer,
   bigint,
+  bigserial,
   decimal,
   date,
   timestamp,
@@ -468,14 +469,13 @@ export const tuitionBills = pgTable(
 );
 
 // ==============================================================================
-// TUITION: TRANSACTIONS (composite PK id + created_at; RANGE partitioned by created_at per bulan — lihat 0000_init_ijf_schema.sql)
+// TUITION: TRANSACTIONS (id bigserial + created_at composite PK; RANGE partitioned
+// by created_at per bulan — lihat 0000_init_ijf_schema.sql & 0020)
 // ==============================================================================
 export const tuitionTransactions = pgTable(
   'tuition_transactions',
   {
-    id: bigint('id', { mode: 'number' })
-      .notNull()
-      .generatedAlwaysAsIdentity({ name: 'tuition_transactions_id_seq' }),
+    id: bigserial('id', { mode: 'number' }),
     userId: integer('user_id')
       .notNull()
       .references(() => coreUsers.id),
@@ -508,9 +508,7 @@ export const tuitionTransactions = pgTable(
 export const tuitionTransactionDetails = pgTable(
   'tuition_transaction_details',
   {
-    id: bigint('id', { mode: 'number' })
-      .notNull()
-      .generatedAlwaysAsIdentity({ name: 'tuition_transaction_details_id_seq' }),
+    id: bigserial('id', { mode: 'number' }),
     transactionId: bigint('transaction_id', { mode: 'number' }).notNull(),
     transactionCreatedAt: timestamp('transaction_created_at').notNull(),
     billId: integer('bill_id')

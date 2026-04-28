@@ -36,17 +36,19 @@ CREATE TABLE IF NOT EXISTS "public"."academic_semesters" (
 -- ==============================================================================
 -- 3. SCHEDULES (JADWAL HARI INI)
 -- ==============================================================================
+-- Selaras dengan scripts/schema.ts (jadwal per kelas, bukan per siswa).
 CREATE TABLE IF NOT EXISTS "public"."academic_schedules" (
-    "id" bigserial PRIMARY KEY,
-    "student_id" int4 NOT NULL,
+    "id" serial PRIMARY KEY,
+    "class_id" int4 NOT NULL REFERENCES "public"."core_classes"("id"),
+    "academic_year_id" int4 NOT NULL REFERENCES "public"."core_academic_years"("id"),
     "subject_id" bigint REFERENCES "public"."academic_subjects"("id") ON DELETE SET NULL,
     "teacher_id" int4 REFERENCES "public"."core_teachers"("id") ON DELETE SET NULL,
-    "day_of_week" varchar NOT NULL, -- 'Monday', 'Tuesday', dll
-    "start_time" varchar NOT NULL, -- format 'HH:MM'
-    "end_time" varchar NOT NULL, -- format 'HH:MM'
+    "day_of_week" varchar(20) NOT NULL,
+    "start_time" varchar(10) NOT NULL,
+    "end_time" varchar(10) NOT NULL,
     "is_break" boolean DEFAULT false
 );
-CREATE INDEX IF NOT EXISTS "idx_acad_sch_student_day" ON "public"."academic_schedules" ("student_id", "day_of_week");
+CREATE INDEX IF NOT EXISTS "idx_acad_sch_class_year_day" ON "public"."academic_schedules" ("class_id", "academic_year_id", "day_of_week");
 
 
 -- ==============================================================================
@@ -206,8 +208,8 @@ ALTER TABLE "public"."academic_adaptive_questions"
 -- ==============================================================================
 -- ==============================================================================
 -- S E E D   D A T A (MOCK DATA)
--- Asumsi student_id = 1 (Budi Santoso) dan student_id = 2 (Ani Santoso / Zevanya)
--- Asumsi school_id = 4 (Sesuai dengan insert Anda di core_students)
+-- Jadwal per kelas: class_id 1 & 2, academic_year_id 2 (selaras scripts/seed.ts + core_student_class_histories)
+-- Asumsi school_id = 4 (core_students)
 -- ==============================================================================
 -- ==============================================================================
  
@@ -248,22 +250,23 @@ ON CONFLICT ("id") DO NOTHING;
  
 
 -- Seed Schedules (Monday)
-INSERT INTO "public"."academic_schedules" ("student_id", "subject_id", "teacher_id", "day_of_week", "start_time", "end_time", "is_break")
-SELECT v.student_id, v.subject_id, v.teacher_id, v.day_of_week, v.start_time, v.end_time, v.is_break
+INSERT INTO "public"."academic_schedules" ("class_id", "academic_year_id", "subject_id", "teacher_id", "day_of_week", "start_time", "end_time", "is_break")
+SELECT v.class_id, v.academic_year_id, v.subject_id, v.teacher_id, v.day_of_week, v.start_time, v.end_time, v.is_break
 FROM (
   VALUES
-    (1::int4, 1::bigint, 1::int4, 'Monday'::varchar, '07:30'::varchar, '09:00'::varchar, false::boolean),
-    (1::int4, 2::bigint, 2::int4, 'Monday'::varchar, '09:00'::varchar, '10:30'::varchar, false::boolean),
-    (1::int4, NULL::bigint, NULL::int4, 'Monday'::varchar, '10:30'::varchar, '11:00'::varchar, true::boolean),
-    (1::int4, 3::bigint, 3::int4, 'Monday'::varchar, '11:00'::varchar, '12:30'::varchar, false::boolean),
-    (2::int4, 4::bigint, 4::int4, 'Monday'::varchar, '08:00'::varchar, '09:30'::varchar, false::boolean),
-    (2::int4, NULL::bigint, NULL::int4, 'Monday'::varchar, '09:30'::varchar, '10:00'::varchar, true::boolean),
-    (2::int4, 1::bigint, 1::int4, 'Monday'::varchar, '10:00'::varchar, '11:30'::varchar, false::boolean)
-) AS v(student_id, subject_id, teacher_id, day_of_week, start_time, end_time, is_break)
+    (1::int4, 2::int4, 1::bigint, 1::int4, 'Monday'::varchar, '07:30'::varchar, '09:00'::varchar, false::boolean),
+    (1::int4, 2::int4, 2::bigint, 2::int4, 'Monday'::varchar, '09:00'::varchar, '10:30'::varchar, false::boolean),
+    (1::int4, 2::int4, NULL::bigint, NULL::int4, 'Monday'::varchar, '10:30'::varchar, '11:00'::varchar, true::boolean),
+    (1::int4, 2::int4, 3::bigint, 3::int4, 'Monday'::varchar, '11:00'::varchar, '12:30'::varchar, false::boolean),
+    (2::int4, 2::int4, 4::bigint, 4::int4, 'Monday'::varchar, '08:00'::varchar, '09:30'::varchar, false::boolean),
+    (2::int4, 2::int4, NULL::bigint, NULL::int4, 'Monday'::varchar, '09:30'::varchar, '10:00'::varchar, true::boolean),
+    (2::int4, 2::int4, 1::bigint, 1::int4, 'Monday'::varchar, '10:00'::varchar, '11:30'::varchar, false::boolean)
+) AS v(class_id, academic_year_id, subject_id, teacher_id, day_of_week, start_time, end_time, is_break)
 WHERE NOT EXISTS (
   SELECT 1
   FROM "public"."academic_schedules" s
-  WHERE s."student_id" = v.student_id
+  WHERE s."class_id" = v.class_id
+    AND s."academic_year_id" = v.academic_year_id
     AND s."day_of_week" = v.day_of_week
     AND s."start_time" = v.start_time
     AND s."end_time" = v.end_time
@@ -431,10 +434,8 @@ SET "is_installment" = FALSE
 WHERE "payment_type" = 'monthly';
 
 -- ==============================================================================
--- SCHEDULES: Migrasi dari per-student ke per-class per-academic_year
+-- SCHEDULES: migrasi legacy per-student → per-class (tanpa TRUNCATE agar seed di atas tidak hilang)
 -- ==============================================================================
-TRUNCATE "public"."academic_schedules" RESTART IDENTITY CASCADE;
-
 ALTER TABLE "public"."academic_schedules"
   DROP COLUMN IF EXISTS "student_id";
 
