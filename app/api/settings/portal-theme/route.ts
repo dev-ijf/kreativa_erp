@@ -14,41 +14,43 @@ type PortalThemeResp = {
   loginBgUrl: string | null;
 };
 
+const ALLOWED_KEYS = new Set([
+  'app_title',
+  'logo_main_url',
+  'logo_login_url',
+  'login_welcome_text',
+  'favicon_url',
+  'login_title',
+  'login_subtitle',
+  'login_cta_text',
+  'login_bg_url',
+  'primary_color',
+]);
+
 export async function GET(_req: NextRequest) {
   const rows = (await sql`
     SELECT setting_key, setting_value
     FROM core_settings
     WHERE school_id IS NULL
+    ORDER BY id ASC
   `) as {
     setting_key: string;
     setting_value: string | null;
   }[];
 
+  // Last-write-wins per key
   const map: Record<string, string | null> = {};
   for (const r of rows) {
     const key = r.setting_key;
-    if (!key) continue;
-    if (
-      key === 'app_title' ||
-      key === 'logo_main_url' ||
-      key === 'logo_login_url' ||
-      key === 'login_welcome_text' ||
-      key === 'favicon_url' ||
-      key === 'login_title' ||
-      key === 'login_subtitle' ||
-      key === 'login_cta_text' ||
-      key === 'login_bg_url'
-    ) {
-      map[key] = r.setting_value;
-    }
+    if (!key || !ALLOWED_KEYS.has(key)) continue;
+    map[key] = r.setting_value;
   }
 
   const resp: PortalThemeResp = {
     appTitle: map.app_title || 'Kreativa',
     logoMainUrl: map.logo_main_url ?? null,
     logoLoginUrl: map.logo_login_url ?? map.logo_main_url ?? null,
-    // Warna sidebar/login tidak lagi diambil dari core_settings.primary_color (pakai warna per modul / default UI).
-    primaryColor: null,
+    primaryColor: map.primary_color ?? '#003df5',
     loginWelcomeText:
       map.login_welcome_text ??
       'Selamat datang di portal administrasi Kreativa ERP. Silakan masuk menggunakan akun Google yang terdaftar.',
@@ -59,6 +61,7 @@ export async function GET(_req: NextRequest) {
     loginBgUrl: map.login_bg_url ?? null,
   };
 
-  return NextResponse.json(resp);
+  return NextResponse.json(resp, {
+    headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' },
+  });
 }
-
