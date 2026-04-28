@@ -76,7 +76,7 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
 
   const openReceipt = () => {
     if (!createdAt) return;
-    const url = `/billing/transactions/${id}/receipt?created_at=${encodeURIComponent(createdAt)}`;
+    const url = `/api/billing/transactions/${id}/receipt-pdf?created_at=${encodeURIComponent(createdAt)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 

@@ -193,7 +193,7 @@ export default function BillingTransactionsPage() {
   };
 
   const openReceipt = (r: Row) => {
-    const url = `/billing/transactions/${r.id}/receipt?created_at=${encodeURIComponent(
+    const url = `/api/billing/transactions/${r.id}/receipt-pdf?created_at=${encodeURIComponent(
       r.created_at
     )}`;
     window.open(url, '_blank', 'noopener,noreferrer');
