@@ -10,12 +10,21 @@ import { toast } from 'sonner';
 
 type PaymentMethod = { id: number; name: string };
 
+function paymentMethodsFromResponse(payload: unknown): PaymentMethod[] {
+  if (Array.isArray(payload)) return payload as PaymentMethod[];
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown }).data)) {
+    return (payload as { data: PaymentMethod[] }).data;
+  }
+  return [];
+}
+
 type Instruction = {
   id: number;
   title: string;
   description: string;
   step_order: number | null;
   payment_channel_id: number;
+  lang: 'ID' | 'EN';
 };
 
 function EditInstructionForm({ id }: { id: string }) {
@@ -31,6 +40,7 @@ function EditInstructionForm({ id }: { id: string }) {
     payment_channel_id: '',
     step_order: '',
     description: '',
+    lang: 'ID' as 'ID' | 'EN',
   });
 
   const redirect = redirectParams || (form.payment_channel_id ? `/finance/payment-methods/${form.payment_channel_id}#instructions` : '/finance/payment-methods');
@@ -39,10 +49,10 @@ function EditInstructionForm({ id }: { id: string }) {
     void (async () => {
       setLoading(true);
       const [m, rowRes] = await Promise.all([
-        fetch('/api/finance/payment-methods').then((r) => r.json()),
+        fetch('/api/finance/payment-methods?limit=500').then((r) => r.json()),
         fetch(`/api/finance/payment-instructions/${id}`),
       ]);
-      setMethods(m);
+      setMethods(paymentMethodsFromResponse(m));
       if (!rowRes.ok) {
         toast.error('Instruksi tidak ditemukan');
         router.push(redirect);
@@ -54,6 +64,7 @@ function EditInstructionForm({ id }: { id: string }) {
         payment_channel_id: String(row.payment_channel_id ?? ''),
         step_order: row.step_order === null || row.step_order === undefined ? '' : String(row.step_order),
         description: row.description ?? '',
+        lang: row.lang === 'EN' ? 'EN' : 'ID',
       });
       setLoading(false);
     })();
@@ -70,6 +81,7 @@ function EditInstructionForm({ id }: { id: string }) {
         description: form.description,
         step_order: form.step_order === '' ? null : Number(form.step_order),
         payment_channel_id: Number(form.payment_channel_id),
+        lang: form.lang,
       }),
     });
     setSaving(false);
@@ -102,6 +114,32 @@ function EditInstructionForm({ id }: { id: string }) {
                 <option key={m.id} value={String(m.id)}>{m.name}</option>
               ))}
             </Select>
+          </Field>
+          <Field label="Bahasa" required hint="Tampilan instruksi untuk locale portal">
+            <div className="flex flex-wrap gap-6">
+              <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="instruction_lang"
+                  className="accent-violet-600"
+                  disabled={loading}
+                  checked={form.lang === 'ID'}
+                  onChange={() => setForm((f) => ({ ...f, lang: 'ID' }))}
+                />
+                Indonesia (ID)
+              </label>
+              <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="instruction_lang"
+                  className="accent-violet-600"
+                  disabled={loading}
+                  checked={form.lang === 'EN'}
+                  onChange={() => setForm((f) => ({ ...f, lang: 'EN' }))}
+                />
+                English (EN)
+              </label>
+            </div>
           </Field>
           <Field label="Judul Instruksi" required hint="Contoh: Pembayaran melalui ATM Mandiri">
             <Input disabled={loading} value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} autoFocus />

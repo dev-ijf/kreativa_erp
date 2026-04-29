@@ -148,6 +148,13 @@
       "when": 1776700000000,
       "tag": "0024_academic_adaptive_questions_bank",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1776800000000,
+      "tag": "0025_tuition_payment_instructions_lang",
+      "breakpoints": true
     }
   ]
 }

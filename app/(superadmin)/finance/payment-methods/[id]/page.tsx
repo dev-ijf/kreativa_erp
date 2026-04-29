@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Field, Select, Button, Input, Badge } from '@/components/ui/FormFields';
-import { ArrowLeft, ListTree, Plus, Edit2, Trash2, GripVertical, Search } from 'lucide-react';
+import { ArrowLeft, ListTree, Plus, Edit2, Trash2, GripVertical } from 'lucide-react';
 import Link from 'next/link';
 import { use } from 'react';
 import { toast } from 'sonner';
@@ -34,6 +34,7 @@ type Instruction = {
   description: string;
   step_order: number | null;
   payment_channel_id: number;
+  lang: 'ID' | 'EN';
 };
 
 function SortableInstructionRow({
@@ -68,14 +69,35 @@ function SortableInstructionRow({
         </button>
       </td>
       <td className="px-5 py-3 w-12 text-slate-400 font-mono text-[11px]">{row.id}</td>
-      <td className="px-5 py-3 py-3 text-[13px] text-slate-700 font-medium">{row.title}</td>
+      <td className="px-5 py-3 text-[13px] text-slate-700 font-medium">{row.title}</td>
+      <td className="px-5 py-3 w-16">
+        <Badge variant={row.lang === 'EN' ? 'info' : 'neutral'}>{row.lang === 'EN' ? 'EN' : 'ID'}</Badge>
+      </td>
       <td className="px-5 py-3 text-[12px] font-mono text-slate-500 w-20">{row.step_order ?? '–'}</td>
-      <td className="px-5 py-3 text-right w-28">
-        <div className="flex justify-end gap-1.5">
-          <Link href={`/finance/payment-instructions/${row.id}?redirect=/finance/payment-methods/${row.payment_channel_id}`}>
-            <Button size="sm" variant="outline" className="h-7 w-7 p-0 justify-center"><Edit2 size={12} /></Button>
+      <td className="px-5 py-3 text-right min-w-[9.5rem]">
+        <div className="flex justify-end gap-2 flex-wrap">
+          <Link
+            href={`/finance/payment-instructions/${row.id}?redirect=/finance/payment-methods/${row.payment_channel_id}`}
+            className="inline-flex items-center justify-center gap-1.5 h-8 px-2 sm:px-2.5 rounded-lg font-semibold text-[12px] bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-sm"
+            aria-label="Ubah instruksi"
+            title="Ubah instruksi"
+          >
+            <Edit2 size={16} className="text-slate-700 shrink-0" strokeWidth={2.25} />
+            <span className="text-[11px] font-semibold tracking-tight">Ubah</span>
           </Link>
-          <Button size="sm" variant="danger" className="h-7 w-7 p-0 justify-center" loading={deleting} onClick={() => onDelete(row.id)}><Trash2 size={12} /></Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="danger"
+            className="h-8 px-2 sm:px-2.5 gap-1.5 shadow-sm ring-1 ring-rose-600/30"
+            loading={deleting}
+            aria-label="Hapus instruksi"
+            title="Hapus instruksi"
+            onClick={() => onDelete(row.id)}
+          >
+            <Trash2 size={16} className="text-white shrink-0" strokeWidth={2.25} />
+            <span className="text-[11px] font-semibold tracking-tight">Hapus</span>
+          </Button>
         </div>
       </td>
     </tr>
@@ -101,6 +123,7 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
   });
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [instructions, setInstructions] = useState<Instruction[]>([]);
+  const [instructionLangFilter, setInstructionLangFilter] = useState<'' | 'ID' | 'EN'>('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingInstructions, setLoadingInstructions] = useState(true);
@@ -112,7 +135,7 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const loadMethod = async () => {
+  const loadMethod = useCallback(async () => {
     const res = await fetch(`/api/finance/payment-methods/${id}`);
     const item = await res.json();
     if (item) {
@@ -130,15 +153,17 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
       });
     }
     setLoading(false);
-  };
+  }, [id]);
 
-  const loadInstructions = async () => {
+  const loadInstructions = useCallback(async () => {
     setLoadingInstructions(true);
-    const res = await fetch(`/api/finance/payment-instructions?payment_channel_id=${id}`);
+    const params = new URLSearchParams({ payment_channel_id: String(id) });
+    if (instructionLangFilter) params.set('lang', instructionLangFilter);
+    const res = await fetch(`/api/finance/payment-instructions?${params.toString()}`);
     const d = await res.json();
     setInstructions(Array.isArray(d) ? d : []);
     setLoadingInstructions(false);
-  };
+  }, [id, instructionLangFilter]);
 
   useEffect(() => {
     fetch('/api/master/schools')
@@ -149,8 +174,11 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
 
   useEffect(() => {
     void loadMethod();
+  }, [loadMethod]);
+
+  useEffect(() => {
     void loadInstructions();
-  }, [id]);
+  }, [loadInstructions]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,18 +338,31 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
 
         {/* Instructions Section */}
         <div id="instructions" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col scroll-mt-6">
-          <div className="p-6 pb-2 flex items-center justify-between">
+          <div className="p-6 pb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2 text-slate-800 font-semibold text-sm">
                 <ListTree size={16} className="text-violet-600" /> Instruksi Pembayaran
               </div>
               <p className="text-slate-400 text-[12px] mt-0.5">Urutan langkah yang muncul di portal tagihan</p>
             </div>
-            <Link href={`/finance/payment-instructions/add?methodId=${id}`}>
-              <Button size="sm" variant="outline" className="h-8 text-[11px] px-3 gap-1.5 hover:bg-violet-50 hover:text-violet-600 hover:border-violet-200">
-                <Plus size={14} /> Tambah Langkah
-              </Button>
-            </Link>
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="Filter bahasa">
+                <Select
+                  value={instructionLangFilter}
+                  onChange={(e) => setInstructionLangFilter((e.target.value as '' | 'ID' | 'EN') || '')}
+                  className="h-8 text-[11px] min-w-[140px]"
+                >
+                  <option value="">Semua bahasa</option>
+                  <option value="ID">Bahasa ID</option>
+                  <option value="EN">Bahasa EN</option>
+                </Select>
+              </Field>
+              <Link href={`/finance/payment-instructions/add?methodId=${id}`}>
+                <Button size="sm" variant="outline" className="h-8 text-[11px] px-3 gap-1.5 hover:bg-violet-50 hover:text-violet-600 hover:border-violet-200">
+                  <Plus size={14} /> Tambah Langkah
+                </Button>
+              </Link>
+            </div>
           </div>
 
           <div className="p-0 mt-4 border-t border-slate-100">
@@ -333,20 +374,21 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
                       <th className="px-5 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-10">Sort</th>
                       <th className="px-5 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-12 text-center">ID</th>
                       <th className="px-5 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Judul Langkah</th>
+                      <th className="px-5 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-16">Lang</th>
                       <th className="px-5 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-20">Urutan</th>
-                      <th className="px-5 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right w-28 pr-6">Aksi</th>
+                      <th className="px-5 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right min-w-[10rem] pr-6">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loadingInstructions ? (
                       Array.from({ length: 3 }).map((_, i) => (
                         <tr key={i} className="border-b border-slate-50">
-                          <td colSpan={5} className="px-5 py-4"><div className="h-4 bg-slate-50 rounded animate-pulse w-full" /></td>
+                          <td colSpan={6} className="px-5 py-4"><div className="h-4 bg-slate-50 rounded animate-pulse w-full" /></td>
                         </tr>
                       ))
                     ) : instructions.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="text-center py-12 text-slate-400 text-[12px] italic">
+                        <td colSpan={6} className="text-center py-12 text-slate-400 text-[12px] italic">
                           Belum ada instruksi untuk metode ini.
                         </td>
                       </tr>

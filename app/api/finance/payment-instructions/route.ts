@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
+import { isInstructionLangFilter, resolveInstructionLangForWrite } from '@/lib/payment-instruction-lang';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const paymentChannelId = searchParams.get('payment_channel_id');
   const q = (searchParams.get('q') ?? '').trim();
+  const langRaw = (searchParams.get('lang') ?? '').trim().toUpperCase();
+  const langFilter = isInstructionLangFilter(langRaw) ? langRaw : '';
 
   const [{ has_table }] = (await sql`
     SELECT to_regclass('public.tuition_payment_instructions') IS NOT NULL AS has_table
@@ -30,6 +33,7 @@ export async function GET(req: NextRequest) {
     WHERE
       (${paymentChannelId}::text IS NULL OR ${paymentChannelId}::text = '' OR pi.payment_channel_id = ${Number(paymentChannelId)})
       AND (${q}::text = '' OR pi.title ILIKE ${'%' + q + '%'})
+      AND (${langFilter}::text = '' OR pi.lang = ${langFilter})
     ORDER BY pi.payment_channel_id ASC, pi.step_order NULLS LAST, pi.id DESC
   `;
 
@@ -56,13 +60,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'title, description, payment_channel_id wajib diisi' }, { status: 400 });
   }
 
+  const langRes = resolveInstructionLangForWrite(data.lang);
+  if (typeof langRes === 'object' && 'error' in langRes) {
+    return NextResponse.json({ error: langRes.error }, { status: 400 });
+  }
+  const lang = langRes;
+
   const [row] = await sql`
-    INSERT INTO tuition_payment_instructions (title, description, step_order, payment_channel_id)
+    INSERT INTO tuition_payment_instructions (title, description, step_order, payment_channel_id, lang)
     VALUES (
       ${String(data.title)},
       ${String(data.description)},
       ${data.step_order === null || data.step_order === undefined || data.step_order === '' ? null : Number(data.step_order)},
-      ${Number(data.payment_channel_id)}
+      ${Number(data.payment_channel_id)},
+      ${lang}
     )
     RETURNING *
   `;

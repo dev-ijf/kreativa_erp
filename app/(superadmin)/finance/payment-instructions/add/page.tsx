@@ -10,6 +10,14 @@ import { toast } from 'sonner';
 
 type PaymentMethod = { id: number; name: string };
 
+function paymentMethodsFromResponse(payload: unknown): PaymentMethod[] {
+  if (Array.isArray(payload)) return payload as PaymentMethod[];
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown }).data)) {
+    return (payload as { data: PaymentMethod[] }).data;
+  }
+  return [];
+}
+
 function AddInstructionForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,12 +31,13 @@ function AddInstructionForm() {
     payment_channel_id: methodId || '',
     step_order: '',
     description: '',
+    lang: 'ID' as 'ID' | 'EN',
   });
 
   useEffect(() => {
-    fetch('/api/finance/payment-methods')
+    fetch('/api/finance/payment-methods?limit=500')
       .then((r) => r.json())
-      .then((d) => setMethods(d));
+      .then((d) => setMethods(paymentMethodsFromResponse(d)));
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -42,6 +51,7 @@ function AddInstructionForm() {
         description: form.description,
         step_order: form.step_order === '' ? null : Number(form.step_order),
         payment_channel_id: Number(form.payment_channel_id),
+        lang: form.lang,
       }),
     });
     setSaving(false);
@@ -74,6 +84,30 @@ function AddInstructionForm() {
                 <option key={m.id} value={String(m.id)}>{m.name}</option>
               ))}
             </Select>
+          </Field>
+          <Field label="Bahasa" required hint="Tampilan instruksi untuk locale portal">
+            <div className="flex flex-wrap gap-6">
+              <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="instruction_lang"
+                  className="accent-violet-600"
+                  checked={form.lang === 'ID'}
+                  onChange={() => setForm((f) => ({ ...f, lang: 'ID' }))}
+                />
+                Indonesia (ID)
+              </label>
+              <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="instruction_lang"
+                  className="accent-violet-600"
+                  checked={form.lang === 'EN'}
+                  onChange={() => setForm((f) => ({ ...f, lang: 'EN' }))}
+                />
+                English (EN)
+              </label>
+            </div>
           </Field>
           <Field label="Judul Instruksi" required hint="Contoh: Pembayaran melalui ATM Mandiri">
             <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} autoFocus />

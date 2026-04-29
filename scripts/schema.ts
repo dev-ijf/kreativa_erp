@@ -422,6 +422,7 @@ export const tuitionPaymentInstructions = pgTable('tuition_payment_instructions'
   description: text('description').notNull(),
   stepOrder: bigint('step_order', { mode: 'number' }),
   paymentChannelId: integer('payment_channel_id').notNull(),
+  lang: varchar('lang', { length: 2 }).notNull().default('ID'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });

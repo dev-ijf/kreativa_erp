@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
+import { resolveInstructionLangForWrite } from '@/lib/payment-instruction-lang';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,12 +25,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'title, description, payment_channel_id wajib diisi' }, { status: 400 });
   }
 
+  const langRes = resolveInstructionLangForWrite(data.lang);
+  if (typeof langRes === 'object' && 'error' in langRes) {
+    return NextResponse.json({ error: langRes.error }, { status: 400 });
+  }
+  const lang = langRes;
+
   const [row] = await sql`
     UPDATE tuition_payment_instructions SET
       title=${String(data.title)},
       description=${String(data.description)},
       step_order=${data.step_order === null || data.step_order === undefined || data.step_order === '' ? null : Number(data.step_order)},
       payment_channel_id=${Number(data.payment_channel_id)},
+      lang=${lang},
       updated_at=now()
     WHERE id=${Number(id)}
     RETURNING *
