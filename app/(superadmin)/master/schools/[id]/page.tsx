@@ -21,6 +21,7 @@ export default function EditSchoolPage({ params }: { params: Promise<{ id: strin
     schoolCode: '',
     schoolLogoUrl: '' as string,
   });
+  const [themeId, setThemeId] = useState<'' | '1' | '2'>('');
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,7 @@ export default function EditSchoolPage({ params }: { params: Promise<{ id: strin
       .then(r => r.json())
       .then(d => {
         const item = d.find((s: any) => String(s.id) === id);
-        if (item)
+        if (item) {
           setForm({
             name: item.name,
             address: item.address || '',
@@ -38,6 +39,9 @@ export default function EditSchoolPage({ params }: { params: Promise<{ id: strin
             schoolCode: item.school_code || '',
             schoolLogoUrl: item.school_logo_url || '',
           });
+          const tid = item.theme_id;
+          setThemeId(tid === 1 || tid === 2 ? String(tid) as '1' | '2' : '');
+        }
         setLoading(false);
       });
   }, [id]);
@@ -59,6 +63,7 @@ export default function EditSchoolPage({ params }: { params: Promise<{ id: strin
           bankChannelCode: form.bankChannelCode,
           schoolCode: form.schoolCode,
           schoolLogoUrl,
+          themeId: themeId === '' ? null : Number(themeId),
         }),
       });
       if (!res.ok) {
@@ -92,6 +97,43 @@ export default function EditSchoolPage({ params }: { params: Promise<{ id: strin
         <div className="p-6 space-y-5">
           <Field label="Nama Sekolah" required>
             <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+          </Field>
+          <Field
+            label="Kurikulum (opsional)"
+            hint="Disimpan di kolom theme_id: 1 = International, 2 = Nasional."
+          >
+            <div className="flex flex-wrap gap-5 text-[13px] text-slate-700">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="school_curriculum"
+                  className="accent-violet-600"
+                  checked={themeId === ''}
+                  onChange={() => setThemeId('')}
+                />
+                Belum diatur
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="school_curriculum"
+                  className="accent-violet-600"
+                  checked={themeId === '1'}
+                  onChange={() => setThemeId('1')}
+                />
+                International
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="school_curriculum"
+                  className="accent-violet-600"
+                  checked={themeId === '2'}
+                  onChange={() => setThemeId('2')}
+                />
+                Nasional
+              </label>
+            </div>
           </Field>
           <SchoolLogoFormField
             existingUrl={form.schoolLogoUrl || null}

@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Field, Select, Button, Input } from '@/components/ui/FormFields';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { SchoolLogoFormField } from '@/components/master/SchoolLogoFormField';
+import { uploadPublicBlob } from '@/lib/blob-upload';
 
 export default function AddPaymentMethodPage() {
   const router = useRouter();
@@ -20,6 +23,7 @@ export default function AddPaymentMethodPage() {
     is_redirect: false,
     is_active: true,
   });
+  const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -32,16 +36,31 @@ export default function AddPaymentMethodPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await fetch('/api/finance/payment-methods', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        school_id: form.school_id === '' ? null : Number(form.school_id),
-      }),
-    });
-    setSaving(false);
-    router.push('/finance/payment-methods');
+    try {
+      let logo_url: string | null = null;
+      if (pendingLogo) {
+        logo_url = await uploadPublicBlob(pendingLogo, 'payment-methods/new/logo');
+      }
+      const res = await fetch('/api/finance/payment-methods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          school_id: form.school_id === '' ? null : Number(form.school_id),
+          logo_url,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error((j as { error?: string }).error || 'Gagal menyimpan');
+      }
+      toast.success('Metode pembayaran ditambahkan');
+      router.push('/finance/payment-methods');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -83,6 +102,15 @@ export default function AddPaymentMethodPage() {
           <Field label="Kode Identifikasi" required hint="Contoh: BSI, BCA, GOPAY (Gunakan huruf kapital blok)">
             <Input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} />
           </Field>
+          <SchoolLogoFormField
+            label="Logo metode (opsional)"
+            hint="Tampil di daftar metode. Unggah ke Vercel Blob saat Simpan."
+            imageEntityLabel="metode pembayaran"
+            existingUrl={null}
+            pendingFile={pendingLogo}
+            onPendingFileChange={setPendingLogo}
+            disabled={saving}
+          />
           <Field label="Kategori Metode" required>
             <Select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
               <option value="bank_transfer">Transfer Bank Manual</option>

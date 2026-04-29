@@ -11,6 +11,10 @@ type Props = {
   pendingFile: File | null;
   onPendingFileChange: (file: File | null) => void;
   disabled?: boolean;
+  label?: string;
+  hint?: string;
+  /** Teks alt / pratinjau (default: sekolah). */
+  imageEntityLabel?: string;
 };
 
 export function SchoolLogoFormField({
@@ -18,6 +22,9 @@ export function SchoolLogoFormField({
   pendingFile,
   onPendingFileChange,
   disabled,
+  label = 'Logo sekolah',
+  hint = 'Pilih gambar untuk pratinjau. File diunggah ke Vercel Blob saat Anda menekan Simpan / Update, bukan saat memilih file.',
+  imageEntityLabel = 'sekolah',
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
@@ -36,10 +43,7 @@ export function SchoolLogoFormField({
   const showPreview = Boolean(previewSrc);
 
   return (
-    <Field
-      label="Logo sekolah"
-      hint="Pilih gambar untuk pratinjau. File diunggah ke Vercel Blob saat Anda menekan Simpan / Update, bukan saat memilih file."
-    >
+    <Field label={label} hint={hint}>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -48,7 +52,7 @@ export function SchoolLogoFormField({
             className="hidden"
             accept="image/jpeg,image/png,image/webp,image/gif"
             disabled={disabled}
-            aria-label="Pilih logo sekolah"
+            aria-label={`Pilih logo ${imageEntityLabel}`}
             onChange={(e) => {
               const f = e.target.files?.[0] ?? null;
               onPendingFileChange(f);
@@ -96,7 +100,7 @@ export function SchoolLogoFormField({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewSrc!}
-              alt={pendingFile ? `Pratinjau ${pendingFile.name}` : 'Logo sekolah'}
+              alt={pendingFile ? `Pratinjau ${pendingFile.name}` : `Logo ${imageEntityLabel}`}
               className="max-h-40 max-w-full rounded-lg object-contain border border-white shadow-sm"
             />
           </div>

@@ -8,6 +8,8 @@ import Link from 'next/link';
 import { use } from 'react';
 import { toast } from 'sonner';
 import { confirmToast } from '@/components/ui/confirmToast';
+import { SchoolLogoFormField } from '@/components/master/SchoolLogoFormField';
+import { uploadPublicBlob } from '@/lib/blob-upload';
 import {
   DndContext,
   closestCenter,
@@ -92,10 +94,12 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
     category: 'bank_transfer',
     coa: '',
     vendor: '',
+    logo_url: '' as string,
     is_publish: true,
     is_redirect: false,
     is_active: true,
   });
+  const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -119,6 +123,7 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
         category: item.category,
         coa: item.coa || '',
         vendor: item.vendor || '',
+        logo_url: item.logo_url || '',
         is_publish: item.is_publish ?? true,
         is_redirect: item.is_redirect ?? false,
         is_active: item.is_active,
@@ -150,17 +155,31 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await fetch(`/api/finance/payment-methods/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        school_id: form.school_id === '' ? null : Number(form.school_id),
-      }),
-    });
-    setSaving(false);
-    toast.success('Metode pembayaran diperbarui');
-    router.push('/finance/payment-methods');
+    try {
+      let logo_url: string | null = form.logo_url.trim() || null;
+      if (pendingLogo) {
+        logo_url = await uploadPublicBlob(pendingLogo, `payment-methods/${id}/logo`);
+      }
+      const res = await fetch(`/api/finance/payment-methods/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          school_id: form.school_id === '' ? null : Number(form.school_id),
+          logo_url,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error((j as { error?: string }).error || 'Gagal menyimpan');
+      }
+      toast.success('Metode pembayaran diperbarui');
+      router.push('/finance/payment-methods');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteInstruction = async (insId: number) => {
@@ -245,6 +264,15 @@ export default function EditPaymentMethodPage({ params }: { params: Promise<{ id
                 <Input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} />
               </Field>
             </Grid>
+            <SchoolLogoFormField
+              label="Logo metode (opsional)"
+              hint="Tampil di daftar. Unggah ke Vercel Blob saat Simpan."
+              imageEntityLabel="metode pembayaran"
+              existingUrl={form.logo_url.trim() || null}
+              pendingFile={pendingLogo}
+              onPendingFileChange={setPendingLogo}
+              disabled={saving}
+            />
             <Field label="Kategori Metode" required>
               <Select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
                 <option value="bank_transfer">Transfer Bank Manual</option>

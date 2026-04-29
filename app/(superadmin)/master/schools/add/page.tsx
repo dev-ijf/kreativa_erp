@@ -12,6 +12,7 @@ import { uploadPublicBlob } from '@/lib/blob-upload';
 export default function AddSchoolPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: '', address: '', bankChannelCode: '', schoolCode: '' });
+  const [themeId, setThemeId] = useState<'' | '1' | '2'>('');
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -29,6 +30,7 @@ export default function AddSchoolPage() {
         body: JSON.stringify({
           ...form,
           schoolLogoUrl,
+          themeId: themeId === '' ? null : Number(themeId),
         }),
       });
       if (!res.ok) {
@@ -60,6 +62,43 @@ export default function AddSchoolPage() {
         <div className="p-6 space-y-5">
           <Field label="Nama Sekolah" required>
             <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="SMA Cendekia..." autoFocus />
+          </Field>
+          <Field
+            label="Kurikulum (opsional)"
+            hint="Disimpan di kolom theme_id: 1 = International, 2 = Nasional."
+          >
+            <div className="flex flex-wrap gap-5 text-[13px] text-slate-700">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="school_curriculum"
+                  className="accent-violet-600"
+                  checked={themeId === ''}
+                  onChange={() => setThemeId('')}
+                />
+                Belum diatur
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="school_curriculum"
+                  className="accent-violet-600"
+                  checked={themeId === '1'}
+                  onChange={() => setThemeId('1')}
+                />
+                International
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="school_curriculum"
+                  className="accent-violet-600"
+                  checked={themeId === '2'}
+                  onChange={() => setThemeId('2')}
+                />
+                Nasional
+              </label>
+            </div>
           </Field>
           <SchoolLogoFormField
             existingUrl={null}

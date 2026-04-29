@@ -20,10 +20,14 @@ export async function GET(req: NextRequest) {
     SELECT t.*,
       sub.name_id AS subject_name,
       st.full_name AS student_name,
-      st.nis
+      st.nis,
+      c.name AS class_name,
+      ay.name AS academic_year_name
     FROM academic_adaptive_tests t
     JOIN academic_subjects sub ON sub.id = t.subject_id
     JOIN core_students st ON st.id = t.student_id
+    LEFT JOIN core_classes c ON c.id = t.class_id
+    LEFT JOIN core_academic_years ay ON ay.id = t.academic_year_id
     WHERE
       (${qPattern}::text IS NULL OR st.full_name ILIKE ${qPattern}
         OR st.nis ILIKE ${qPattern}
@@ -33,14 +37,26 @@ export async function GET(req: NextRequest) {
       AND (
         ${classId}::int IS NULL
         OR (
-          ${academicYearId}::int IS NOT NULL
-          AND EXISTS (
-            SELECT 1
-            FROM core_student_class_histories ch
-            WHERE ch.student_id = st.id
-              AND ch.class_id = ${classId}
-              AND ch.academic_year_id = ${academicYearId}
-              AND ch.status = 'active'
+          (
+            t.class_id IS NOT NULL
+            AND t.class_id = ${classId}
+            AND (
+              ${academicYearId}::int IS NULL
+              OR t.academic_year_id IS NULL
+              OR t.academic_year_id = ${academicYearId}
+            )
+          )
+          OR (
+            t.class_id IS NULL
+            AND ${academicYearId}::int IS NOT NULL
+            AND EXISTS (
+              SELECT 1
+              FROM core_student_class_histories ch
+              WHERE ch.student_id = st.id
+                AND ch.class_id = ${classId}
+                AND ch.academic_year_id = ${academicYearId}
+                AND ch.status = 'active'
+            )
           )
         )
       )

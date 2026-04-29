@@ -31,14 +31,26 @@ export async function GET(req: NextRequest) {
       AND (
         ${f.classId}::int IS NULL
         OR (
-          ${academicYearId}::int IS NOT NULL
-          AND EXISTS (
-            SELECT 1
-            FROM core_student_class_histories ch
-            WHERE ch.student_id = s.id
-              AND ch.class_id = ${f.classId}
-              AND ch.academic_year_id = ${academicYearId}
-              AND ch.status = 'active'
+          (
+            t.class_id IS NOT NULL
+            AND t.class_id = ${f.classId}
+            AND (
+              ${academicYearId}::int IS NULL
+              OR t.academic_year_id IS NULL
+              OR t.academic_year_id = ${academicYearId}
+            )
+          )
+          OR (
+            t.class_id IS NULL
+            AND ${academicYearId}::int IS NOT NULL
+            AND EXISTS (
+              SELECT 1
+              FROM core_student_class_histories ch
+              WHERE ch.student_id = s.id
+                AND ch.class_id = ${f.classId}
+                AND ch.academic_year_id = ${academicYearId}
+                AND ch.status = 'active'
+            )
           )
         )
       )

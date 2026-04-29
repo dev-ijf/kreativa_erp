@@ -8,7 +8,8 @@ import {
 /**
  * GET — daftar transaksi dengan filter periode (created_at) untuk partition pruning.
  * Query: from, to (YYYY-MM-DD), student_id?, user_id?, school_id?, status?,
- * payment_method_id?, academic_year_id?, reference_q?, page?, limit?
+ * payment_method_id?, academic_year_id?, reference_q?, whatsapp_checkout?, whatsapp_paid?,
+ * page?, limit? (flag WA: true/false/1/0 atau kosong = semua)
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

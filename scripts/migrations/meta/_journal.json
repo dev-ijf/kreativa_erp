@@ -120,6 +120,20 @@
       "when": 1776300000000,
       "tag": "0020_tuition_transactions_id_bigserial",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776400000000,
+      "tag": "0021_adaptive_payment_school_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1776500000000,
+      "tag": "0022_tuition_transactions_whatsapp_flags",
+      "breakpoints": true
     }
   ]
 }

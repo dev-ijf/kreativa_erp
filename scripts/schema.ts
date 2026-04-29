@@ -405,6 +405,7 @@ export const tuitionPaymentMethods = pgTable('tuition_payment_methods', {
   category: varchar('category', { length: 50 }).notNull(),
   coa: varchar('coa', { length: 50 }),
   vendor: varchar('vendor', { length: 100 }),
+  logoUrl: text('logo_url'),
   isRedirect: boolean('is_redirect').default(false),
   isPublish: boolean('is_publish').default(true),
   sortOrder: integer('sort_order'),
@@ -495,6 +496,8 @@ export const tuitionTransactions = pgTable(
     qrCode: text('qr_code'),
     status: varchar('status', { length: 50 }).default('pending'),
     paymentDate: timestamp('payment_date'),
+    isWhatsappCheckout: boolean('is_whatsapp_checkout').notNull().default(false),
+    isWhatsappPaid: boolean('is_whatsapp_paid').notNull().default(false),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [
@@ -788,6 +791,10 @@ export const academicAdaptiveTests = pgTable(
     subjectId: bigint('subject_id', { mode: 'number' })
       .notNull()
       .references(() => academicSubjects.id, { onDelete: 'cascade' }),
+    classId: integer('class_id').references(() => coreClasses.id, { onDelete: 'set null' }),
+    academicYearId: integer('academic_year_id').references(() => coreAcademicYears.id, {
+      onDelete: 'set null',
+    }),
     testDate: timestamp('test_date').defaultNow(),
     score: integer('score').notNull(),
     masteryLevel: decimal('mastery_level', { precision: 3, scale: 2 }).notNull(),
@@ -805,6 +812,12 @@ export const academicAdaptiveQuestions = pgTable(
     subjectId: bigint('subject_id', { mode: 'number' })
       .notNull()
       .references(() => academicSubjects.id, { onDelete: 'cascade' }),
+    classId: integer('class_id').references(() => coreClasses.id, { onDelete: 'set null' }),
+    academicYearId: integer('academic_year_id').references(() => coreAcademicYears.id, {
+      onDelete: 'set null',
+    }),
+    lang: varchar('lang', { length: 20 }),
+    generatedBy: varchar('generated_by', { length: 50 }),
     gradeBand: varchar('grade_band', { length: 50 }).notNull(),
     difficulty: decimal('difficulty', { precision: 3, scale: 2 }).notNull(),
     questionText: text('question_text').notNull(),

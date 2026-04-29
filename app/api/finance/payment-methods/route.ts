@@ -90,10 +90,13 @@ export async function POST(req: NextRequest) {
     ) AS has_sort_order
   `) as { has_sort_order: boolean }[];
 
+  const logoUrl =
+    data.logo_url != null && String(data.logo_url).trim() !== '' ? String(data.logo_url).trim() : null;
+
   const [row] = has_sort_order
     ? await sql`
         INSERT INTO tuition_payment_methods (
-          name, code, school_id, category, coa, vendor, is_redirect, is_publish, is_active, sort_order
+          name, code, school_id, category, coa, vendor, logo_url, is_redirect, is_publish, is_active, sort_order
         )
         VALUES (
           ${data.name},
@@ -102,6 +105,7 @@ export async function POST(req: NextRequest) {
           ${data.category},
           ${data.coa || null},
           ${data.vendor || null},
+          ${logoUrl},
           ${data.is_redirect ?? false},
           ${data.is_publish ?? true},
           ${data.is_active},
@@ -111,7 +115,7 @@ export async function POST(req: NextRequest) {
       `
     : await sql`
         INSERT INTO tuition_payment_methods (
-          name, code, school_id, category, coa, vendor, is_redirect, is_publish, is_active
+          name, code, school_id, category, coa, vendor, logo_url, is_redirect, is_publish, is_active
         )
         VALUES (
           ${data.name},
@@ -120,6 +124,7 @@ export async function POST(req: NextRequest) {
           ${data.category},
           ${data.coa || null},
           ${data.vendor || null},
+          ${logoUrl},
           ${data.is_redirect ?? false},
           ${data.is_publish ?? true},
           ${data.is_active}

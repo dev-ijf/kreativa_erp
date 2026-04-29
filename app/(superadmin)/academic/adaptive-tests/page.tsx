@@ -14,6 +14,8 @@ interface Row {
   id: number;
   student_name: string;
   subject_name: string;
+  class_name: string | null;
+  academic_year_name: string | null;
   score: number;
   mastery_level: string;
   test_date: string;
@@ -109,6 +111,18 @@ export default function AdaptiveTestsPage() {
     { key: 'id', label: 'ID', sortable: true, className: 'w-14 text-slate-400 font-mono text-xs' },
     { key: 'student_name', label: 'Siswa', sortable: true },
     { key: 'subject_name', label: 'Mapel', sortable: true },
+    {
+      key: 'class_name',
+      label: 'Kelas (tes)',
+      sortable: true,
+      render: (r: Row) => <span className="text-slate-600">{r.class_name || '–'}</span>,
+    },
+    {
+      key: 'academic_year_name',
+      label: 'Tahun ajaran (tes)',
+      sortable: true,
+      render: (r: Row) => <span className="text-slate-600">{r.academic_year_name || '–'}</span>,
+    },
     { key: 'score', label: 'Skor', sortable: true },
     { key: 'mastery_level', label: 'Penguasaan', sortable: true },
     {
@@ -169,6 +183,7 @@ export default function AdaptiveTestsPage() {
         onQChange={setQ}
         academicYearId={activeYearId}
         onApply={applyFilters}
+        filterHint="Filter kelas/tahun ajaran memakai data tes (class_id / academic_year_id) bila tersedia; jika tidak, dipakai riwayat kelas siswa seperti sebelumnya."
       />
 
       <AcademicResourceTabs

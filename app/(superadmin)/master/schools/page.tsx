@@ -12,10 +12,17 @@ interface School {
   id: number;
   name: string;
   address: string;
+  theme_id?: number | null;
   bank_channel_code: string | null;
   school_code: string | null;
   created_at: string;
   [key: string]: any;
+}
+
+function curriculumLabel(themeId: number | null | undefined) {
+  if (themeId === 1) return 'International';
+  if (themeId === 2) return 'Nasional';
+  return '–';
 }
 
 export default function SchoolsPage() {
@@ -57,6 +64,15 @@ export default function SchoolsPage() {
   const columns = [
     { key: 'id', label: 'ID', sortable: true, className: 'w-16 text-slate-400 font-mono text-xs' },
     { key: 'name', label: 'Nama Sekolah', sortable: true },
+    {
+      key: 'theme_id',
+      label: 'Kurikulum',
+      sortable: true,
+      className: 'w-32',
+      render: (r: School) => (
+        <span className="text-slate-600 text-[13px]">{curriculumLabel(r.theme_id)}</span>
+      ),
+    },
     {
       key: 'bank_channel_code',
       label: 'Kode channel bank',

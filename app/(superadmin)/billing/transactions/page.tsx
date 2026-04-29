@@ -32,7 +32,18 @@ type Row = {
   nis?: string | null;
   class_name?: string | null;
   school_name?: string | null;
+  is_whatsapp_checkout?: boolean | null;
+  is_whatsapp_paid?: boolean | null;
 };
+
+function waFlagEmoji(v: boolean | null | undefined) {
+  const ok = v === true;
+  return (
+    <span className="text-base leading-none" title={ok ? 'Ya' : 'Tidak'} aria-label={ok ? 'Ya' : 'Tidak'}>
+      {ok ? '✅' : '❌'}
+    </span>
+  );
+}
 
 export default function BillingTransactionsPage() {
   const defaultTo = format(new Date(), 'yyyy-MM-dd');
@@ -53,6 +64,8 @@ export default function BillingTransactionsPage() {
   const [studentId, setStudentId] = useState('');
   const [userId, setUserId] = useState('');
   const [referenceQ, setReferenceQ] = useState('');
+  const [waCheckout, setWaCheckout] = useState('');
+  const [waPaid, setWaPaid] = useState('');
 
   const [applied, setApplied] = useState({
     from: defaultFrom,
@@ -64,6 +77,8 @@ export default function BillingTransactionsPage() {
     studentId: '',
     userId: '',
     referenceQ: '',
+    waCheckout: '',
+    waPaid: '',
   });
 
   const [page, setPage] = useState(1);
@@ -111,6 +126,12 @@ export default function BillingTransactionsPage() {
     if (applied.studentId) q.set('student_id', applied.studentId);
     if (applied.userId) q.set('user_id', applied.userId);
     if (applied.referenceQ.trim()) q.set('reference_q', applied.referenceQ.trim());
+    if (applied.waCheckout === 'true' || applied.waCheckout === 'false') {
+      q.set('whatsapp_checkout', applied.waCheckout);
+    }
+    if (applied.waPaid === 'true' || applied.waPaid === 'false') {
+      q.set('whatsapp_paid', applied.waPaid);
+    }
     return q;
   }, [applied, page, limit]);
 
@@ -174,6 +195,8 @@ export default function BillingTransactionsPage() {
       studentId,
       userId,
       referenceQ,
+      waCheckout,
+      waPaid,
     });
     setPage(1);
   };
@@ -189,6 +212,12 @@ export default function BillingTransactionsPage() {
     if (applied.studentId) q.set('student_id', applied.studentId);
     if (applied.userId) q.set('user_id', applied.userId);
     if (applied.referenceQ.trim()) q.set('reference_q', applied.referenceQ.trim());
+    if (applied.waCheckout === 'true' || applied.waCheckout === 'false') {
+      q.set('whatsapp_checkout', applied.waCheckout);
+    }
+    if (applied.waPaid === 'true' || applied.waPaid === 'false') {
+      q.set('whatsapp_paid', applied.waPaid);
+    }
     window.open(`/api/billing/transactions/export?${q.toString()}`, '_blank');
   };
 
@@ -262,6 +291,20 @@ export default function BillingTransactionsPage() {
                 ))}
               </Select>
             </Field>
+            <Field label="WA checkout" hint="Filter transaksi lewat checkout WhatsApp">
+              <Select value={waCheckout} onChange={(e) => setWaCheckout(e.target.value)}>
+                <option value="">Semua</option>
+                <option value="true">Ya ✅</option>
+                <option value="false">Tidak ❌</option>
+              </Select>
+            </Field>
+            <Field label="WA lunas" hint="Filter status lunas via WhatsApp">
+              <Select value={waPaid} onChange={(e) => setWaPaid(e.target.value)}>
+                <option value="">Semua</option>
+                <option value="true">Ya ✅</option>
+                <option value="false">Tidak ❌</option>
+              </Select>
+            </Field>
             <Field label="Tahun ajaran">
               <Select value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)}>
                 <option value="">Semua</option>
@@ -330,6 +373,8 @@ export default function BillingTransactionsPage() {
                 <th className="px-3 py-3 font-semibold">Pembayar</th>
                 <th className="px-3 py-3 font-semibold">TA</th>
                 <th className="px-3 py-3 font-semibold">Metode</th>
+                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap">WA checkout</th>
+                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap">WA lunas</th>
                 <th className="px-3 py-3 font-semibold text-right">Total</th>
                 <th className="px-3 py-3 font-semibold">Status</th>
                 <th className="px-3 py-3 font-semibold text-right w-32">Aksi</th>
@@ -338,13 +383,13 @@ export default function BillingTransactionsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={14} className="px-4 py-10 text-center text-slate-400">
                     Memuat…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={14} className="px-4 py-10 text-center text-slate-400">
                     Tidak ada transaksi pada filter ini.
                   </td>
                 </tr>
@@ -367,6 +412,8 @@ export default function BillingTransactionsPage() {
                     <td className="px-3 py-3 text-slate-700">{r.payer_name || '—'}</td>
                     <td className="px-3 py-3 text-slate-600 text-[12px]">{r.academic_year_name || '—'}</td>
                     <td className="px-3 py-3 text-slate-600 text-[12px]">{r.payment_method_name || '—'}</td>
+                    <td className="px-3 py-3 text-center text-slate-600">{waFlagEmoji(r.is_whatsapp_checkout)}</td>
+                    <td className="px-3 py-3 text-center text-slate-600">{waFlagEmoji(r.is_whatsapp_paid)}</td>
                     <td className="px-3 py-3 text-right font-semibold tabular-nums whitespace-nowrap">
                       {fmtMoney(r.total_amount)}
                     </td>

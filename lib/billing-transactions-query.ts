@@ -15,6 +15,9 @@ export type TransactionListFilters = {
   paymentMethodId: number | null;
   academicYearId: number | null;
   referenceQ: string | null;
+  /** null = semua baris */
+  whatsappCheckout: boolean | null;
+  whatsappPaid: boolean | null;
 };
 
 function referencePattern(q: string | null): string | null {
@@ -32,6 +35,19 @@ function num(sp: URLSearchParams, key: string): number | null {
 function str(sp: URLSearchParams, key: string): string | null {
   const v = sp.get(key);
   return v != null && v !== '' ? v : null;
+}
+
+/** Query `true` / `false` / `1` / `0` / kosong. Nilai lain → error. */
+function parseBoolQueryParam(
+  sp: URLSearchParams,
+  key: string
+): { ok: true; value: boolean | null } | { ok: false; error: string } {
+  const raw = sp.get(key);
+  if (raw == null || raw.trim() === '') return { ok: true, value: null };
+  const l = raw.trim().toLowerCase();
+  if (l === 'true' || l === '1') return { ok: true, value: true };
+  if (l === 'false' || l === '0') return { ok: true, value: false };
+  return { ok: false, error: `${key} harus true, false, 1, 0, atau dikosongkan` };
 }
 
 export function parseTransactionListSearchParams(
@@ -69,6 +85,11 @@ export function parseTransactionListSearchParams(
     return { ok: false, error: 'academic_year_id tidak valid' };
   }
 
+  const waCo = parseBoolQueryParam(sp, 'whatsapp_checkout');
+  if (!waCo.ok) return { ok: false, error: waCo.error };
+  const waPaid = parseBoolQueryParam(sp, 'whatsapp_paid');
+  if (!waPaid.ok) return { ok: false, error: waPaid.error };
+
   return {
     ok: true,
     filters: {
@@ -83,6 +104,8 @@ export function parseTransactionListSearchParams(
       paymentMethodId,
       academicYearId,
       referenceQ: str(sp, 'reference_q'),
+      whatsappCheckout: waCo.value,
+      whatsappPaid: waPaid.value,
     },
   };
 }
@@ -104,6 +127,8 @@ export async function countTuitionTransactions(f: TransactionListFilters): Promi
         SELECT 1 FROM core_students s2
         WHERE s2.id = t.student_id AND s2.school_id = ${f.schoolId}
       ))
+      AND (${f.whatsappCheckout}::boolean IS NULL OR t.is_whatsapp_checkout = ${f.whatsappCheckout})
+      AND (${f.whatsappPaid}::boolean IS NULL OR t.is_whatsapp_paid = ${f.whatsappPaid})
   `;
   return (row?.c as number) ?? 0;
 }
@@ -126,6 +151,8 @@ export async function selectTuitionTransactions(
       t.payment_method_id,
       t.status,
       t.payment_date,
+      t.is_whatsapp_checkout,
+      t.is_whatsapp_paid,
       u.full_name AS payer_name,
       ay.name AS academic_year_name,
       pm.name AS payment_method_name,
@@ -153,6 +180,8 @@ export async function selectTuitionTransactions(
       AND (${f.academicYearId}::int IS NULL OR t.academic_year_id = ${f.academicYearId})
       AND (${ref}::text IS NULL OR t.reference_no ILIKE ${ref})
       AND (${f.schoolId}::int IS NULL OR s.school_id = ${f.schoolId})
+      AND (${f.whatsappCheckout}::boolean IS NULL OR t.is_whatsapp_checkout = ${f.whatsappCheckout})
+      AND (${f.whatsappPaid}::boolean IS NULL OR t.is_whatsapp_paid = ${f.whatsappPaid})
     ORDER BY t.created_at DESC
     LIMIT ${limit}
     OFFSET ${offset}
@@ -178,6 +207,8 @@ export async function selectTuitionTransactionsForExport(
       ay.name AS tahun_ajaran,
       pm.name AS metode_pembayaran,
       t.va_no AS va_no,
+      t.is_whatsapp_checkout AS wa_checkout,
+      t.is_whatsapp_paid AS wa_paid,
       s.full_name AS siswa,
       s.nis AS nis,
       sch.name AS sekolah,
@@ -202,6 +233,8 @@ export async function selectTuitionTransactionsForExport(
       AND (${f.academicYearId}::int IS NULL OR t.academic_year_id = ${f.academicYearId})
       AND (${ref}::text IS NULL OR t.reference_no ILIKE ${ref})
       AND (${f.schoolId}::int IS NULL OR s.school_id = ${f.schoolId})
+      AND (${f.whatsappCheckout}::boolean IS NULL OR t.is_whatsapp_checkout = ${f.whatsappCheckout})
+      AND (${f.whatsappPaid}::boolean IS NULL OR t.is_whatsapp_paid = ${f.whatsappPaid})
     ORDER BY t.created_at DESC
     LIMIT ${maxRows}
   `;

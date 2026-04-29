@@ -20,6 +20,8 @@ type Props = {
   academicYearId: number | null;
   /** Dipanggil saat tombol Terapkan diklik — muat ulang tab Semua data + Rekap */
   onApply: () => void;
+  /** Penjelasan opsional di bawah bar filter (mis. perilaku filter per halaman). */
+  filterHint?: string;
 };
 
 function MiniLabel({ children }: { children: ReactNode }) {
@@ -37,6 +39,7 @@ export default function StudentSummaryFilters({
   onQChange,
   academicYearId,
   onApply,
+  filterHint,
 }: Props) {
   const [schools, setSchools] = useState<School[]>([]);
   const [classes, setClasses] = useState<ClassRow[]>([]);
@@ -170,6 +173,7 @@ export default function StudentSummaryFilters({
           </Button>
         </div>
       </div>
+      {filterHint ? <p className="text-[11px] text-slate-500 mt-2 leading-snug">{filterHint}</p> : null}
     </div>
   );
 }

@@ -31,6 +31,7 @@ interface PaymentMethod {
   category: string;
   coa?: string | null;
   vendor?: string | null;
+  logo_url?: string | null;
   is_publish: boolean;
   is_active: boolean;
   sort_order?: number | null;
@@ -71,6 +72,18 @@ function SortableRow({
         </button>
       </td>
       <td className="px-5 py-3.5 w-16 text-slate-400 font-mono text-xs">{row.id}</td>
+      <td className="px-5 py-3.5 w-14">
+        {row.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={row.logo_url}
+            alt=""
+            className="h-9 w-9 rounded-lg object-contain border border-slate-200 bg-white"
+          />
+        ) : (
+          <span className="text-slate-300 text-xs">–</span>
+        )}
+      </td>
       <td className="px-5 py-3.5">
         <div className="text-[13px] text-slate-700 font-semibold">{row.name}</div>
         <div className="text-[11px] text-slate-400 font-medium tracking-tight uppercase">{row.vendor || '-'}</div>
@@ -276,6 +289,7 @@ export default function PaymentMethodsPage() {
                 <tr className="bg-slate-50 border-b border-[#E2E8F1]">
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-10">Drag</th>
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-16">ID</th>
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-14">Logo</th>
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nama Metode</th>
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Kode</th>
                   <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sekolah</th>
@@ -290,7 +304,7 @@ export default function PaymentMethodsPage() {
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-b border-[#E2E8F1]">
-                      {Array.from({ length: 10 }).map((__, j) => (
+                      {Array.from({ length: 11 }).map((__, j) => (
                         <td key={j} className="px-5 py-3.5">
                           <div className="h-4 bg-slate-100 rounded animate-pulse" />
                         </td>

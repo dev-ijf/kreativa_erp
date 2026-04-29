@@ -17,6 +17,8 @@ type Tx = {
   payer_name: string | null;
   payer_email: string | null;
   payment_date: string | null;
+  is_whatsapp_checkout?: boolean | null;
+  is_whatsapp_paid?: boolean | null;
 };
 
 type Detail = {
@@ -115,7 +117,7 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
 
       {!loading && tx && (
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-[13px]">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 text-[13px]">
             <div>
               <p className="text-slate-400 text-[11px] uppercase font-bold tracking-wider">Waktu</p>
               <p className="text-slate-800 font-medium">{fmtDt(tx.created_at)}</p>
@@ -132,6 +134,18 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
             <div>
               <p className="text-slate-400 text-[11px] uppercase font-bold tracking-wider">Status</p>
               <p className="text-slate-800 capitalize">{tx.status || '—'}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-[11px] uppercase font-bold tracking-wider">WA checkout</p>
+              <p className="text-slate-800 text-xl" title={tx.is_whatsapp_checkout === true ? 'Ya' : 'Tidak'}>
+                {tx.is_whatsapp_checkout === true ? '✅' : '❌'}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-[11px] uppercase font-bold tracking-wider">WA lunas</p>
+              <p className="text-slate-800 text-xl" title={tx.is_whatsapp_paid === true ? 'Ya' : 'Tidak'}>
+                {tx.is_whatsapp_paid === true ? '✅' : '❌'}
+              </p>
             </div>
           </div>
 

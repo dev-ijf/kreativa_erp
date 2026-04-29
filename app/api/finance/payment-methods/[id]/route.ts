@@ -18,11 +18,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const schoolId =
     data.school_id != null && data.school_id !== '' ? Number(data.school_id) : null;
   const schoolIdVal = schoolId != null && Number.isFinite(schoolId) ? schoolId : null;
+  const logoUrl =
+    data.logo_url != null && String(data.logo_url).trim() !== '' ? String(data.logo_url).trim() : null;
 
   const [row] = await sql`
     UPDATE tuition_payment_methods SET 
       name=${data.name}, code=${data.code}, school_id=${schoolIdVal}, category=${data.category}, 
       coa=${data.coa || null}, vendor=${data.vendor || null},
+      logo_url=${logoUrl},
       is_redirect=${data.is_redirect ?? false}, 
       is_publish=${data.is_publish ?? true},
       is_active=${data.is_active}
