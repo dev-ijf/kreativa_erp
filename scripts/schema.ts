@@ -795,6 +795,7 @@ export const academicAdaptiveTests = pgTable(
     academicYearId: integer('academic_year_id').references(() => coreAcademicYears.id, {
       onDelete: 'set null',
     }),
+    levelGradeId: integer('level_grade_id').references(() => coreLevelGrades.id, { onDelete: 'set null' }),
     testDate: timestamp('test_date').defaultNow(),
     score: integer('score').notNull(),
     masteryLevel: decimal('mastery_level', { precision: 3, scale: 2 }).notNull(),
@@ -816,6 +817,7 @@ export const academicAdaptiveQuestions = pgTable(
     academicYearId: integer('academic_year_id').references(() => coreAcademicYears.id, {
       onDelete: 'set null',
     }),
+    levelGradeId: integer('level_grade_id').references(() => coreLevelGrades.id, { onDelete: 'set null' }),
     lang: varchar('lang', { length: 20 }),
     generatedBy: varchar('generated_by', { length: 50 }),
     gradeBand: varchar('grade_band', { length: 50 }).notNull(),
@@ -828,4 +830,25 @@ export const academicAdaptiveQuestions = pgTable(
     explanation: text('explanation'),
   },
   (t) => [index('idx_acad_adq_subj_grade_diff').on(t.subjectId, t.gradeBand, t.difficulty)]
+);
+
+/** Bank soal adaptif (repositori; tidak terikat satu baris tes). */
+export const academicAdaptiveQuestionsBank = pgTable(
+  'academic_adaptive_questions_bank',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey(),
+    subjectId: bigint('subject_id', { mode: 'number' })
+      .notNull()
+      .references(() => academicSubjects.id, { onDelete: 'cascade' }),
+    gradeBand: varchar('grade_band', { length: 50 }).notNull(),
+    difficulty: decimal('difficulty', { precision: 3, scale: 2 }).notNull(),
+    questionText: text('question_text').notNull(),
+    optionsJson: jsonb('options_json').notNull(),
+    correctAnswer: varchar('correct_answer', { length: 255 }).notNull(),
+    explanation: text('explanation'),
+    lang: varchar('lang', { length: 20 }),
+    generatedBy: varchar('generated_by', { length: 50 }),
+    levelGradeId: integer('level_grade_id').references(() => coreLevelGrades.id, { onDelete: 'set null' }),
+  },
+  (t) => [index('idx_acad_adqb_subj_grade_diff').on(t.subjectId, t.gradeBand, t.difficulty)]
 );

@@ -134,6 +134,20 @@
       "when": 1776500000000,
       "tag": "0022_tuition_transactions_whatsapp_flags",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1776600000000,
+      "tag": "0023_adaptive_level_grade_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1776700000000,
+      "tag": "0024_academic_adaptive_questions_bank",
+      "breakpoints": true
     }
   ]
 }

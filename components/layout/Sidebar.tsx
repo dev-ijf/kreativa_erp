@@ -12,7 +12,7 @@ import {
   Building2, MapPin, UserPlus, ListTree, Layers,
   Receipt, ScanLine, Bell, ChevronRight, School, CalendarDays, FileText,
   UserCog, BarChart3, Landmark, House, Palette, ClipboardList,
-  Megaphone, UserCheck, Stethoscope, Calendar, BookMarked, Brain,
+  Megaphone, UserCheck, Stethoscope, Calendar, BookMarked, Brain, Library,
 } from "lucide-react";
 
 type PortalThemeState = {
@@ -93,6 +93,7 @@ const MODULES = [
       { name: 'Kesehatan', href: '/academic/clinic-visits', icon: <Stethoscope size={16} /> },
       { name: 'Pembiasaan', href: '/academic/habits', icon: <UserCheck size={16} /> },
       { name: 'Tes adaptif', href: '/academic/adaptive-tests', icon: <Brain size={16} /> },
+      { name: 'Bank Soal', href: '/academic/adaptive-questions-bank', icon: <Library size={16} /> },
     ],
   },
 ];

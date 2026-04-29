@@ -40,6 +40,8 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/academic/clinic-visits/add': 'Tambah Kunjungan UKS',
   '/academic/habits': 'Pembiasaan',
   '/academic/adaptive-tests': 'Tes adaptif',
+  '/academic/adaptive-questions-bank': 'Bank Soal',
+  '/academic/adaptive-questions-bank/add': 'Tambah soal bank',
   '/students': 'Buku Induk Siswa',
   '/students/documents': 'Dokumen Siswa',
   '/students/promotions': 'Promosi Kelas',
@@ -119,6 +121,9 @@ function resolvePageTitle(pathname: string): string {
   }
   if (/^\/academic\/adaptive-tests\/\d+$/.test(pathname)) {
     return 'Detail tes adaptif';
+  }
+  if (/^\/academic\/adaptive-questions-bank\/\d+$/.test(pathname)) {
+    return 'Edit soal bank';
   }
   return BREADCRUMB_MAP[pathname] || 'Dashboard';
 }
