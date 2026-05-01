@@ -34,6 +34,7 @@ type Row = {
   school_name?: string | null;
   is_whatsapp_checkout?: boolean | null;
   is_whatsapp_paid?: boolean | null;
+  vendor_payment_id?: string | null;
 };
 
 function waFlagEmoji(v: boolean | null | undefined) {
@@ -366,6 +367,7 @@ export default function BillingTransactionsPage() {
               <tr className="bg-slate-50 text-slate-600 text-left border-b border-slate-200 text-[11px] uppercase tracking-wide">
                 <th className="px-3 py-3 font-semibold w-10">No</th>
                 <th className="px-3 py-3 font-semibold">Referensi</th>
+                <th className="px-3 py-3 font-semibold min-w-[100px]">ID vendor</th>
                 <th className="px-3 py-3 font-semibold">Waktu</th>
                 <th className="px-3 py-3 font-semibold min-w-[180px]">Siswa</th>
                 <th className="px-3 py-3 font-semibold">Kelas</th>
@@ -383,13 +385,13 @@ export default function BillingTransactionsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={14} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={15} className="px-4 py-10 text-center text-slate-400">
                     Memuat…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={15} className="px-4 py-10 text-center text-slate-400">
                     Tidak ada transaksi pada filter ini.
                   </td>
                 </tr>
@@ -400,6 +402,9 @@ export default function BillingTransactionsPage() {
                       {(currentPage - 1) * limit + i + 1}
                     </td>
                     <td className="px-3 py-3 font-mono text-[12px] text-slate-700">{r.reference_no}</td>
+                    <td className="px-3 py-3 font-mono text-[11px] text-slate-600 break-all max-w-[140px]">
+                      {r.vendor_payment_id || '—'}
+                    </td>
                     <td className="px-3 py-3 text-slate-600 whitespace-nowrap">{fmtDt(r.created_at)}</td>
                     <td className="px-3 py-3">
                       <div className="font-medium text-slate-800">{r.student_name || '—'}</div>

@@ -499,6 +499,7 @@ export const tuitionTransactions = pgTable(
     paymentDate: timestamp('payment_date'),
     isWhatsappCheckout: boolean('is_whatsapp_checkout').notNull().default(false),
     isWhatsappPaid: boolean('is_whatsapp_paid').notNull().default(false),
+    vendorPaymentId: varchar('vendor_payment_id', { length: 100 }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [

@@ -155,6 +155,13 @@
       "when": 1776800000000,
       "tag": "0025_tuition_payment_instructions_lang",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1776900000000,
+      "tag": "0026_tuition_transactions_vendor_payment_id",
+      "breakpoints": true
     }
   ]
 }

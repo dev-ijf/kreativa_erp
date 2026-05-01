@@ -1661,6 +1661,7 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-left">
                       <tr>
                         <th className="px-4 py-3 font-semibold">Referensi</th>
+                        <th className="px-4 py-3 font-semibold">ID vendor</th>
                         <th className="px-4 py-3 font-semibold">Waktu</th>
                         <th className="px-4 py-3 font-semibold">Metode</th>
                         <th className="px-4 py-3 font-semibold text-right">Total</th>
@@ -1671,13 +1672,13 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                     <tbody>
                       {payLoading ? (
                         <tr>
-                          <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                          <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                             Memuat riwayat pembayaran…
                           </td>
                         </tr>
                       ) : payRows.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                          <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                             Tidak ada data dalam periode ini.
                           </td>
                         </tr>
@@ -1685,6 +1686,9 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                         payRows.map((r) => (
                           <tr key={`${r.id}-${r.created_at}`} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                             <td className="px-4 py-3 font-mono text-xs text-slate-700 font-medium">{r.reference_no}</td>
+                            <td className="px-4 py-3 font-mono text-[11px] text-slate-600 break-all max-w-[120px]">
+                              {r.vendor_payment_id || '—'}
+                            </td>
                             <td className="px-4 py-3 text-slate-600 whitespace-nowrap text-sm">
                               {format(new Date(r.created_at), 'd MMM yyyy HH:mm', { locale: idLocale })}
                             </td>
