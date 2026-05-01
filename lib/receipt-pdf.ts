@@ -16,6 +16,24 @@ function fmtMoney(n: unknown): string {
   return 'Rp ' + x.toLocaleString('id-ID', { minimumFractionDigits: 0 });
 }
 
+/** Pending → dokumen invoice; selain itu (success/paid/dll.) → bukti pembayaran. */
+export function receiptPdfIsPending(status: unknown): boolean {
+  return String(status || '').toLowerCase().trim() === 'pending';
+}
+
+export function receiptPdfMainTitle(status: unknown): string {
+  return receiptPdfIsPending(status) ? 'INVOICE' : 'BUKTI PEMBAYARAN';
+}
+
+export function receiptPdfStatusLabel(status: unknown): string {
+  return receiptPdfIsPending(status) ? 'Pending' : 'Lunas';
+}
+
+export function receiptPdfDownloadBasename(status: unknown, referenceSafe: string): string {
+  const prefix = receiptPdfIsPending(status) ? 'invoice' : 'bukti';
+  return `${prefix}-${referenceSafe}.pdf`;
+}
+
 /** URL absolut untuk fetch logo dari server (path relatif → origin request). */
 export function resolveLogoFetchUrl(requestUrl: string, logoUrl: string | null): string | null {
   if (!logoUrl || !logoUrl.trim()) return null;
@@ -48,6 +66,9 @@ export function drawReceiptPdf(
   logoBuffer: Buffer | null
 ): void {
   const { header: h, items } = payload;
+  const pending = receiptPdfIsPending(h.status);
+  doc.info.Title = pending ? 'Invoice' : 'Bukti Pembayaran';
+
   const pageW = doc.page.width;
   const margin = 36;
   const contentW = pageW - margin * 2;
@@ -102,9 +123,14 @@ export function drawReceiptPdf(
   doc.moveTo(margin, y).lineTo(pageW - margin, y).strokeColor('#94a3b8').lineWidth(0.7).stroke();
   y += 12;
 
+  const mainTitle = receiptPdfMainTitle(h.status);
   doc.font('Helvetica-Bold').fontSize(14).fillColor('#0f172a');
-  doc.text('BUKTI PEMBAYARAN', margin, y, { width: contentW, align: 'center' });
-  y += 26;
+  doc.text(mainTitle, margin, y, { width: contentW, align: 'center' });
+  y += 16;
+  const statusLabel = receiptPdfStatusLabel(h.status);
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(pending ? '#b45309' : '#15803d');
+  doc.text(`STATUS : ${statusLabel.toUpperCase()}`, margin, y, { width: contentW, align: 'center' });
+  y += 20;
 
   const colGap = 20;
   const half = (contentW - colGap) / 2;
@@ -173,14 +199,27 @@ export function drawReceiptPdf(
   });
 
   y += 6;
-  const total = parseFloat(String(h.total_amount ?? 0));
+  const lineSum = items.reduce((acc, row) => {
+    const v = parseFloat(String(row.amount_paid ?? 0));
+    return acc + (Number.isFinite(v) ? v : 0);
+  }, 0);
+  const grandTotal = parseFloat(String(h.total_amount ?? 0));
+  const showSubtotal =
+    items.length > 1 ||
+    (items.length === 1 && Math.abs(lineSum - grandTotal) > 0.005);
+
   doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a');
-  doc.text('TOTAL :', margin + contentW - 200, y, { width: 112, align: 'right' });
-  doc.text(fmtMoney(total), margin + contentW - 88, y, { width: 88, align: 'right' });
+  if (showSubtotal) {
+    doc.text('SUBTOTAL :', margin + contentW - 200, y, { width: 112, align: 'right' });
+    doc.text(fmtMoney(lineSum), margin + contentW - 88, y, { width: 88, align: 'right' });
+    y += 16;
+  }
+  doc.text('GRAND TOTAL :', margin + contentW - 200, y, { width: 112, align: 'right' });
+  doc.text(fmtMoney(grandTotal), margin + contentW - 88, y, { width: 88, align: 'right' });
   y += 18;
 
   doc.font('Helvetica-Oblique').fontSize(8);
-  const tb = `TERBILANG : ${terbilang(total).toUpperCase()}`;
+  const tb = `TERBILANG : ${terbilang(grandTotal).toUpperCase()}`;
   doc.text(tb, margin, y, { width: contentW, align: 'center' });
   y += doc.heightOfString(tb, { width: contentW }) + 12;
 
@@ -207,6 +246,6 @@ export function createReceiptPdfDocument(): PDFKit.PDFDocument {
     layout: 'landscape',
     size: 'A4',
     margin: 36,
-    info: { Title: 'Bukti Pembayaran', Author: 'Kreativa ERP' },
+    info: { Title: 'Dokumen pembayaran', Author: 'Kreativa ERP' },
   });
 }

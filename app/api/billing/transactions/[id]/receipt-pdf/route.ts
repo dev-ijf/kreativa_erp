@@ -4,6 +4,7 @@ import {
   createReceiptPdfDocument,
   drawReceiptPdf,
   fetchLogoBuffer,
+  receiptPdfDownloadBasename,
   resolveLogoFetchUrl,
 } from '@/lib/receipt-pdf';
 
@@ -53,7 +54,7 @@ export async function GET(
   }
 
   const rawName = String(payload.header.reference_no || `tx-${txId}`).replace(/[^\w.-]+/g, '_');
-  const filename = `bukti-${rawName}.pdf`;
+  const filename = receiptPdfDownloadBasename(payload.header.status, rawName);
   const requestUrl = req.url;
 
   const stream = new ReadableStream<Uint8Array>({

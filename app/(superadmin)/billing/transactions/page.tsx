@@ -17,6 +17,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { MAX_TRANSACTION_RANGE_MONTHS } from '@/lib/billing-period';
+import { tuitionTransactionStatusBadgeClass } from '@/lib/tuition-transaction-status-classes';
 
 type Row = {
   id: string | number;
@@ -423,9 +424,7 @@ export default function BillingTransactionsPage() {
                       {fmtMoney(r.total_amount)}
                     </td>
                     <td className="px-3 py-3">
-                      <span className="inline-flex px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-semibold uppercase">
-                        {r.status || '—'}
-                      </span>
+                      <span className={tuitionTransactionStatusBadgeClass(r.status)}>{r.status || '—'}</span>
                     </td>
                     <td className="px-3 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">

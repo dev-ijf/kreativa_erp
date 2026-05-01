@@ -62,13 +62,16 @@ export async function loadReceiptPayload(
     LEFT JOIN tuition_payment_methods pm ON pm.id = t.payment_method_id
     LEFT JOIN core_academic_years ay     ON ay.id = t.academic_year_id
     WHERE t.id = ${txId}
-      AND t.created_at = ${createdAt}
+      AND t.created_at >= ${monthStart}
+      AND t.created_at < ${monthEndExclusive}
     LIMIT 1
   `;
 
   if (!header) return null;
 
-  const items = await sql`
+  const headerCreatedAt = header.created_at as Date | string;
+
+  let items = await sql`
     SELECT
       d.id,
       d.amount_paid,
@@ -84,11 +87,30 @@ export async function loadReceiptPayload(
     JOIN tuition_bills b     ON b.id = d.bill_id
     JOIN tuition_products p  ON p.id = d.product_id
     WHERE d.transaction_id = ${txId}
-      AND d.transaction_created_at = ${createdAt}
-      AND d.created_at >= ${monthStart}
-      AND d.created_at < ${monthEndExclusive}
+      AND d.transaction_created_at = ${headerCreatedAt}
     ORDER BY d.id
   `;
+
+  if (items.length === 0) {
+    items = await sql`
+      SELECT
+        d.id,
+        d.amount_paid,
+        d.bill_id,
+        d.product_id,
+        b.title AS bill_title,
+        b.bill_month,
+        b.bill_year,
+        b.related_month,
+        p.name AS product_name,
+        p.payment_type AS product_payment_type
+      FROM tuition_transaction_details d
+      JOIN tuition_bills b     ON b.id = d.bill_id
+      JOIN tuition_products p  ON p.id = d.product_id
+      WHERE d.transaction_id = ${txId}
+      ORDER BY d.id
+    `;
+  }
 
   const category = String(
     (header as Record<string, unknown>).payment_method_category ?? ''

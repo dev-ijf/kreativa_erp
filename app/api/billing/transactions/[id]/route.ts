@@ -37,14 +37,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       FROM tuition_transactions t
       LEFT JOIN core_users u ON u.id = t.user_id
       WHERE t.id = ${txId}
-        AND t.created_at = ${createdAt}
+        AND t.created_at >= ${monthStart}
+        AND t.created_at < ${monthEndExclusive}
     `;
 
     if (!tx) {
       return NextResponse.json({ error: 'Transaksi tidak ditemukan' }, { status: 404 });
     }
 
-    const details = await sql`
+    const txCreatedAt = tx.created_at as Date | string;
+
+    let details = await sql`
       SELECT
         d.id,
         d.created_at,
@@ -61,11 +64,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       JOIN core_students s ON s.id = b.student_id
       JOIN tuition_products p ON p.id = d.product_id
       WHERE d.transaction_id = ${txId}
-        AND d.transaction_created_at = ${createdAt}
-        AND d.created_at >= ${monthStart}
-        AND d.created_at < ${monthEndExclusive}
+        AND d.transaction_created_at = ${txCreatedAt}
       ORDER BY d.id
     `;
+
+    if (details.length === 0) {
+      details = await sql`
+        SELECT
+          d.id,
+          d.created_at,
+          d.amount_paid,
+          d.bill_id,
+          d.product_id,
+          b.title AS bill_title,
+          b.student_id,
+          s.full_name AS student_name,
+          s.nis,
+          p.name AS product_name
+        FROM tuition_transaction_details d
+        JOIN tuition_bills b ON b.id = d.bill_id
+        JOIN core_students s ON s.id = b.student_id
+        JOIN tuition_products p ON p.id = d.product_id
+        WHERE d.transaction_id = ${txId}
+        ORDER BY d.id
+      `;
+    }
 
     return NextResponse.json({ transaction: tx, details });
   } catch (error) {

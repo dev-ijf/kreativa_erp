@@ -13,6 +13,7 @@ import { StudentPhotoUpload } from '@/components/student/StudentPhotoUpload';
 import { StudentDocumentsSection } from '@/components/student/StudentDocumentsSection';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { OsmEmbedMap } from '@/components/map/OsmEmbedMap';
+import { tuitionTransactionStatusBadgeClass } from '@/lib/tuition-transaction-status-classes';
 
 type TabId =
   | 'personal'
@@ -1697,8 +1698,8 @@ function StudentDetailPageInner({ params }: { params: Promise<{ id: string }> })
                               {fmtMoney(r.total_amount)}
                             </td>
                             <td className="px-4 py-3">
-                              <span className="inline-flex px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[10px] font-bold uppercase tracking-wider border border-emerald-100">
-                                {r.status || 'success'}
+                              <span className={`${tuitionTransactionStatusBadgeClass(r.status)} text-[10px] tracking-wider`}>
+                                {r.status || '—'}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-center">

@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { ArrowLeft, Receipt, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/FormFields';
+import { tuitionTransactionStatusBadgeClass } from '@/lib/tuition-transaction-status-classes';
 
 type Tx = {
   id: string | number;
@@ -133,7 +134,11 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
             </div>
             <div>
               <p className="text-slate-400 text-[11px] uppercase font-bold tracking-wider">Status</p>
-              <p className="text-slate-800 capitalize">{tx.status || '—'}</p>
+              <p className="mt-0.5">
+                <span className={tuitionTransactionStatusBadgeClass(tx.status)}>
+                  {tx.status || '—'}
+                </span>
+              </p>
             </div>
             <div>
               <p className="text-slate-400 text-[11px] uppercase font-bold tracking-wider">WA checkout</p>
@@ -162,18 +167,38 @@ function BillingTransactionDetailInner({ params }: { params: Promise<{ id: strin
                   </tr>
                 </thead>
                 <tbody>
-                  {details.map((d) => (
-                    <tr key={d.id} className="border-b border-slate-100">
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-slate-800">{d.student_name}</p>
-                        <p className="text-[11px] text-slate-400 font-mono">{d.nis}</p>
+                  {details.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-slate-400 text-[13px]">
+                        Tidak ada baris rincian (tuition_transaction_details) untuk transaksi ini.
                       </td>
-                      <td className="px-4 py-3 text-slate-700">{d.bill_title}</td>
-                      <td className="px-4 py-3 text-slate-600">{d.product_name}</td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums">{fmtMoney(d.amount_paid)}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    details.map((d) => (
+                      <tr key={d.id} className="border-b border-slate-100">
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-slate-800">{d.student_name}</p>
+                          <p className="text-[11px] text-slate-400 font-mono">{d.nis}</p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">{d.bill_title}</td>
+                        <td className="px-4 py-3 text-slate-600">{d.product_name}</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums">{fmtMoney(d.amount_paid)}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
+                {details.length > 0 && tx ? (
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-200 bg-slate-50">
+                      <td colSpan={3} className="px-4 py-3 text-right text-[12px] font-bold uppercase tracking-wide text-slate-700">
+                        Grand total
+                      </td>
+                      <td className="px-4 py-3 text-right text-base font-bold tabular-nums text-slate-900">
+                        {fmtMoney(tx.total_amount)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                ) : null}
               </table>
             </div>
           </div>

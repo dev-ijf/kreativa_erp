@@ -8,6 +8,7 @@ import { id as idLocale } from 'date-fns/locale';
 import { Button } from '@/components/ui/FormFields';
 import { ArrowLeft, Download, ExternalLink, FileText } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
+import { tuitionTransactionStatusBadgeClass } from '@/lib/tuition-transaction-status-classes';
 
 type Bill = {
   id: number;
@@ -238,7 +239,11 @@ export default function BillPaymentDetailPage() {
                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{fmtDt(t.created_at)}</td>
                       <td className="px-4 py-3 text-slate-700">{t.payer_name || '—'}</td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums">{fmtMoney(t.total_amount)}</td>
-                      <td className="px-4 py-3 capitalize text-slate-700">{t.status || '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={tuitionTransactionStatusBadgeClass(String(t.status))}>
+                          {t.status || '—'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3">
                         <Link
                           href={`/billing/transactions/${t.id}?created_at=${encodeURIComponent(t.created_at)}`}
